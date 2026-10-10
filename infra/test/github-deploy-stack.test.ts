@@ -34,7 +34,7 @@ describe("GitHub deploy stack", () => {
               StringEquals: {
                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                 "token.actions.githubusercontent.com:sub":
-                  "repo:Thinking-Sound-Lab/aghost:environment:prod",
+                  "repo:Thinking-Sound-Lab@230501294/aghost@1412704218:environment:prod",
               },
             },
           }),

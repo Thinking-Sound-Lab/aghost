@@ -1,8 +1,15 @@
 import { parseEnvironment } from "@workspace/env"
 import { z } from "zod"
 
-/** The repository whose GitHub Actions workflows may deploy. */
-const GITHUB_REPOSITORY = "Thinking-Sound-Lab/aghost"
+/**
+ * The repository whose GitHub Actions workflows may deploy. Its OIDC subjects
+ * name it with its owner's and its own numeric IDs, which a deleted and
+ * recreated repository of the same name would not have.
+ */
+const GITHUB_REPOSITORY = {
+  name: "Thinking-Sound-Lab/aghost",
+  subject: "repo:Thinking-Sound-Lab@230501294/aghost@1412704218",
+}
 const ZERNIO_API_URL = "https://zernio.com/api"
 
 const environmentSchema = z.object({
@@ -33,7 +40,10 @@ export type ApiConfig = {
 export type StageConfig = {
   stage: string
   env: { account: string; region: string }
-  github: { repository: string; environment: string }
+  github: {
+    repository: { name: string; subject: string }
+    environment: string
+  }
   api: ApiConfig
 }
 
