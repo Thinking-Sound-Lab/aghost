@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import type {
   ApiKey,
-  CreateApiKeyInput,
+  ParsedCreateApiKeyInput,
   CreatedApiKey,
 } from "../../contract/api-key"
 import {
@@ -32,7 +32,7 @@ export class ApiKeyService {
 
   async create(
     workspace: WorkspaceRecord,
-    input: CreateApiKeyInput
+    input: ParsedCreateApiKeyInput
   ): Promise<CreatedApiKey> {
     if (input.expiresAt && new Date(input.expiresAt).getTime() <= Date.now()) {
       throw new ValidationError({

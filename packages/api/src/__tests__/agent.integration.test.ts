@@ -256,6 +256,66 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     }
   })
 
+  it("creates a full-access key without setup fields or expiry and uses it through REST and MCP", async () => {
+    const response = await session("/api-keys", "POST", {})
+    expect(response.statusCode).toBe(201)
+    const created = response.json<CreatedApiKey>()
+    expect(created.token).toMatch(/^agh_[A-Za-z0-9_-]{43}$/)
+    expect(created.key).toMatchObject({
+      name: "API key",
+      scopes: [...API_KEY_SCOPES],
+      expiresAt: null,
+    })
+    const stored = await admin
+      .from("api_keys")
+      .select("scopes, expires_at, token_hash")
+      .eq("id", created.key.id)
+      .single()
+    expect(stored.error).toBeNull()
+    expect(stored.data).toEqual({
+      scopes: [...API_KEY_SCOPES],
+      expires_at: null,
+      token_hash: hashApiKey(created.token),
+    })
+
+    const client = await mcp(created.token)
+    const { tools } = await client.listTools()
+    expect(tools).toHaveLength(15)
+    expect(tools.map((tool) => tool.name)).toContain("create_automation")
+    expect(tools.map((tool) => tool.name)).toContain("send_message")
+    const workspace = await client.callTool({
+      name: "get_workspace",
+      arguments: {},
+    })
+    expect(workspace.structuredContent).toMatchObject({
+      data: { id: workspaceId },
+    })
+
+    const automation = await rest(
+      created.token,
+      "/automations",
+      "POST",
+      input()
+    )
+    expect(automation.statusCode).toBe(201)
+    expect(
+      (
+        await rest(
+          created.token,
+          `/automations/${automation.json<Automation>().id}`,
+          "DELETE"
+        )
+      ).statusCode
+    ).toBe(204)
+    expect(
+      (await session(`/api-keys/${created.key.id}`, "DELETE")).statusCode
+    ).toBe(204)
+    expect((await rest(created.token, "/workspace")).statusCode).toBe(401)
+    await expect(
+      client.callTool({ name: "get_workspace", arguments: {} })
+    ).rejects.toThrow()
+  })
+
   it("requires keys on agent routes and browser sessions on key management, retaining origin protection", async () => {
     const created = await key()
     expect((await session("/v1/workspace")).statusCode).toBe(401)

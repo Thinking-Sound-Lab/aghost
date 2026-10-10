@@ -45,11 +45,11 @@ export function McpAccess() {
       </div>
 
       <div className="grid justify-items-start gap-3">
-        <h3 className="text-sm font-medium">Choose the agent&apos;s access</h3>
+        <h3 className="text-sm font-medium">Create an API key</h3>
         <p className="text-sm text-muted-foreground">
-          Create a key in the API tab and save it before returning here. The
-          key&apos;s permissions control which MCP tools your agent can use.
-          Revoking the key stops access immediately.
+          Click + API key in the API tab and save your key before returning
+          here. The same key connects your agent through API or MCP. Revoking
+          the key stops access immediately.
         </p>
         <a href="#api" className={buttonVariants({ variant: "secondary" })}>
           Manage API keys

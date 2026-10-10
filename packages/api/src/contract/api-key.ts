@@ -23,16 +23,23 @@ export const API_KEY_READ_SCOPES: ApiKeyScope[] = [
 export const API_KEY_NAME_MAX_LENGTH = 80
 
 export const createApiKeySchema = z.object({
-  name: z.string().trim().min(1).max(API_KEY_NAME_MAX_LENGTH),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(API_KEY_NAME_MAX_LENGTH)
+    .default("API key"),
   scopes: z
     .array(z.enum(API_KEY_SCOPES))
     .min(1)
     .max(API_KEY_SCOPES.length)
-    .transform((scopes) => [...new Set(scopes)]),
+    .transform((scopes) => [...new Set(scopes)])
+    .default([...API_KEY_SCOPES]),
   expiresAt: z.iso.datetime({ offset: true }).nullable().default(null),
 })
 
-export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>
+export type CreateApiKeyInput = z.input<typeof createApiKeySchema>
+export type ParsedCreateApiKeyInput = z.output<typeof createApiKeySchema>
 
 /** Safe to list. The full token is returned only when the key is created. */
 export type ApiKey = {

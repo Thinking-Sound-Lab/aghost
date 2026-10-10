@@ -131,13 +131,13 @@ To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without i
 
 ## API
 
-Open **Settings → API** to create a workspace API key. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; and read accounts, posts, contacts, and inbox conversations. Sending inbox messages requires a separate permission.
+Open **Settings → API** and click **+ API key** to create a workspace key immediately. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; read accounts, posts, contacts, and inbox conversations; and send inbox messages.
 
-Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. Keys have selectable permissions and expiry and can be revoked in Settings. `GET /api/v1/openapi.json` provides the REST API contract. See the [REST API guide](docs/api.md) for permissions, requests, and deployment requirements.
+Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full agent access and no expiry; revoke them in Settings to stop access. `GET /api/v1/openapi.json` provides the REST API contract. See the [REST API guide](docs/api.md) for requests and deployment requirements.
 
 ## MCP
 
-Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. The key's permissions determine which tools your agent can use.
+Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool.
 
 MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
 

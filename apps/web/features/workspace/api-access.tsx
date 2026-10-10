@@ -1,13 +1,8 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
-import { KeyRound } from "lucide-react"
-import {
-  API_KEY_NAME_MAX_LENGTH,
-  type ApiKeyScope,
-} from "@workspace/api/contract"
+import { useEffect, useState } from "react"
+import { KeyRound, Plus } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
 import {
   ConfirmButton,
   EmptyState,
@@ -18,22 +13,6 @@ import { useAuthStore } from "@/stores/auth-store"
 import { useApiKeysStore } from "@/stores/api-keys-store"
 import { timeAgo } from "@/lib/format"
 import { CopyButton } from "./access-copy-button"
-
-const permissions: { scope: ApiKeyScope; label: string }[] = [
-  { scope: "workspace:read", label: "Read workspace" },
-  { scope: "accounts:read", label: "Read Instagram accounts and posts" },
-  {
-    scope: "automations:read",
-    label: "Read automations, statistics, and activity",
-  },
-  { scope: "contacts:read", label: "Read contacts" },
-  { scope: "inbox:read", label: "Read inbox conversations and messages" },
-  {
-    scope: "automations:write",
-    label: "Create, edit, activate, and delete automations",
-  },
-  { scope: "inbox:write", label: "Send Instagram messages" },
-]
 
 export function ApiAccess() {
   const store = useApiKeysStore()
@@ -49,18 +28,26 @@ export function ApiAccess() {
 
   const example = `curl ${origin}/api/v1/automations \\\n  -H 'Authorization: Bearer YOUR_API_KEY'`
 
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    void store.create()
-  }
-
   return (
     <section className="grid gap-8">
       <div className="grid gap-2">
-        <h2 className="text-sm font-medium">API access</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium">API access</h2>
+          <Button
+            type="button"
+            aria-label="Create API key"
+            disabled={
+              store.busy || store.status !== "ready" || store.created !== null
+            }
+            onClick={() => void store.create()}
+          >
+            <Plus />
+            API key
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground">
-          Use API keys to access this workspace through REST. Choose what each
-          key can read and change.
+          Use API keys to let agents access and manage this workspace. Keys work
+          until you revoke them.
         </p>
         <div className="grid gap-1 rounded-lg border p-3 text-xs">
           <p>
@@ -103,77 +90,6 @@ export function ApiAccess() {
         </div>
       )}
 
-      <form onSubmit={submit} className="grid gap-4">
-        <h3 className="text-sm font-medium">Create an API key</h3>
-        <label className="grid gap-1.5 text-sm">
-          Name
-          <Input
-            required
-            maxLength={API_KEY_NAME_MAX_LENGTH}
-            placeholder="My AI agent"
-            value={store.name}
-            disabled={store.busy}
-            onChange={(event) =>
-              useApiKeysStore.setState({ name: event.target.value })
-            }
-          />
-        </label>
-        <fieldset className="grid gap-2.5" disabled={store.busy}>
-          <legend className="mb-2 text-sm">Permissions</legend>
-          {permissions.map(({ scope, label }) => (
-            <label key={scope} className="flex items-center gap-2.5 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 accent-foreground"
-                checked={store.scopes.includes(scope)}
-                onChange={(event) =>
-                  useApiKeysStore.setState({
-                    scopes: event.target.checked
-                      ? [...store.scopes, scope]
-                      : store.scopes.filter((value) => value !== scope),
-                  })
-                }
-              />
-              {label}
-            </label>
-          ))}
-          <p className="text-xs text-muted-foreground">
-            Activating automations and sending messages can deliver real DMs or
-            public replies.
-          </p>
-        </fieldset>
-        <label className="grid gap-1.5 text-sm">
-          Expires after
-          <select
-            className="h-9 rounded-md border bg-background px-3 text-sm"
-            value={store.expiresInDays}
-            disabled={store.busy}
-            onChange={(event) =>
-              useApiKeysStore.setState({
-                expiresInDays: Number(event.target.value),
-              })
-            }
-          >
-            <option value={30}>30 days</option>
-            <option value={90}>90 days</option>
-            <option value={365}>1 year</option>
-          </select>
-        </label>
-        <Button
-          type="submit"
-          className="justify-self-start"
-          disabled={
-            store.busy ||
-            store.status !== "ready" ||
-            !store.name.trim() ||
-            store.scopes.length === 0 ||
-            store.created !== null
-          }
-        >
-          {store.busy ? "Working…" : "Create key"}
-        </Button>
-      </form>
-
       <div className="grid gap-3">
         <h3 className="text-sm font-medium">Workspace keys</h3>
         {store.status === "loading" || store.status === "idle" ? (
@@ -208,14 +124,6 @@ export function ApiAccess() {
                             ? `Used ${timeAgo(key.lastUsedAt)}`
                             : "Never used"}
                     </p>
-                    <p className="mt-1 text-xs break-words text-muted-foreground">
-                      {key.scopes.join(", ")}
-                    </p>
-                    {key.expiresAt && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Expires {new Date(key.expiresAt).toLocaleDateString()}
-                      </p>
-                    )}
                   </div>
                   {!key.revokedAt && (
                     <ConfirmButton

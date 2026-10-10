@@ -1,10 +1,10 @@
 # REST API
 
-Create a key in **Settings → API** (`/settings#api`). Read permissions are selected initially; enable **Create, edit, activate, and delete automations** to let an agent manage automations. Sending inbox messages is a separate permission. The UI offers 30-day, 90-day, or one-year expiry and revocation.
+Open **Settings → API** (`/settings#api`) and click **+ API key**. A key is created immediately with an automatic name, full agent access, and no expiry. There is no creation form. Revoke the key in Settings to stop access.
 
-Save the full token when it is created. Existing keys only show their name, prefix, permissions, expiry, and last use. The database stores a SHA-256 hash of a randomly generated 256-bit token; key data is accessible only to the backend's service role.
+Save the full token when it is created. Existing keys only show their name, prefix, status, and last use. The database stores a SHA-256 hash of a randomly generated 256-bit token; key data is accessible only to the backend's service role.
 
-The same key works with REST and MCP. Every request resolves its workspace from the key; callers cannot choose another workspace. Revoked and expired keys return 401 on the next request, including requests from an already connected MCP client. API keys cannot create more keys, change workspace settings, or connect or disconnect Instagram accounts.
+The same key works with REST and MCP. Every request resolves its workspace from the key; callers cannot choose another workspace. Revoked keys return 401 on the next request, including requests from an already connected MCP client. Keys created earlier retain their existing restrictions and expiry. API keys cannot create more keys, change workspace settings, or connect or disconnect Instagram accounts.
 
 ## REST
 
@@ -64,7 +64,7 @@ Activating an automation can deliver real DMs and public replies. `send_message`
 Key management remains on cookie-authenticated routes, protected by the existing origin checks:
 
 - `GET /api/api-keys` lists safe metadata.
-- `POST /api/api-keys` takes `{ name, scopes, expiresAt }` and returns `{ key, token }` once. `expiresAt` can be a future ISO timestamp or null for no expiry.
+- `POST /api/api-keys` takes `{}` and returns `{ key, token }` once. The server supplies the name, all agent capabilities, and no expiry. Existing API clients can still supply optional `name`, `scopes`, and `expiresAt`; the dashboard sends none of these fields.
 - `DELETE /api/api-keys/:id` revokes that workspace's key.
 
 Apply `20261010130000_workspace_api_keys.sql` before deploying this API version. No new environment variables or provider credentials are required. The existing `/api` web proxy exposes both endpoints; agents can also call the backend URL directly. Keep production connections on HTTPS.

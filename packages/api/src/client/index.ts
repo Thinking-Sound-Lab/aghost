@@ -95,7 +95,7 @@ export function createApiClient(
     },
     apiKeys: {
       list: () => request<ApiKey[]>("/api-keys"),
-      create: (input: CreateApiKeyInput) =>
+      create: (input: CreateApiKeyInput = {}) =>
         request<CreatedApiKey>("/api-keys", "POST", input),
       revoke: (id: string) =>
         request<void>(`/api-keys/${encodeURIComponent(id)}`, "DELETE"),
