@@ -1,0 +1,89 @@
+import { randomBytes } from "node:crypto"
+import { ensureRootEnv, fillRootEnv, readRootEnv } from "./local-env.mjs"
+import { compose } from "./local-compose.mjs"
+import { setupLocal } from "./setup-local.mjs"
+
+// One subscription per Zernio account; each run points it at the new address.
+const WEBHOOK_NAME = "aghost local tunnel"
+const WEBHOOK_EVENTS = ["account.connected", "account.disconnected"]
+
+if (!ensureRootEnv().ZERNIO_API_KEY)
+  throw new Error(
+    "Add ZERNIO_API_KEY to the root .env. The tunnel registers its address with Zernio."
+  )
+// Written before setup so the API container starts with the same secret.
+fillRootEnv({ ZERNIO_WEBHOOK_SECRET: randomBytes(32).toString("hex") })
+await setupLocal()
+const env = readRootEnv()
+
+console.log("Starting the Cloudflare quick tunnel...")
+await compose(
+  [
+    "--profile",
+    "tunnel",
+    "up",
+    "--detach",
+    "--wait",
+    "--wait-timeout",
+    "120",
+    "tunnel",
+  ],
+  env
+)
+const metrics = (
+  await compose(["port", "tunnel", "2000"], env, { capture: true })
+).trim()
+const { hostname } = await (await fetch(`http://${metrics}/quicktunnel`)).json()
+if (!hostname)
+  throw new Error("cloudflared did not report its trycloudflare.com address.")
+const url = `https://${hostname}/api/webhooks/zernio`
+
+async function zernio(method, path, body) {
+  const response = await fetch(new URL(`${env.ZERNIO_API_URL}${path}`), {
+    method,
+    headers: {
+      Authorization: `Bearer ${env.ZERNIO_API_KEY}`,
+      ...(body !== undefined && { "Content-Type": "application/json" }),
+    },
+    ...(body !== undefined && { body: JSON.stringify(body) }),
+  })
+  const text = await response.text()
+  if (!response.ok)
+    throw new Error(
+      `Zernio ${method} ${path} failed with ${response.status}: ${text}`
+    )
+  return JSON.parse(text)
+}
+
+const { webhooks } = await zernio("GET", "/v1/webhooks/settings")
+if (!Array.isArray(webhooks))
+  throw new Error("Zernio returned an unexpected webhook list.")
+const existing = webhooks.find((webhook) => webhook.name === WEBHOOK_NAME)
+const settings = {
+  name: WEBHOOK_NAME,
+  url,
+  secret: env.ZERNIO_WEBHOOK_SECRET,
+  events: WEBHOOK_EVENTS,
+  isActive: true,
+}
+const { webhook } = existing
+  ? await zernio("PUT", "/v1/webhooks/settings", {
+      webhookId: existing._id,
+      ...settings,
+    })
+  : await zernio("POST", "/v1/webhooks/settings", settings)
+if (!webhook?._id)
+  throw new Error("Zernio did not return the registered webhook.")
+
+const test = await zernio("POST", "/v1/webhooks/test", {
+  webhookId: webhook._id,
+})
+if (!test.success)
+  throw new Error(`Zernio could not deliver a test event: ${test.message}`)
+
+console.log(`
+Zernio webhook "${WEBHOOK_NAME}" now delivers to:
+  ${url}
+
+Only this path is public. Zernio accepted a test event; watch deliveries with
+pnpm local:logs. pnpm local:stop stops the tunnel with the rest of the stack.`)

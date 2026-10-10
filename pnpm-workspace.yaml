@@ -1,0 +1,16 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# The SDK bundles this at runtime but references it in its public declarations.
+packageExtensions:
+  "@zernio/node@0.2.1136":
+    dependencies:
+      "@hey-api/client-fetch": "0.6.0"
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  supabase: true
+  unrs-resolver: true
+  msw: false

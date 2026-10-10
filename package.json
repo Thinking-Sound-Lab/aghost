@@ -1,0 +1,39 @@
+{
+  "name": "aghost",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "node scripts/dev-local.mjs",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "typecheck": "turbo typecheck",
+    "test": "node --test scripts/local-env.test.mjs && turbo test",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local --schema public > packages/supabase/src/database.types.ts && prettier --write packages/supabase/src/database.types.ts",
+    "setup:local": "node scripts/setup-local.mjs",
+    "local:start": "node scripts/setup-local.mjs",
+    "local:stop": "node scripts/stop-local.mjs",
+    "local:logs": "node scripts/local-compose.mjs logs --follow server",
+    "local:tunnel": "node scripts/local-tunnel.mjs",
+    "local:status": "node scripts/local-compose.mjs ps",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "verify:local": "node scripts/verify-local.mjs"
+  },
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "prettier": "^3.9.9",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "supabase": "2.120.0",
+    "turbo": "^2.11.7",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22"
+  }
+}

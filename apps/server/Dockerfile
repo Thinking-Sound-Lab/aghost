@@ -1,0 +1,21 @@
+FROM node:22-bookworm-slim
+
+WORKDIR /app
+RUN npm install --global pnpm@11.25.0
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/server/package.json apps/server/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/api/package.json packages/api/package.json
+COPY packages/supabase/package.json packages/supabase/package.json
+COPY packages/eslint-config/package.json packages/eslint-config/package.json
+COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY packages/ui/package.json packages/ui/package.json
+RUN pnpm install --frozen-lockfile --filter server...
+
+COPY tsconfig.json ./
+COPY apps/server ./apps/server
+COPY packages ./packages
+
+EXPOSE 4000
+CMD ["pnpm", "--filter", "server", "start"]

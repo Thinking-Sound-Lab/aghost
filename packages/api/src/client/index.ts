@@ -1,0 +1,161 @@
+import {
+  apiErrorBodySchema,
+  type ApiErrorCode,
+  type Automation,
+  type AutomationActivityPage,
+  type AutomationStatsById,
+  type ConnectInstagramResult,
+  type ContactPage,
+  type Conversation,
+  type CreateAutomationInput,
+  type Credentials,
+  type InstagramAccount,
+  type InstagramPost,
+  type IntegrationStatus,
+  type Message,
+  type SendMessageInput,
+  type SessionUser,
+  type SignUpResult,
+  type UpdateAutomationInput,
+  type Workspace,
+} from "../contract"
+
+export class ApiClientError extends Error {
+  constructor(
+    public readonly code: ApiErrorCode,
+    message: string,
+    public readonly fields?: Record<string, string>
+  ) {
+    super(message)
+    this.name = "ApiClientError"
+  }
+}
+
+export function createApiClient(
+  baseUrl: string,
+  transport: typeof fetch = fetch
+) {
+  async function request<T>(
+    path: string,
+    method = "GET",
+    body?: unknown
+  ): Promise<T> {
+    let response: Response
+    try {
+      response = await transport(`${baseUrl}${path}`, {
+        method,
+        credentials: "same-origin",
+        cache: "no-store",
+        ...(body !== undefined && {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      })
+    } catch {
+      throw new ApiClientError(
+        "internal_error",
+        "Could not reach the server. Check your connection and try again."
+      )
+    }
+    if (response.ok && response.status === 204) return undefined as T
+    let payload: unknown
+    try {
+      payload = await response.json()
+    } catch {
+      throw new ApiClientError(
+        "internal_error",
+        "The server returned an unexpected response."
+      )
+    }
+    if (!response.ok) {
+      const parsed = apiErrorBodySchema.safeParse(payload)
+      if (!parsed.success)
+        throw new ApiClientError(
+          "internal_error",
+          "The server returned an unexpected response."
+        )
+      const { code, message, fields } = parsed.data.error
+      throw new ApiClientError(code, message, fields)
+    }
+    return payload as T
+  }
+  return {
+    auth: {
+      session: () => request<{ user: SessionUser }>("/auth/session"),
+      signIn: (input: Credentials) =>
+        request<{ user: SessionUser }>("/auth/sign-in", "POST", input),
+      signUp: (input: Credentials) =>
+        request<SignUpResult>("/auth/sign-up", "POST", input),
+      signOut: () => request<void>("/auth/sign-out", "POST", {}),
+      resetPassword: (email: string) =>
+        request<void>("/auth/password-reset", "POST", { email }),
+      updatePassword: (password: string) =>
+        request<void>("/auth/password", "POST", { password }),
+    },
+    workspace: {
+      get: () => request<Workspace>("/workspace"),
+      rename: (name: string) =>
+        request<Workspace>("/workspace", "PATCH", { name }),
+    },
+    integrations: () => request<IntegrationStatus>("/integrations"),
+    accounts: {
+      list: () => request<InstagramAccount[]>("/accounts"),
+      connect: () =>
+        request<ConnectInstagramResult>("/accounts/connect", "POST", {}),
+      sync: () => request<InstagramAccount[]>("/accounts/sync", "POST", {}),
+      posts: (id: string) =>
+        request<InstagramPost[]>(`/accounts/${encodeURIComponent(id)}/posts`),
+      remove: (id: string) =>
+        request<void>(`/accounts/${encodeURIComponent(id)}`, "DELETE"),
+    },
+    automations: {
+      list: () => request<Automation[]>("/automations"),
+      get: (id: string) =>
+        request<Automation>(`/automations/${encodeURIComponent(id)}`),
+      stats: () => request<AutomationStatsById>("/automations/stats"),
+      create: (input: CreateAutomationInput) =>
+        request<Automation>("/automations", "POST", input),
+      update: (id: string, input: UpdateAutomationInput) =>
+        request<Automation>(
+          `/automations/${encodeURIComponent(id)}`,
+          "PATCH",
+          input
+        ),
+      status: (id: string, status: Automation["status"]) =>
+        request<Automation>(
+          `/automations/${encodeURIComponent(id)}/status`,
+          "PATCH",
+          { status }
+        ),
+      remove: (id: string) =>
+        request<void>(`/automations/${encodeURIComponent(id)}`, "DELETE"),
+      activity: (id: string, offset = 0) =>
+        request<AutomationActivityPage>(
+          `/automations/${encodeURIComponent(id)}/activity?limit=25&offset=${offset}`
+        ),
+    },
+    inbox: {
+      list: () => request<Conversation[]>("/inbox"),
+      messages: (accountId: string, conversationId: string) =>
+        request<Message[]>(
+          `/inbox/${encodeURIComponent(accountId)}/${encodeURIComponent(conversationId)}`
+        ),
+      send: (
+        accountId: string,
+        conversationId: string,
+        input: SendMessageInput
+      ) =>
+        request<void>(
+          `/inbox/${encodeURIComponent(accountId)}/${encodeURIComponent(conversationId)}`,
+          "POST",
+          input
+        ),
+    },
+    contacts: {
+      list: (search: string, offset = 0) =>
+        request<ContactPage>(
+          `/contacts?${new URLSearchParams({ search, offset: String(offset) })}`
+        ),
+    },
+  }
+}
