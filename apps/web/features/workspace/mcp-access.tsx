@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import { ErrorBanner } from "@/components/interface"
 import { useAgentSkillStore } from "@/stores/agent-skill-store"
 import { CopyButton } from "./access-copy-button"
@@ -54,32 +54,8 @@ export function McpAccess() {
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <h2 className="text-sm font-medium">Connect with MCP</h2>
-        <p className="text-sm text-muted-foreground">
-          Connect your AI agent to manage automations and check activity using
-          MCP tools.
-        </p>
-        <div className="rounded-lg border p-3 text-xs">
-          <span className="mr-3 text-muted-foreground">MCP endpoint</span>
-          <code className="break-all">{origin}/api/mcp</code>
-        </div>
-      </div>
-
-      <div className="grid justify-items-start gap-3">
-        <h3 className="text-sm font-medium">Create an API key</h3>
-        <p className="text-sm text-muted-foreground">
-          Click + API key in the API tab, give it a name, and save the key shown
-          in the dialog before returning here. The same key connects your agent
-          through API or MCP. Revoking the key stops access immediately.
-        </p>
-        <a href="#api" className={buttonVariants({ variant: "secondary" })}>
-          Manage API keys
-        </a>
-      </div>
-
       <div className="grid gap-3">
-        <h3 className="text-sm font-medium">MCP configuration</h3>
+        <h2 className="text-sm font-medium">MCP configuration</h2>
         <p className="text-sm text-muted-foreground">
           Add this configuration to a client that supports HTTP MCP with custom
           headers. Replace YOUR_API_KEY with your saved key.
