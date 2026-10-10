@@ -8,6 +8,9 @@ import {
   type ContactPage,
   type Conversation,
   type CreateAutomationInput,
+  type ApiKey,
+  type CreateApiKeyInput,
+  type CreatedApiKey,
   type Credentials,
   type InstagramAccount,
   type InstagramPost,
@@ -80,6 +83,13 @@ export function createApiClient(
     return payload as T
   }
   return {
+    apiKeys: {
+      list: () => request<ApiKey[]>("/api-keys"),
+      create: (input: CreateApiKeyInput) =>
+        request<CreatedApiKey>("/api-keys", "POST", input),
+      revoke: (id: string) =>
+        request<void>(`/api-keys/${encodeURIComponent(id)}`, "DELETE"),
+    },
     auth: {
       session: () => request<{ user: SessionUser }>("/auth/session"),
       signIn: (input: Credentials) =>
