@@ -5,8 +5,13 @@ import type { Construct } from "constructs"
 const ISSUER = "token.actions.githubusercontent.com"
 
 export type GitHubDeployStackProps = StackProps & {
-  /** owner/name of the repository whose workflows may deploy. */
-  repository: string
+  /** The repository whose workflows may deploy. */
+  repository: {
+    /** owner/name. */
+    name: string
+    /** How its OIDC subjects begin, for example repo:owner@1/name@2. */
+    subject: string
+  }
   /** The GitHub environment the deploy job runs in. */
   environment: string
 }
@@ -32,11 +37,11 @@ export class GitHubDeployStack extends Stack {
     )
 
     this.role = new iam.Role(this, "DeployRole", {
-      description: `Deploys ${props.repository} from its ${props.environment} GitHub environment`,
+      description: `Deploys ${props.repository.name} from its ${props.environment} GitHub environment`,
       assumedBy: new iam.WebIdentityPrincipal(provider.oidcProviderArn, {
         StringEquals: {
           [`${ISSUER}:aud`]: "sts.amazonaws.com",
-          [`${ISSUER}:sub`]: `repo:${props.repository}:environment:${props.environment}`,
+          [`${ISSUER}:sub`]: `${props.repository.subject}:environment:${props.environment}`,
         },
       }),
       maxSessionDuration: Duration.hours(1),
