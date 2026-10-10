@@ -18,17 +18,16 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
-  # One job, so a release needs one approval and its steps run in order:
-  # the schema first, then the API that uses it, then the web app that calls it.
+  # One job, so a release needs one approval and its steps run in order: the
+  # schema first, then the API that uses it. Vercel deploys the web app itself
+  # from the same push, through its Git integration.
   release:
     name: Release
     needs: ci
     # The prod environment also accepts deployments from main only.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment:
-      name: prod
-      url: ${{ steps.web.outputs.url }}
+    environment: prod
     permissions:
       contents: read
       id-token: write
@@ -42,10 +41,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
 
+      # The token is scoped to this project. The CLI uses it to create a
+      # short-lived database role, so no database password is stored.
       - name: Apply Supabase migrations
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: pnpm exec supabase db push --db-url "$SUPABASE_DB_URL"
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+        run: pnpm exec supabase db push --linked --yes
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -55,12 +57,3 @@ jobs:
       # An unchanged image and stack make this a no-op.
       - name: Deploy the API to ECS
         run: pnpm --filter infra exec cdk deploy "Aghost-$STAGE-Api" --require-approval never
-
-      - name: Deploy the web app to Vercel
-        id: web
-        uses: ./.github/actions/deploy-web
-        with:
-          target: production
-          org-id: ${{ vars.VERCEL_ORG_ID }}
-          project-id: ${{ vars.VERCEL_PROJECT_ID }}
-          token: ${{ secrets.VERCEL_TOKEN }}

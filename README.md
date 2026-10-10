@@ -165,24 +165,28 @@ Live OAuth and comment-to-DM delivery need Zernio credentials and an authorized 
 
 ```mermaid
 flowchart LR
-  pr(["Pull request"]) --> checks["CI"]
+  pr(["Pull request"]) --> checks["CI<br/>GitHub Actions"]
   pr --> preview["Web preview<br/>Vercel"]
-  main(["Push to main"]) --> gate["CI"] --> migrate["Supabase<br/>migrations"] --> api["API<br/>AWS ECS"] --> web["Web<br/>Vercel"]
+  main(["Push to main"]) --> gate["CI"] --> migrate["Supabase<br/>migrations"] --> api["API<br/>AWS ECS"]
+  main --> web["Web<br/>Vercel"]
 ```
 
-| Workflow or action   | Runs on                    | Steps                                            |
-| -------------------- | -------------------------- | ------------------------------------------------ |
-| `ci.yml`             | Pull requests, releases    | Format, lint, types, tests, builds               |
-| `preview.yml`        | Pull requests              | Web app → Vercel preview                         |
-| `deploy.yml`         | Push to `main`, manual run | CI → one Release job: migrations → API → web app |
-| `actions/setup`      | Every job                  | pnpm, Node.js 22, and dependencies               |
-| `actions/deploy-web` | Release and preview        | `vercel build` → `vercel deploy --prebuilt`      |
+| Workflow        | Runs on                    | Steps                                  |
+| --------------- | -------------------------- | -------------------------------------- |
+| `ci.yml`        | Pull requests, releases    | Format, lint, types, tests, builds     |
+| `deploy.yml`    | Push to `main`, manual run | CI → one Release job: migrations → API |
+| `actions/setup` | Every job                  | pnpm, Node.js 22, and dependencies     |
 
-Every push to `main` releases both apps in one job, so a release needs one approval and its steps run in order: the schema, then the API that uses it, then the web app that calls it. Only `main` can release; other branches are refused by the workflow and by the `prod` environment. An unchanged API deploys as a no-op: its image is built from the server's packages only, so the CDK finds it already in ECR and CloudFormation finds no changes.
+A push to `main` releases the backend in one job, so a release needs one approval and its steps run in order: the schema, then the API that uses it. Only `main` can release; other branches are refused by the workflow and by the `prod` environment. An unchanged API deploys as a no-op: its image is built from the server's packages only, so the CDK finds it already in ECR and CloudFormation finds no changes.
 
 ### Web on Vercel
 
-The marketing site and dashboard are one Next.js app. GitHub Actions builds it with `vercel build` and uploads the result with `vercel deploy --prebuilt`, so every release passes CI first. [`apps/web/vercel.json`](apps/web/vercel.json) turns off Vercel's own Git deployments. The Vercel CLI does not read `.gitignore`, so [`.vercelignore`](.vercelignore) keeps local env files out of a deploy made from a developer's machine.
+The marketing site and dashboard are one Next.js app. Vercel's Git integration builds it: a preview for every pull request, and production on every push to `main`. No Vercel credentials are stored in GitHub.
+
+> [!NOTE]
+> Vercel and the Release job start from the same push and finish independently, usually Vercel first. Keep an API change compatible with the web app that is already live, or merge the API change first.
+
+The Vercel CLI does not read `.gitignore`, so [`.vercelignore`](.vercelignore) keeps local env files out of a deploy made by hand from a developer's machine.
 
 ### API on AWS
 
@@ -235,29 +239,21 @@ The deployment prints `DeployRoleArn` for step 3 and `ApiUrl`, the API's address
 > [!NOTE]
 > Skip `cdk bootstrap` and `create-open-id-connect-provider` if the account already has them; the stacks use what exists. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`. `supabase projects api-keys --reveal` prints the Supabase keys; without `--reveal`, the secret key is masked and will not work.
 
-**2. Vercel.** Create a project with the root directory `apps/web`, add `API_URL=<ApiUrl>` to its Production and Preview environments, and create an access token. Running `vercel link` writes the org and project IDs to `.vercel/project.json`. `APP_URL` is the address Vercel serves the project at.
+**2. Vercel.** Create a project with the root directory `apps/web`, connect it to the GitHub repository, and add `API_URL=<ApiUrl>` to its Production and Preview environments. `APP_URL` is the address Vercel serves the project at.
 
 **3. GitHub.** Under **Settings → Environments**, create `prod`, limit its deployment branches to `main`, and add:
 
-| Name                  | Type     | Value                                            |
-| --------------------- | -------- | ------------------------------------------------ |
-| `AWS_ACCOUNT_ID`      | Variable | The 12-digit account ID                          |
-| `AWS_REGION`          | Variable | For example `ap-south-1`                         |
-| `AWS_DEPLOY_ROLE_ARN` | Variable | `DeployRoleArn` from step 1                      |
-| `APP_URL`             | Variable | The web origin, for example `https://aghost.com` |
-| `SUPABASE_URL`        | Variable | `https://<project>.supabase.co`                  |
-| `SUPABASE_DB_URL`     | Secret   | Supabase's session pooler connection string      |
+| Name                    | Type     | Value                                            |
+| ----------------------- | -------- | ------------------------------------------------ |
+| `AWS_ACCOUNT_ID`        | Variable | The 12-digit account ID                          |
+| `AWS_REGION`            | Variable | For example `ap-south-1`                         |
+| `AWS_DEPLOY_ROLE_ARN`   | Variable | `DeployRoleArn` from step 1                      |
+| `APP_URL`               | Variable | The web origin, for example `https://aghost.com` |
+| `SUPABASE_URL`          | Variable | `https://<project>.supabase.co`                  |
+| `SUPABASE_PROJECT_ID`   | Variable | The Supabase project's reference ID              |
+| `SUPABASE_ACCESS_TOKEN` | Secret   | A scoped Supabase access token                   |
 
-Under **Settings → Secrets and variables → Actions**, add for the repository:
-
-| Name                | Type     | Value                       |
-| ------------------- | -------- | --------------------------- |
-| `VERCEL_ORG_ID`     | Variable | From `.vercel/project.json` |
-| `VERCEL_PROJECT_ID` | Variable | From `.vercel/project.json` |
-| `VERCEL_TOKEN`      | Secret   | The Vercel access token     |
-
-> [!IMPORTANT]
-> Use the session pooler string for `SUPABASE_DB_URL`. GitHub's runners have no IPv6, and Supabase's direct connection is IPv6-only.
+Create the token in the Supabase dashboard under **Account → Access Tokens**. Scope it to this project only, with **Database: Read-write**. The Release job uses it to create a short-lived database role for the migrations, so no database password is stored.
 
 > [!TIP]
 > Add required reviewers to the `prod` environment to approve each release before it starts.
