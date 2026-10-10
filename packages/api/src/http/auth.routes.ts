@@ -29,16 +29,19 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       // Supabase answers this address with a redirect to Google. Reading it
       // here sends the browser straight to Google, so it never needs the
       // address the API reaches Supabase at, which is private in Docker.
-      const response = await fetch(data.url, { redirect: "manual" })
-      const googleUrl = response.headers.get("location")
-      if (!googleUrl) {
-        request.log.error(
-          { status: response.status, response: await response.text() },
-          "Supabase did not start Google sign-in"
-        )
+      try {
+        const response = await fetch(data.url, { redirect: "manual" })
+        const googleUrl = response.headers.get("location")
+        if (!googleUrl)
+          throw new Error(
+            `Supabase answered ${response.status}: ${await response.text()}`
+          )
+        return reply.redirect(googleUrl)
+      } catch (cause) {
+        // The browser navigated here, so the login page reports the failure.
+        request.log.error(cause, "Could not start Google sign-in")
         return reply.redirect(appUrl(SIGN_IN_FAILED_PATH))
       }
-      return reply.redirect(googleUrl)
     })
     router.post("/sign-out", async (request, reply) => {
       const { error } = await request.session.auth.signOut()

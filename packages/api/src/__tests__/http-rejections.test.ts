@@ -126,18 +126,23 @@ describe("Google sign-in", () => {
     ).toBe(true)
   })
 
-  it("returns to the login page when Supabase refuses to start the sign-in", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValue(
-          Response.json(
-            { msg: "Unsupported provider: provider is not enabled" },
-            { status: 400 }
-          )
-        )
-    )
+  it.each([
+    [
+      "refuses to start the sign-in",
+      async () =>
+        Response.json(
+          { msg: "Unsupported provider: provider is not enabled" },
+          { status: 400 }
+        ),
+    ],
+    [
+      "cannot be reached",
+      async () => {
+        throw new TypeError("fetch failed")
+      },
+    ],
+  ])("returns to the login page when Supabase %s", async (_case, answer) => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(answer))
     const response = await app.inject({
       method: "GET",
       url: "/api/auth/google",
