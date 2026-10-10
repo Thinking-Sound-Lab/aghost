@@ -5,9 +5,10 @@ import {
 
 import type { ApiConfig } from "./config"
 import { createApp, type ApiApp } from "./http/app"
-import type { Authenticate } from "./http/context"
+import type { Authenticate, AuthenticateAgent } from "./http/context"
 import type { DataClients } from "./infrastructure/supabase/data-clients"
 import { SupabaseAccountRepository } from "./infrastructure/supabase/supabase-account.repository"
+import { SupabaseApiKeyRepository } from "./infrastructure/supabase/supabase-api-key.repository"
 import { SupabaseAutomationRepository } from "./infrastructure/supabase/supabase-automation.repository"
 import { SupabaseWebhookProcessor } from "./infrastructure/supabase/supabase-webhook.processor"
 import { SupabaseWorkspaceRepository } from "./infrastructure/supabase/supabase-workspace.repository"
@@ -19,6 +20,7 @@ import { ZernioInstagramProvider } from "./infrastructure/zernio/zernio-instagra
 import { ZernioProfileProvider } from "./infrastructure/zernio/zernio-profile.provider"
 import { ZernioWebhookGateway } from "./infrastructure/zernio/zernio-webhook.gateway"
 import { AccountService } from "./modules/accounts/account.service"
+import { ApiKeyService } from "./modules/api-keys/api-key.service"
 import type { InstagramProvider } from "./modules/accounts/instagram.provider"
 import type { AutomationProvider } from "./modules/automations/automation.provider"
 import { AutomationService } from "./modules/automations/automation.service"
@@ -29,12 +31,13 @@ import { InboxService } from "./modules/inbox/inbox.service"
 import { WebhookService } from "./modules/webhooks/webhook.service"
 import type { ProfileProvider } from "./modules/workspaces/profile.provider"
 import { WorkspaceService } from "./modules/workspaces/workspace.service"
-import { UnauthenticatedError } from "./shared/errors"
+import { InvalidApiKeyError, UnauthenticatedError } from "./shared/errors"
 
 // Path of the page in the web app that finishes the Instagram connection.
 const CONNECT_CALLBACK_PATH = "/accounts/callback"
 
 export type Services = {
+  apiKeys: ApiKeyService
   workspaces: WorkspaceService
   accounts: AccountService
   automations: AutomationService
@@ -77,8 +80,9 @@ function createServices(
 
   const inbox = new InboxService(providers.inbox, accountRepository)
   const contacts = new ContactService(providers.contacts)
+  const apiKeys = new ApiKeyService(new SupabaseApiKeyRepository(db.privileged))
 
-  return { workspaces, accounts, automations, inbox, contacts }
+  return { apiKeys, workspaces, accounts, automations, inbox, contacts }
 }
 
 /** Composition root: builds the API from its configuration. */
@@ -118,10 +122,27 @@ export function createApi(config: ApiConfig): ApiApp {
     }
   }
 
+  const apiKeys = new ApiKeyService(new SupabaseApiKeyRepository(admin))
+  const authenticateAgent: AuthenticateAgent = async (token) => {
+    const key = await apiKeys.authenticate(token)
+    const db = { scoped: admin, privileged: admin }
+    const workspace = await new SupabaseWorkspaceRepository(db).findById(
+      key.workspaceId
+    )
+    if (!workspace) throw new InvalidApiKeyError()
+    return {
+      apiKey: key,
+      workspace,
+      // Key requests have no Supabase user JWT. Every exposed repository
+      // operation filters by this verified workspace before any provider call.
+      services: createServices(db, providers, connectRedirectUrl),
+    }
+  }
+
   const webhooks = new WebhookService(
     new ZernioWebhookGateway(config.zernio.webhookSecret),
     new SupabaseWebhookProcessor(admin)
   )
 
-  return createApp({ authenticate, webhooks, config })
+  return createApp({ authenticate, authenticateAgent, webhooks, config })
 }

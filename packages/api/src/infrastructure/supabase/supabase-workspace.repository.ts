@@ -19,6 +19,18 @@ function toRecord(row: WorkspaceRow): WorkspaceRecord {
 export class SupabaseWorkspaceRepository implements WorkspaceRepository {
   constructor(private readonly db: DataClients) {}
 
+  async findById(id: string): Promise<WorkspaceRecord | null> {
+    const row = optional(
+      await this.db.scoped
+        .from("workspaces")
+        .select()
+        .eq("id", id)
+        .maybeSingle(),
+      "load the API key's workspace"
+    )
+    return row ? toRecord(row) : null
+  }
+
   async findByOwnerId(ownerId: string): Promise<WorkspaceRecord | null> {
     const row = optional(
       await this.db.scoped

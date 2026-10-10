@@ -33,6 +33,21 @@ export class BadRequestError extends AppError {
   }
 }
 
+export class ForbiddenError extends AppError {
+  constructor(scope: string) {
+    super("forbidden", `This API key requires the ${scope} permission.`)
+  }
+}
+
+export class InvalidApiKeyError extends AppError {
+  constructor() {
+    super(
+      "unauthenticated",
+      "Provide a valid, unexpired API key as a Bearer token."
+    )
+  }
+}
+
 export class ValidationError extends AppError {
   constructor(fields: Record<string, string>) {
     super("validation_failed", "Some fields need your attention.", { fields })
