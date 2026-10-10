@@ -58,35 +58,32 @@ describe("API stack", () => {
     ])
   })
 
-  it("admits traffic to the tasks only from the load balancer", () => {
-    const rules = Object.values(
-      template.findResources("AWS::EC2::SecurityGroupIngress")
-    ).map((rule) => rule.Properties)
-    expect(rules).toEqual([
-      expect.objectContaining({
-        IpProtocol: "tcp",
-        FromPort: 4000,
-        ToPort: 4000,
-        SourceSecurityGroupId: {
-          "Fn::GetAtt": [expect.stringMatching(/LB.*SecurityGroup/), "GroupId"],
-        },
-      }),
-    ])
+  it("opens nothing to the internet but the API Gateway endpoint", () => {
     const groups = Object.values(
       template.findResources("AWS::EC2::SecurityGroup")
     ).map((group) => group.Properties)
-    const open = groups.filter((group) =>
-      group.SecurityGroupIngress?.some(
-        (rule: { CidrIp?: string }) => rule.CidrIp === "0.0.0.0/0"
-      )
+    expect(groups.flatMap((group) => group.SecurityGroupIngress ?? [])).toEqual(
+      []
     )
-    // Only the load balancer accepts traffic from the internet.
-    expect(open).toHaveLength(1)
-    expect(
-      open[0].SecurityGroupIngress.map(
-        (rule: { FromPort: number }) => rule.FromPort
-      )
-    ).toEqual([443, 80])
+
+    const ingress = Object.values(
+      template.findResources("AWS::EC2::SecurityGroupIngress")
+    ).map(({ Properties: rule }) => ({
+      port: rule.FromPort,
+      from: rule.SourceSecurityGroupId["Fn::GetAtt"][0],
+    }))
+    // API Gateway reaches the load balancer, which alone reaches the tasks.
+    expect(ingress).toEqual(
+      expect.arrayContaining([
+        { port: 80, from: expect.stringMatching(/LinkSecurityGroup/) },
+        { port: 4000, from: expect.stringMatching(/LBSecurityGroup/) },
+      ])
+    )
+    expect(ingress).toHaveLength(2)
+    template.hasResourceProperties(
+      "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      { Scheme: "internal" }
+    )
   })
 
   it("injects credentials from Secrets Manager and never as plain variables", () => {
@@ -108,30 +105,20 @@ describe("API stack", () => {
     })
   })
 
-  it("serves HTTPS on the API domain and redirects HTTP", () => {
-    template.hasResourceProperties("AWS::ElasticLoadBalancingV2::Listener", {
-      Port: 443,
-      Protocol: "HTTPS",
-      SslPolicy: "ELBSecurityPolicy-TLS13-1-2-2021-06",
+  it("serves HTTPS from API Gateway without a domain of its own", () => {
+    template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
+      ProtocolType: "HTTP",
     })
-    template.hasResourceProperties("AWS::ElasticLoadBalancingV2::Listener", {
-      Port: 80,
-      DefaultActions: [
-        Match.objectLike({
-          Type: "redirect",
-          RedirectConfig: Match.objectLike({ Protocol: "HTTPS", Port: "443" }),
-        }),
-      ],
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "$default",
     })
-    template.hasResourceProperties("AWS::CertificateManager::Certificate", {
-      DomainName: "api.aghost.example.com",
-      ValidationMethod: "DNS",
+    template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
+      IntegrationType: "HTTP_PROXY",
+      ConnectionType: "VPC_LINK",
     })
-    template.hasResourceProperties("AWS::Route53::RecordSet", {
-      Name: "api.aghost.example.com.",
-      Type: "A",
-      HostedZoneId: "Z0000000000000000000",
-    })
+    template.hasOutput("ApiUrl", {})
+    template.resourceCountIs("AWS::Route53::RecordSet", 0)
+    template.resourceCountIs("AWS::CertificateManager::Certificate", 0)
   })
 
   it("replaces tasks only after health checks pass and rolls back a failed release", () => {

@@ -1,11 +1,10 @@
 import { Duration, RemovalPolicy } from "aws-cdk-lib"
-import * as acm from "aws-cdk-lib/aws-certificatemanager"
+import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2"
+import { HttpAlbIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations"
 import * as ec2 from "aws-cdk-lib/aws-ec2"
 import * as ecs from "aws-cdk-lib/aws-ecs"
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns"
-import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2"
 import * as logs from "aws-cdk-lib/aws-logs"
-import type * as route53 from "aws-cdk-lib/aws-route53"
 import type * as secretsmanager from "aws-cdk-lib/aws-secretsmanager"
 import { Construct } from "constructs"
 import type { ApiConfig } from "../config"
@@ -22,24 +21,27 @@ export const SECRET_KEYS = [
 
 export type ApiServiceProps = Pick<
   ApiConfig,
-  "domainName" | "appUrl" | "supabaseUrl" | "zernioApiUrl" | "capacity"
+  "appUrl" | "supabaseUrl" | "zernioApiUrl" | "capacity"
 > & {
   vpc: ec2.IVpc
   image: ecs.ContainerImage
-  hostedZone: route53.IHostedZone
   secret: secretsmanager.ISecret
 }
 
 /**
- * The Fastify API as a Fargate service behind an HTTPS load balancer. Tasks
- * run in public subnets with public addresses for their outbound calls; their
- * security group admits traffic only from the load balancer.
+ * The Fastify API as a Fargate service. Its only public address is an API
+ * Gateway HTTPS endpoint, which needs no domain or certificate of ours and
+ * reaches a private load balancer through a VPC link.
  *
- * Tasks run on x86_64, which Fargate supports in every Availability Zone of
- * regions such as us-east-1, where ARM64 is unavailable in one of them.
+ * Tasks run in public subnets with public addresses for their outbound calls;
+ * their security group admits traffic only from the load balancer. They run
+ * on x86_64, which Fargate supports in every Availability Zone of regions
+ * such as us-east-1, where ARM64 is unavailable in one of them.
  */
 export class ApiService extends Construct {
   readonly service: ecsPatterns.ApplicationLoadBalancedFargateService
+  /** The API's public origin, which the web app proxies /api to. */
+  readonly url: string
 
   constructor(scope: Construct, id: string, props: ApiServiceProps) {
     super(scope, id)
@@ -81,16 +83,8 @@ export class ApiService extends Construct {
           ),
           logDriver: ecs.LogDrivers.awsLogs({ streamPrefix: "api", logGroup }),
         },
-        publicLoadBalancer: true,
-        protocol: elbv2.ApplicationProtocol.HTTPS,
-        sslPolicy: elbv2.SslPolicy.RECOMMENDED_TLS,
-        redirectHTTP: true,
-        domainName: props.domainName,
-        domainZone: props.hostedZone,
-        certificate: new acm.Certificate(this, "Certificate", {
-          domainName: props.domainName,
-          validation: acm.CertificateValidation.fromDns(props.hostedZone),
-        }),
+        publicLoadBalancer: false,
+        openListener: false,
         // New tasks must pass health checks before old ones stop; a release
         // that never becomes healthy is rolled back.
         minHealthyPercent: 100,
@@ -118,5 +112,30 @@ export class ApiService extends Construct {
         maxCapacity: props.capacity.maxTasks,
       })
       .scaleOnCpuUtilization("Cpu", { targetUtilizationPercent: 60 })
+
+    const linkSecurityGroup = new ec2.SecurityGroup(this, "LinkSecurityGroup", {
+      vpc: props.vpc,
+      description: "API Gateway's connection to the API's load balancer",
+    })
+    this.service.loadBalancer.connections.allowFrom(
+      linkSecurityGroup,
+      ec2.Port.tcp(80),
+      "API Gateway"
+    )
+    const endpoint = new apigwv2.HttpApi(this, "Endpoint", {
+      description: "Public HTTPS endpoint of the aghost API",
+      defaultIntegration: new HttpAlbIntegration(
+        "LoadBalancer",
+        this.service.listener,
+        {
+          vpcLink: new apigwv2.VpcLink(this, "Link", {
+            vpc: props.vpc,
+            subnets: { subnetType: ec2.SubnetType.PUBLIC },
+            securityGroups: [linkSecurityGroup],
+          }),
+        }
+      ),
+    })
+    this.url = endpoint.apiEndpoint
   }
 }

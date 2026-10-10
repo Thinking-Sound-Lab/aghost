@@ -7,9 +7,9 @@ describe("stage configuration", () => {
     expect(config.env).toEqual({ account: "123456789012", region: "us-east-1" })
     expect(config.github).toEqual({
       repository: "Thinking-Sound-Lab/aghost",
-      environment: "production",
+      environment: "prod",
     })
-    expect(config.api.secretName).toBe("aghost/production/api")
+    expect(config.api.secretName).toBe("aghost/prod/api")
   })
 
   it("names every missing or malformed variable", () => {

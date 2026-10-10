@@ -1,13 +1,10 @@
 import { loadStageConfig } from "../lib/config"
 
 export const environment = {
-  STAGE: "production",
+  STAGE: "prod",
   AWS_ACCOUNT_ID: "123456789012",
   AWS_REGION: "us-east-1",
   APP_URL: "https://aghost.example.com",
-  API_DOMAIN_NAME: "api.aghost.example.com",
-  HOSTED_ZONE_ID: "Z0000000000000000000",
-  HOSTED_ZONE_NAME: "aghost.example.com",
   SUPABASE_URL: "https://project.supabase.co",
 }
 

@@ -12,7 +12,7 @@ const template = Template.fromStack(
 )
 
 describe("GitHub deploy stack", () => {
-  it("trusts only the repository's production environment", () => {
+  it("trusts only the repository's prod environment", () => {
     template.hasResourceProperties("AWS::IAM::Role", {
       AssumeRolePolicyDocument: {
         Statement: [
@@ -34,7 +34,7 @@ describe("GitHub deploy stack", () => {
               StringEquals: {
                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                 "token.actions.githubusercontent.com:sub":
-                  "repo:Thinking-Sound-Lab/aghost:environment:production",
+                  "repo:Thinking-Sound-Lab/aghost:environment:prod",
               },
             },
           }),

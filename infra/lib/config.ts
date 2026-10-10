@@ -8,21 +8,14 @@ const ZERNIO_API_URL = "https://zernio.com/api"
 const environmentSchema = z.object({
   STAGE: z
     .string()
-    .regex(/^[a-z][a-z0-9-]*$/, "Use a lowercase name such as production"),
+    .regex(/^[a-z][a-z0-9-]*$/, "Use a lowercase name such as prod"),
   AWS_ACCOUNT_ID: z.string().regex(/^\d{12}$/, "Use the 12-digit account ID"),
   AWS_REGION: z.string().min(1),
   APP_URL: z.url(),
-  API_DOMAIN_NAME: z.string().min(1),
-  HOSTED_ZONE_ID: z.string().min(1),
-  HOSTED_ZONE_NAME: z.string().min(1),
   SUPABASE_URL: z.url(),
 })
 
 export type ApiConfig = {
-  /** Public hostname of the API, served by the load balancer. */
-  domainName: string
-  /** Route 53 zone that holds the API's record and certificate validation. */
-  hostedZone: { id: string; name: string }
   /** Origin of the web app on Vercel. */
   appUrl: string
   supabaseUrl: string
@@ -60,8 +53,6 @@ export function loadStageConfig(
     env: { account: env.AWS_ACCOUNT_ID, region: env.AWS_REGION },
     github: { repository: GITHUB_REPOSITORY, environment: env.STAGE },
     api: {
-      domainName: env.API_DOMAIN_NAME,
-      hostedZone: { id: env.HOSTED_ZONE_ID, name: env.HOSTED_ZONE_NAME },
       appUrl: env.APP_URL,
       supabaseUrl: env.SUPABASE_URL,
       zernioApiUrl: ZERNIO_API_URL,

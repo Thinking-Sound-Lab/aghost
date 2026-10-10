@@ -33,13 +33,13 @@ flowchart LR
     web["Next.js<br/>site and dashboard"]
   end
   subgraph aws["AWS · default VPC"]
-    alb["Load balancer<br/>HTTPS"] --> api["Fastify API<br/>ECS Fargate"]
+    gateway["API Gateway<br/>HTTPS"] --> alb["Private<br/>load balancer"] --> api["Fastify API<br/>ECS Fargate"]
   end
   supabase[("Supabase<br/>Postgres and Auth")]
   zernio["Zernio<br/>Instagram API"]
 
   browser -->|"pages and /api"| web
-  web -->|"/api/* rewrite"| alb
+  web -->|"/api/* rewrite"| gateway
   api --> supabase
   api <-->|"calls and webhooks"| zernio
 ```
@@ -178,7 +178,7 @@ flowchart LR
 | `actions/setup`      | Every job                  | pnpm, Node.js 22, and dependencies               |
 | `actions/deploy-web` | Release and preview        | `vercel build` → `vercel deploy --prebuilt`      |
 
-Every push to `main` releases both apps in one job, so a release needs one approval and its steps run in order: the schema, then the API that uses it, then the web app that calls it. Only `main` can release; other branches are refused by the workflow and by the `production` environment. An unchanged API deploys as a no-op: its image is built from the server's packages only, so the CDK finds it already in ECR and CloudFormation finds no changes.
+Every push to `main` releases both apps in one job, so a release needs one approval and its steps run in order: the schema, then the API that uses it, then the web app that calls it. Only `main` can release; other branches are refused by the workflow and by the `prod` environment. An unchanged API deploys as a no-op: its image is built from the server's packages only, so the CDK finds it already in ECR and CloudFormation finds no changes.
 
 ### Web on Vercel
 
@@ -188,8 +188,9 @@ The marketing site and dashboard are one Next.js app. GitHub Actions builds it w
 
 [`infra/`](infra/) defines the API with the AWS CDK:
 
-- **Compute.** x86_64 Fargate tasks, from two to four as CPU demands, behind an HTTPS load balancer with a Route 53 record and an ACM certificate. Autoscaling owns the task count, so a deployment never resets it.
-- **Network.** The account's default VPC. Tasks get public addresses for their outbound calls to Supabase, Zernio, and ECR; their security group admits traffic only from the load balancer.
+- **Compute.** x86_64 Fargate tasks, from two to four as CPU demands. Autoscaling owns the task count, so a deployment never resets it.
+- **Address.** An API Gateway HTTPS endpoint, which needs no domain, DNS record, or certificate. It reaches a private load balancer through a VPC link.
+- **Network.** The account's default VPC. Tasks get public addresses for their outbound calls to Supabase, Zernio, and ECR; their security group admits traffic only from the load balancer, and the load balancer only from API Gateway.
 - **Image.** Built from `turbo prune server --docker` output: the server's workspace packages and their dependencies, nothing else.
 - **Secrets.** Supabase and Zernio credentials come from Secrets Manager at task start.
 - **Releases.** New tasks must pass `/api/health` before old ones stop, and the circuit breaker rolls back a release that never becomes healthy. Logs are kept for 30 days.
@@ -208,47 +209,42 @@ infra
 
 ### One-time setup
 
-**1. AWS.** Create a Route 53 hosted zone for the API's domain. Then, from the repository root and with administrator credentials, run:
+**1. AWS.** From the repository root and with administrator credentials, run:
 
 ```sh
-export STAGE=production AWS_ACCOUNT_ID=123456789012 AWS_REGION=us-east-1 \
-  APP_URL=https://aghost.com API_DOMAIN_NAME=api.aghost.com \
-  HOSTED_ZONE_ID=Z0123456789 HOSTED_ZONE_NAME=aghost.com \
-  SUPABASE_URL=https://your-project.supabase.co
+export STAGE=prod AWS_ACCOUNT_ID=123456789012 AWS_REGION=ap-south-1 \
+  APP_URL=https://aghost.vercel.app SUPABASE_URL=https://your-project.supabase.co
 
 pnpm --filter infra exec cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
 
 aws iam create-open-id-connect-provider \
   --url https://token.actions.githubusercontent.com --client-id-list sts.amazonaws.com
 
-aws secretsmanager create-secret --name aghost/production/api --secret-string '{
+aws secretsmanager create-secret --name aghost/prod/api --secret-string '{
   "SUPABASE_PUBLISHABLE_KEY": "…",
   "SUPABASE_SECRET_KEY": "…",
   "ZERNIO_API_KEY": "…",
   "ZERNIO_WEBHOOK_SECRET": "…"
 }'
 
-pnpm --filter infra exec cdk deploy Aghost-production-GitHubDeploy
+pnpm --filter infra exec cdk deploy --all
 ```
 
-The last command prints `DeployRoleArn` for step 3.
+The deployment prints `DeployRoleArn` for step 3 and `ApiUrl`, the API's address, for step 2.
 
 > [!NOTE]
-> Skip `create-open-id-connect-provider` if the account already trusts GitHub Actions; the stack uses the existing provider. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`.
+> Skip `cdk bootstrap` and `create-open-id-connect-provider` if the account already has them; the stacks use what exists. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`.
 
-**2. Vercel.** Create a project with the root directory `apps/web`, add `API_URL=https://<API_DOMAIN_NAME>` to its Production and Preview environments, and create an access token. Running `vercel link` writes the org and project IDs to `.vercel/project.json`.
+**2. Vercel.** Create a project with the root directory `apps/web`, add `API_URL=<ApiUrl>` to its Production and Preview environments, and create an access token. Running `vercel link` writes the org and project IDs to `.vercel/project.json`. `APP_URL` is the address Vercel serves the project at.
 
-**3. GitHub.** Under **Settings → Environments**, create `production`, limit its deployment branches to `main`, and add:
+**3. GitHub.** Under **Settings → Environments**, create `prod`, limit its deployment branches to `main`, and add:
 
 | Name                  | Type     | Value                                            |
 | --------------------- | -------- | ------------------------------------------------ |
 | `AWS_ACCOUNT_ID`      | Variable | The 12-digit account ID                          |
-| `AWS_REGION`          | Variable | For example `us-east-1`                          |
+| `AWS_REGION`          | Variable | For example `ap-south-1`                         |
 | `AWS_DEPLOY_ROLE_ARN` | Variable | `DeployRoleArn` from step 1                      |
 | `APP_URL`             | Variable | The web origin, for example `https://aghost.com` |
-| `API_DOMAIN_NAME`     | Variable | For example `api.aghost.com`                     |
-| `HOSTED_ZONE_ID`      | Variable | The Route 53 zone of the API's domain            |
-| `HOSTED_ZONE_NAME`    | Variable | That zone's name, for example `aghost.com`       |
 | `SUPABASE_URL`        | Variable | `https://<project>.supabase.co`                  |
 | `SUPABASE_DB_URL`     | Secret   | Supabase's session pooler connection string      |
 
@@ -264,9 +260,9 @@ Under **Settings → Secrets and variables → Actions**, add for the repository
 > Use the session pooler string for `SUPABASE_DB_URL`. GitHub's runners have no IPv6, and Supabase's direct connection is IPv6-only.
 
 > [!TIP]
-> Add required reviewers to the `production` environment to approve each release before it starts.
+> Add required reviewers to the `prod` environment to approve each release before it starts.
 
-**4. Supabase and Zernio.** Allow `<APP_URL>/api/auth/callback` in Supabase's redirect URLs. Point the Zernio webhook to `https://<API_DOMAIN_NAME>/api/webhooks/zernio` with the same secret, subscribed to `account.connected` and `account.disconnected`.
+**4. Supabase and Zernio.** Allow `<APP_URL>/api/auth/callback` in Supabase's redirect URLs. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected` and `account.disconnected`.
 
 > [!NOTE]
 > The API accepts writes only from `APP_URL`'s origin. Previews show the site and dashboard, but signing in from a preview is refused.
@@ -276,7 +272,7 @@ Under **Settings → Secrets and variables → Actions**, add for the repository
 With AWS credentials and the variables from step 1, compare a change with what is deployed:
 
 ```sh
-pnpm --filter infra exec cdk diff Aghost-production-Api
+pnpm --filter infra exec cdk diff Aghost-prod-Api
 ```
 
 Synthesis looks up the default VPC in the account, so it needs credentials; the tests use a recorded copy and run offline.
