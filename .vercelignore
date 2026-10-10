@@ -5,5 +5,6 @@
 .context
 .conductor
 .github
-infra
-supabase
+supabase/.temp
+infra/cdk.out
+infra/cdk.context.json
