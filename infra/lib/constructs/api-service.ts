@@ -115,7 +115,7 @@ export class ApiService extends Construct {
 
     const linkSecurityGroup = new ec2.SecurityGroup(this, "LinkSecurityGroup", {
       vpc: props.vpc,
-      description: "API Gateway's connection to the API's load balancer",
+      description: "Connection from API Gateway to the API load balancer",
     })
     this.service.loadBalancer.connections.allowFrom(
       linkSecurityGroup,

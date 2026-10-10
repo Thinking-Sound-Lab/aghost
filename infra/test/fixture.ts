@@ -12,8 +12,12 @@ export const config = loadStageConfig(environment)
 
 const { account, region } = config.env
 
-/** The default VPC as `cdk deploy` finds it, so tests synthesize offline. */
-export const lookups = {
+/**
+ * Context for test apps: the default VPC as `cdk deploy` finds it, so tests
+ * synthesize offline, and the template validation that cdk.json turns on.
+ */
+export const context = {
+  "@aws-cdk/core:validateAgainstDefaultRules": true,
   [`vpc-provider:account=${account}:filter.isDefault=true:region=${region}:returnAsymmetricSubnets=true`]:
     {
       vpcId: "vpc-0a1b2c3d4e5f60718",

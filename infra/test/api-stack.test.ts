@@ -5,9 +5,9 @@ import { Match, Template } from "aws-cdk-lib/assertions"
 import { describe, expect, it } from "vitest"
 import { SECRET_KEYS } from "../lib/constructs/api-service"
 import { ApiStack } from "../lib/stacks/api-stack"
-import { config, lookups } from "./fixture"
+import { config, context } from "./fixture"
 
-const app = new App({ context: lookups })
+const app = new App({ context })
 const stack = new ApiStack(app, "Api", { env: config.env, api: config.api })
 const template = Template.fromStack(stack)
 
