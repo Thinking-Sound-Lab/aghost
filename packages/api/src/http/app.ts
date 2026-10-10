@@ -29,6 +29,7 @@ import {
 import { authRoutes } from "./auth.routes"
 import type { Authenticate, AuthenticateAgent } from "./context"
 import { agentRoutes } from "./agent.routes"
+import { mcpRoutes } from "../mcp/routes"
 import {
   presentAccount,
   presentAutomation,
@@ -184,7 +185,8 @@ export function createApp({
   app.register(
     async (api) => {
       api.get("/health", async () => ({ status: "ok" }))
-      api.register(agentRoutes(authenticateAgent))
+      api.register(agentRoutes(authenticateAgent), { prefix: "/v1" })
+      api.register(mcpRoutes(authenticateAgent))
       api.register(async (hooks) => {
         // The signature covers the exact bytes sent, so the body stays text.
         hooks.removeAllContentTypeParsers()

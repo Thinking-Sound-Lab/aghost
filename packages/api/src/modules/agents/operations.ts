@@ -1,14 +1,11 @@
-import type { FastifyRequest, HTTPMethods } from "fastify"
 import { z } from "zod"
 import type { ApiKeyScope } from "../../contract/api-key"
 import {
   ACTIVITY_PAGE_MAX_LIMIT,
-  activityPageQuerySchema,
   createAutomationSchema,
   setAutomationStatusSchema,
   updateAutomationSchema,
 } from "../../contract/automation"
-import { contactPageQuerySchema } from "../../contract/contact"
 import { sendMessageSchema } from "../../contract/inbox"
 import type { AgentIdentity } from "../../http/context"
 import {
@@ -24,23 +21,21 @@ export type AgentOperation = {
   description: string
   scope: ApiKeyScope
   schema: z.ZodObject
-  method: HTTPMethods
-  path: string
-  status?: number
-  requestInput: (request: FastifyRequest) => unknown
+  destructive?: boolean
   execute: (identity: AgentIdentity, input: unknown) => Promise<unknown>
 }
 
-/** One definition drives REST and MCP, including validation and permissions. */
-function operation<Schema extends z.ZodObject>(
-  definition: Omit<AgentOperation, "schema" | "execute"> & {
+/** Shared workspace actions; each transport owns its request handling. */
+function operation<Schema extends z.ZodObject, Name extends string>(
+  definition: Omit<AgentOperation, "name" | "schema" | "execute"> & {
+    name: Name
     schema: Schema
     run: (
       identity: AgentIdentity,
       input: z.output<Schema>
     ) => unknown | Promise<unknown>
   }
-): AgentOperation {
+): AgentOperation & { name: Name } {
   const { run, ...metadata } = definition
   return {
     ...metadata,
@@ -72,19 +67,13 @@ const offsetSchema = z
   .min(0)
   .max(Number.MAX_SAFE_INTEGER)
   .default(0)
-const params = (request: FastifyRequest) => request.params
-const body = (request: FastifyRequest) => request.body
-const empty = () => ({})
 
-export const AGENT_OPERATIONS: AgentOperation[] = [
+export const AGENT_OPERATIONS = [
   operation({
     name: "get_workspace",
     description: "Get the workspace this API key belongs to.",
     scope: "workspace:read",
     schema: noInput,
-    method: "GET",
-    path: "/workspace",
-    requestInput: empty,
     run: ({ workspace }) => presentWorkspace(workspace),
   }),
   operation({
@@ -93,9 +82,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "List the workspace's Instagram accounts and connection status.",
     scope: "accounts:read",
     schema: noInput,
-    method: "GET",
-    path: "/accounts",
-    requestInput: empty,
     run: async ({ workspace, services }) =>
       (await services.accounts.list(workspace)).map(presentAccount),
   }),
@@ -105,9 +91,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "List recent posts for an Instagram account. Use platformPostId when targeting a specific post.",
     scope: "accounts:read",
     schema: accountId,
-    method: "GET",
-    path: "/accounts/:accountId/posts",
-    requestInput: params,
     run: ({ workspace, services }, { accountId }) =>
       services.accounts.listRecentPosts(workspace, accountId),
   }),
@@ -116,9 +99,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
     description: "List all automations in this workspace.",
     scope: "automations:read",
     schema: noInput,
-    method: "GET",
-    path: "/automations",
-    requestInput: empty,
     run: async ({ workspace, services }) =>
       (await services.automations.list(workspace)).map(presentAutomation),
   }),
@@ -128,9 +108,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Get delivery and click counters keyed by automation ID. Null counters mean the provider did not report a value.",
     scope: "automations:read",
     schema: noInput,
-    method: "GET",
-    path: "/automations/stats",
-    requestInput: empty,
     run: ({ workspace, services }) => services.automations.listStats(workspace),
   }),
   operation({
@@ -138,9 +115,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
     description: "Get an automation's trigger, messages, buttons, and status.",
     scope: "automations:read",
     schema: automationId,
-    method: "GET",
-    path: "/automations/:automationId",
-    requestInput: params,
     run: async ({ workspace, services }, { automationId }) =>
       presentAutomation(
         await services.automations.get(workspace, automationId)
@@ -152,10 +126,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Create an Instagram comment-to-DM automation. Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment.",
     scope: "automations:write",
     schema: createAutomationSchema,
-    method: "POST",
-    path: "/automations",
-    status: 201,
-    requestInput: body,
     run: async ({ workspace, services }, input) =>
       presentAutomation(await services.automations.create(workspace, input)),
   }),
@@ -165,12 +135,7 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Replace an automation's full configuration. Read it first and preserve fields that should stay the same. An active status enables real delivery.",
     scope: "automations:write",
     schema: automationId.extend({ input: updateAutomationSchema }),
-    method: "PATCH",
-    path: "/automations/:automationId",
-    requestInput: (request) => ({
-      ...(request.params as object),
-      input: request.body,
-    }),
+    destructive: true,
     run: async ({ workspace, services }, { automationId, input }) =>
       presentAutomation(
         await services.automations.update(workspace, automationId, input)
@@ -182,12 +147,7 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Pause or activate an automation. Activating enables real DMs and any configured public replies.",
     scope: "automations:write",
     schema: automationId.extend(setAutomationStatusSchema.shape),
-    method: "PATCH",
-    path: "/automations/:automationId/status",
-    requestInput: (request) => ({
-      ...(request.body as object),
-      ...(request.params as object),
-    }),
+    destructive: true,
     run: async ({ workspace, services }, { automationId, status }) =>
       presentAutomation(
         await services.automations.setStatus(workspace, automationId, status)
@@ -199,10 +159,7 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Permanently delete an automation, stopping it at the provider first.",
     scope: "automations:write",
     schema: automationId,
-    method: "DELETE",
-    path: "/automations/:automationId",
-    status: 204,
-    requestInput: params,
+    destructive: true,
     run: ({ workspace, services }, { automationId }) =>
       services.automations.delete(workspace, automationId),
   }),
@@ -214,16 +171,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
     schema: automationId.extend({
       limit: z.number().int().min(1).max(ACTIVITY_PAGE_MAX_LIMIT).default(25),
       offset: offsetSchema,
-    }),
-    method: "GET",
-    path: "/automations/:automationId/activity",
-    requestInput: (request) => ({
-      ...(request.params as object),
-      ...validate(activityPageQuerySchema, {
-        limit: "25",
-        offset: "0",
-        ...(request.query as object),
-      }),
     }),
     run: ({ workspace, services }, { automationId, limit, offset }) =>
       services.automations.listActivity(workspace, automationId, {
@@ -240,9 +187,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       search: z.string().trim().max(100).default(""),
       offset: offsetSchema,
     }),
-    method: "GET",
-    path: "/contacts",
-    requestInput: (request) => validate(contactPageQuerySchema, request.query),
     run: ({ workspace, services }, query) =>
       services.contacts.list(workspace, query),
   }),
@@ -252,9 +196,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "List Instagram DM conversations belonging to this workspace's accounts.",
     scope: "inbox:read",
     schema: noInput,
-    method: "GET",
-    path: "/inbox",
-    requestInput: empty,
     run: ({ workspace, services }) =>
       services.inbox.listConversations(workspace),
   }),
@@ -264,9 +205,6 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Read messages in a conversation. Use its instagramAccountId as accountId and its opaque id as conversationId.",
     scope: "inbox:read",
     schema: thread,
-    method: "GET",
-    path: "/inbox/:accountId/:conversationId",
-    requestInput: params,
     run: ({ workspace, services }, { accountId, conversationId }) =>
       services.inbox.listMessages(workspace, accountId, conversationId),
   }),
@@ -276,14 +214,7 @@ export const AGENT_OPERATIONS: AgentOperation[] = [
       "Send a real Instagram DM to an existing conversation. Requires inbox:write; provider messaging restrictions apply. Do not retry an uncertain delivery automatically.",
     scope: "inbox:write",
     schema: thread.extend(sendMessageSchema.shape),
-    method: "POST",
-    path: "/inbox/:accountId/:conversationId",
-    status: 204,
-    requestInput: (request) => ({
-      ...(request.body as object),
-      ...(request.params as object),
-    }),
     run: ({ workspace, services }, { accountId, conversationId, text }) =>
       services.inbox.sendMessage(workspace, accountId, conversationId, text),
   }),
-]
+] as const

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, type FormEvent } from "react"
-import { Check, Copy, KeyRound } from "lucide-react"
+import { KeyRound } from "lucide-react"
 import {
   API_KEY_NAME_MAX_LENGTH,
   type ApiKeyScope,
@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "@/stores/auth-store"
 import { useApiKeysStore } from "@/stores/api-keys-store"
 import { timeAgo } from "@/lib/format"
+import { CopyButton } from "./access-copy-button"
 
 const permissions: { scope: ApiKeyScope; label: string }[] = [
   { scope: "workspace:read", label: "Read workspace" },
@@ -34,31 +35,6 @@ const permissions: { scope: ApiKeyScope; label: string }[] = [
   { scope: "inbox:write", label: "Send Instagram messages" },
 ]
 
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false)
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-    } catch {
-      useApiKeysStore.setState({
-        error: "Could not copy. Select the text and copy it manually.",
-      })
-    }
-  }
-  return (
-    <Button
-      type="button"
-      variant="secondary"
-      size="sm"
-      onClick={() => void copy()}
-    >
-      {copied ? <Check /> : <Copy />}
-      {copied ? "Copied" : label}
-    </Button>
-  )
-}
-
 export function ApiAccess() {
   const store = useApiKeysStore()
   const userId = useAuthStore((state) => state.user?.id)
@@ -71,19 +47,7 @@ export function ApiAccess() {
     return reset
   }, [userId, load, reset])
 
-  const mcpConfig = JSON.stringify(
-    {
-      mcpServers: {
-        aghost: {
-          type: "http",
-          url: `${origin}/api/mcp`,
-          headers: { Authorization: "Bearer YOUR_API_KEY" },
-        },
-      },
-    },
-    null,
-    2
-  )
+  const example = `curl ${origin}/api/v1/automations \\\n  -H 'Authorization: Bearer YOUR_API_KEY'`
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -93,16 +57,12 @@ export function ApiAccess() {
   return (
     <section className="grid gap-8">
       <div className="grid gap-2">
-        <h2 className="text-sm font-medium">Connect your AI agent</h2>
+        <h2 className="text-sm font-medium">API access</h2>
         <p className="text-sm text-muted-foreground">
-          Give an agent access to this workspace through MCP or the API. Choose
-          what it can read and change.
+          Use API keys to access this workspace through REST. Choose what each
+          key can read and change.
         </p>
         <div className="grid gap-1 rounded-lg border p-3 text-xs">
-          <p>
-            <span className="mr-3 text-muted-foreground">MCP</span>
-            <code className="break-all">{origin}/api/mcp</code>
-          </p>
           <p>
             <span className="mr-3 text-muted-foreground">API</span>
             <code className="break-all">{origin}/api/v1</code>
@@ -277,22 +237,22 @@ export function ApiAccess() {
 
       <div className="grid gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-medium">MCP configuration</h3>
-          <CopyButton value={mcpConfig} label="Copy config" />
+          <h3 className="text-sm font-medium">Make an API request</h3>
+          <CopyButton value={example} label="Copy request" />
         </div>
         <p className="text-sm text-muted-foreground">
-          For clients that support HTTP MCP with custom headers. Replace
-          YOUR_API_KEY with your saved key.
+          Send your saved key in the Authorization header. Replace YOUR_API_KEY
+          in this example to list your automations.
         </p>
         <pre className="overflow-auto rounded-lg border bg-muted/30 p-4 text-xs">
-          {mcpConfig}
+          {example}
         </pre>
         <p className="text-sm text-muted-foreground">
-          For direct API calls, send{" "}
-          <code className="text-xs">Authorization: Bearer YOUR_API_KEY</code>.
-          The API reference is available at{" "}
-          <code className="text-xs">/api/v1/openapi.json</code> with the same
-          header.
+          The OpenAPI reference is available at{" "}
+          <code className="text-xs break-all">
+            {origin}/api/v1/openapi.json
+          </code>{" "}
+          with the same Authorization header.
         </p>
       </div>
     </section>

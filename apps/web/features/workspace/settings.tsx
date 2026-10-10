@@ -13,11 +13,13 @@ import { Avatar, ConfirmButton, EmptyState, Page } from "@/components/interface"
 import { useAuthStore } from "@/stores/auth-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { ApiAccess } from "./api-access"
+import { McpAccess } from "./mcp-access"
 
 const tabs = [
   { id: "general", label: "General" },
   { id: "channels", label: "Channels" },
-  { id: "api", label: "API & MCP" },
+  { id: "api", label: "API" },
+  { id: "mcp", label: "MCP" },
   { id: "billing", label: "Plan and Billing" },
   { id: "account", label: "Account" },
 ] as const
@@ -69,6 +71,7 @@ export function Settings() {
         {tab === "general" && <General />}
         {tab === "channels" && <Channels />}
         {tab === "api" && <ApiAccess />}
+        {tab === "mcp" && <McpAccess />}
         {tab === "billing" && (
           <EmptyState icon={<CreditCard />} title="Billing isn't set up yet" />
         )}

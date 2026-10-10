@@ -26,7 +26,7 @@ export async function serveMcp(request: FastifyRequest, reply: FastifyReply) {
             inputSchema: operation.schema,
             annotations: {
               readOnlyHint: readOnly,
-              destructiveHint: ["PATCH", "DELETE"].includes(operation.method),
+              destructiveHint: operation.destructive ?? false,
               idempotentHint: readOnly,
               openWorldHint: operation.name !== "get_workspace",
             },

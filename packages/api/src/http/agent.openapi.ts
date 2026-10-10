@@ -1,15 +1,16 @@
 import { z } from "zod"
 import { apiErrorBodySchema } from "../contract/errors"
-import { AGENT_OPERATIONS } from "../modules/agents/operations"
+import { AGENT_REST_ROUTES } from "./agent.rest"
 
-/** REST documentation derived from the same schemas the MCP tools validate. */
+/** REST documentation belongs to the REST module and uses shared input schemas. */
 export function agentOpenApi() {
   const paths: Record<string, Record<string, unknown>> = {}
-  for (const operation of AGENT_OPERATIONS) {
-    const pathNames = [...operation.path.matchAll(/:([A-Za-z]+)/g)].map(
+  for (const route of AGENT_REST_ROUTES) {
+    const { operation } = route
+    const pathNames = [...route.path.matchAll(/:([A-Za-z]+)/g)].map(
       (match) => match[1]!
     )
-    const path = operation.path.replace(/:([A-Za-z]+)/g, "{$1}")
+    const path = route.path.replace(/:([A-Za-z]+)/g, "{$1}")
     const schema = z.toJSONSchema(operation.schema, { io: "input" })
     const properties = schema.properties ?? {}
     const parameters: Record<string, unknown>[] = pathNames.map((name) => ({
@@ -18,7 +19,7 @@ export function agentOpenApi() {
       required: true,
       schema: properties[name],
     }))
-    if (operation.method === "GET") {
+    if (route.method === "GET") {
       for (const [name, field] of Object.entries(properties)) {
         if (!pathNames.includes(name))
           parameters.push({
@@ -29,7 +30,7 @@ export function agentOpenApi() {
           })
       }
     }
-    const writesBody = ["POST", "PATCH"].includes(operation.method)
+    const writesBody = ["POST", "PATCH"].includes(route.method)
     const bodySchema = properties.input ?? {
       ...schema,
       properties: Object.fromEntries(
@@ -37,7 +38,7 @@ export function agentOpenApi() {
       ),
       required: schema.required?.filter((name) => !pathNames.includes(name)),
     }
-    const status = String(operation.status ?? 200)
+    const status = String(route.status ?? 200)
     const errorResponse = {
       description:
         "The request failed. See error.code, error.message, and optional error.fields.",
@@ -48,7 +49,7 @@ export function agentOpenApi() {
       },
     }
     paths[path] ??= {}
-    paths[path]![operation.method.toLowerCase()] = {
+    paths[path]![route.method.toLowerCase()] = {
       operationId: operation.name,
       description: operation.description,
       "x-required-scope": operation.scope,
@@ -85,7 +86,7 @@ export function agentOpenApi() {
       title: "aghost Agent API",
       version: "1.0.0",
       description:
-        "Workspace-scoped access to Instagram automations, delivery activity, accounts, contacts, and inbox. Create API keys in Settings → API & MCP.",
+        "Workspace-scoped access to Instagram automations, delivery activity, accounts, contacts, and inbox. Create API keys in Settings → API.",
     },
     servers: [{ url: "/api/v1" }],
     security: [{ bearerAuth: [] }],

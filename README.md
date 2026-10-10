@@ -8,7 +8,7 @@ Comment-to-DM automation built with Next.js, Fastify, Supabase, and Zernio.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
-[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [API and MCP](#api-and-mcp) · [Testing](#testing) · [Deployment](#deployment)
+[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [API](#api) · [MCP](#mcp) · [Testing](#testing) · [Deployment](#deployment)
 
 </div>
 
@@ -48,7 +48,7 @@ flowchart LR
 - **UI in the app, rules in the package.** Business rules and provider calls live in `packages/api`. The web app renders UI and calls the API through its typed client.
 - **Tenant isolation.** Supabase row-level security scopes reads to a workspace, and the API verifies the user before privileged writes. Account webhook updates and their deduplication ledger entry commit in one transaction.
 - **No credentials in the browser.** Provider keys stay in the API. Session cookies are HttpOnly and use Secure on HTTPS origins.
-- **Agent access.** Workspace API keys authenticate `/api/v1` and `/api/mcp`. REST routes and MCP tools share operations, validation, and permissions. Key hashes are backend-only; full tokens are shown once.
+- **Agent access.** REST and MCP have separate route modules and Settings tabs. Workspace API keys authenticate both interfaces, which share business operations, validation, and permissions. Key hashes are backend-only; full tokens are shown once.
 
 ## Run locally
 
@@ -129,13 +129,17 @@ To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without i
 - For a public or tunneled setup, update `APP_URL` and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`.
 - Deployed environments inject these variables directly; no env file is needed.
 
-## API and MCP
+## API
 
-Open **Settings → API & MCP** to create a workspace API key. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; and read accounts, posts, contacts, and inbox conversations. Sending inbox messages requires a separate permission.
+Open **Settings → API** to create a workspace API key. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; and read accounts, posts, contacts, and inbox conversations. Sending inbox messages requires a separate permission.
 
-Use `<APP_URL>/api/mcp` for an HTTP MCP client or `<APP_URL>/api/v1` for REST, with `Authorization: Bearer <key>`. Keys have selectable permissions and expiry and can be revoked in Settings. `GET /api/v1/openapi.json` provides the API contract.
+Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. Keys have selectable permissions and expiry and can be revoked in Settings. `GET /api/v1/openapi.json` provides the REST API contract. See the [REST API guide](docs/api.md) for permissions, requests, and deployment requirements.
 
-See [Agent API and MCP](docs/agents.md) for setup, tool permissions, examples, and deployment requirements.
+## MCP
+
+Open **Settings → MCP** for your endpoint and client configuration. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. The key's permissions determine which tools your agent can use.
+
+MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
 
 ## Project structure
 
