@@ -4,7 +4,15 @@ import { useState } from "react"
 import { Check, Copy } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 
-export function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({
+  value,
+  label,
+  disabled = false,
+}: {
+  value: string
+  label: string
+  disabled?: boolean
+}) {
   const [copied, setCopied] = useState(false)
   const [failed, setFailed] = useState(false)
   async function copy() {
@@ -23,6 +31,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
         type="button"
         variant="secondary"
         size="sm"
+        disabled={disabled}
         onClick={() => void copy()}
       >
         {copied ? <Check /> : <Copy />}

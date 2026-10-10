@@ -1,12 +1,20 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { buttonVariants } from "@workspace/ui/components/button"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { ErrorBanner } from "@/components/interface"
+import { useAgentSkillStore } from "@/stores/agent-skill-store"
 import { CopyButton } from "./access-copy-button"
 
 export function McpAccess() {
   const [origin, setOrigin] = useState("")
   useEffect(() => setOrigin(window.location.origin), [])
+  const skill = useAgentSkillStore()
+  const { load, reset } = skill
+  useEffect(() => {
+    void load()
+    return reset
+  }, [load, reset])
 
   const config = JSON.stringify(
     {
@@ -62,18 +70,33 @@ export function McpAccess() {
         </pre>
       </div>
 
-      <div className="grid gap-2">
-        <h3 className="text-sm font-medium">Available tools</h3>
+      <div className="grid gap-3">
+        <h3 className="text-sm font-medium">Let your agent set this up</h3>
         <p className="text-sm text-muted-foreground">
-          Read workspace details, accounts, posts, automations, activity,
-          contacts, and inbox messages. Enable automation write access to
-          create, edit, pause, activate, or delete automations. Sending inbox
-          replies requires its own write permission.
+          Paste this skill into Claude Code, Codex, Cursor, or another agent. It
+          includes this app&apos;s address and guides your agent through
+          configuring the connection with your API key.
         </p>
-        <p className="text-xs text-muted-foreground">
-          Activating automations and sending messages can deliver real DMs or
-          public replies.
-        </p>
+        <ErrorBanner message={skill.error} />
+        <div className="flex flex-wrap items-start gap-2">
+          <CopyButton
+            value={skill.content}
+            label={skill.status === "loading" ? "Loading skill…" : "Copy skill"}
+            disabled={skill.status !== "ready"}
+          />
+          <a
+            href="/api/mcp/skill.md"
+            download="SKILL.md"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            Download SKILL.md
+          </a>
+          {skill.status === "error" && (
+            <Button variant="secondary" size="sm" onClick={() => void load()}>
+              Retry
+            </Button>
+          )}
+        </div>
       </div>
     </section>
   )

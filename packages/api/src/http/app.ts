@@ -186,7 +186,7 @@ export function createApp({
     async (api) => {
       api.get("/health", async () => ({ status: "ok" }))
       api.register(agentRoutes(authenticateAgent), { prefix: "/v1" })
-      api.register(mcpRoutes(authenticateAgent))
+      api.register(mcpRoutes(authenticateAgent, config.appUrl))
       api.register(async (hooks) => {
         // The signature covers the exact bytes sent, so the body stays text.
         hooks.removeAllContentTypeParsers()

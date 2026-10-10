@@ -514,6 +514,30 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     await rest(own.token, `/automations/${created.id}`, "DELETE")
   })
 
+  it("serves a public configured skill without trusting caller URLs or exposing credentials", async () => {
+    const before = fixture.requests.length
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/mcp/skill.md",
+      headers: { origin: "https://untrusted.example" },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.headers["content-type"]).toContain("text/markdown")
+    expect(response.headers["content-disposition"]).toContain(
+      'filename="SKILL.md"'
+    )
+    expect(response.headers["cache-control"]).toContain("no-store")
+    expect(response.body).toContain(`${new URL(config.appUrl).origin}/api/mcp`)
+    expect(response.body).not.toContain("{{AGHOST_APP_URL}}")
+    expect(response.body).not.toContain("https://untrusted.example")
+    expect(response.body).not.toContain(config.supabase.secretKey)
+    expect(response.body).not.toContain(ownerAccessToken)
+    expect(fixture.requests.length).toBe(before)
+    expect(
+      (await app.inject({ method: "GET", url: "/api/mcp" })).statusCode
+    ).toBe(401)
+  })
+
   it("publishes an OpenAPI contract matching REST inputs and scope requirements", async () => {
     const read = await key()
     const response = await rest(read.token, "/openapi.json")

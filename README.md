@@ -137,7 +137,7 @@ Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. Keys have selectable
 
 ## MCP
 
-Open **Settings → MCP** for your endpoint and client configuration. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. The key's permissions determine which tools your agent can use.
+Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** or **Download SKILL.md** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. The key's permissions determine which tools your agent can use.
 
 MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
 
