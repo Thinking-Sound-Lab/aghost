@@ -111,6 +111,9 @@ importers:
 
   infra:
     dependencies:
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../packages/env
       aws-cdk-lib:
         specifier: 2.273.0
         version: 2.273.0(constructs@10.8.1)
@@ -157,6 +160,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.117.3
         version: 2.117.3
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../env
       '@workspace/supabase':
         specifier: workspace:*
         version: link:../supabase
@@ -188,6 +194,28 @@ importers:
       vitest:
         specifier: 5.0.3
         version: 5.0.3(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/env:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.20.5
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^10
+        version: 10.12.0(jiti@2.7.0)(supports-color@7.2.0)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
   packages/eslint-config:
     devDependencies:

@@ -134,9 +134,10 @@ To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without i
 .
 ├── apps
 │   ├── web/             Next.js pages, UI features, and Zustand stores
-│   └── server/          Fastify entry point and Dockerfile
+│   └── server/          Fastify entry point and Dockerfiles
 ├── packages
 │   ├── api/             Contracts, client, services, routes, Supabase and Zernio adapters
+│   ├── env/             Validation of environment variables
 │   ├── supabase/        Database clients and generated types
 │   └── ui/              Shared shadcn components
 ├── infra/               AWS CDK app for the API
@@ -154,7 +155,7 @@ pnpm verify        # types, lint, tests, and production builds
 pnpm verify:local  # end-to-end checks against the running app
 ```
 
-`pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
+`pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. CI uses `pnpm setup:test` instead, which starts only what the tests need. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
 
 With the app running, `pnpm verify:local` checks pages, HttpOnly authentication through the Next.js proxy, workspace persistence, sign-out, and password-recovery emails and PKCE callbacks. It removes its disposable user and emails afterwards. Browser interaction and visual review are separate checks.
 
@@ -169,15 +170,15 @@ flowchart LR
   main(["Push to main"]) --> gate["CI"] --> migrate["Supabase<br/>migrations"] --> api["API<br/>AWS ECS"] --> web["Web<br/>Vercel"]
 ```
 
-| Workflow         | Trigger                     | Steps                                       |
-| ---------------- | --------------------------- | ------------------------------------------- |
-| `ci.yml`         | Pull requests, releases     | Format, lint, types, tests, builds          |
-| `preview.yml`    | Pull requests               | Web app → Vercel preview                    |
-| `deploy.yml`     | Push to `main`, manual run  | CI → API → web app                          |
-| `deploy-api.yml` | `deploy.yml`                | Supabase migrations → `cdk deploy`          |
-| `deploy-web.yml` | `deploy.yml`, `preview.yml` | `vercel build` → `vercel deploy --prebuilt` |
+| Workflow or action   | Runs on                    | Steps                                            |
+| -------------------- | -------------------------- | ------------------------------------------------ |
+| `ci.yml`             | Pull requests, releases    | Format, lint, types, tests, builds               |
+| `preview.yml`        | Pull requests              | Web app → Vercel preview                         |
+| `deploy.yml`         | Push to `main`, manual run | CI → one Release job: migrations → API → web app |
+| `actions/setup`      | Every job                  | pnpm, Node.js 22, and dependencies               |
+| `actions/deploy-web` | Release and preview        | `vercel build` → `vercel deploy --prebuilt`      |
 
-Every push to `main` releases both apps, the API first so the web app never calls an API that is behind it. An unchanged API deploys as a no-op: the CDK skips images already in ECR, and CloudFormation finds no changes.
+Every push to `main` releases both apps in one job, so a release needs one approval and its steps run in order: the schema, then the API that uses it, then the web app that calls it. Only `main` can release; other branches are refused by the workflow and by the `production` environment. An unchanged API deploys as a no-op: its image is built from the server's packages only, so the CDK finds it already in ECR and CloudFormation finds no changes.
 
 ### Web on Vercel
 
@@ -187,8 +188,9 @@ The marketing site and dashboard are one Next.js app. GitHub Actions builds it w
 
 [`infra/`](infra/) defines the API with the AWS CDK:
 
-- **Compute.** Fargate tasks on Graviton, from two to four, scaling on CPU, behind an HTTPS load balancer with a Route 53 record and an ACM certificate.
+- **Compute.** x86_64 Fargate tasks, from two to four as CPU demands, behind an HTTPS load balancer with a Route 53 record and an ACM certificate. Autoscaling owns the task count, so a deployment never resets it.
 - **Network.** The account's default VPC. Tasks get public addresses for their outbound calls to Supabase, Zernio, and ECR; their security group admits traffic only from the load balancer.
+- **Image.** Built from `turbo prune server --docker` output: the server's workspace packages and their dependencies, nothing else.
 - **Secrets.** Supabase and Zernio credentials come from Secrets Manager at task start.
 - **Releases.** New tasks must pass `/api/health` before old ones stop, and the circuit breaker rolls back a release that never becomes healthy. Logs are kept for 30 days.
 - **Access.** GitHub Actions signs in through OIDC, without stored AWS keys. Its role can only use the roles that `cdk bootstrap` created.
@@ -197,6 +199,7 @@ The marketing site and dashboard are one Next.js app. GitHub Actions builds it w
 infra
 ├── bin/app.ts                         Reads the stage's settings and creates the stacks
 ├── lib/config.ts                      Validates the settings and names any missing variable
+├── lib/build-context.ts               Prunes the repository to the server for the image
 ├── lib/stacks/api-stack.ts            Default VPC, image, DNS zone, and credentials of a stage
 ├── lib/constructs/api-service.ts      Fargate service, load balancer, health checks, scaling
 ├── lib/stacks/github-deploy-stack.ts  The role GitHub Actions deploys with
@@ -235,7 +238,7 @@ The last command prints `DeployRoleArn` for step 3.
 
 **2. Vercel.** Create a project with the root directory `apps/web`, add `API_URL=https://<API_DOMAIN_NAME>` to its Production and Preview environments, and create an access token. Running `vercel link` writes the org and project IDs to `.vercel/project.json`.
 
-**3. GitHub.** Under **Settings → Environments**, create `production` and add:
+**3. GitHub.** Under **Settings → Environments**, create `production`, limit its deployment branches to `main`, and add:
 
 | Name                  | Type     | Value                                            |
 | --------------------- | -------- | ------------------------------------------------ |

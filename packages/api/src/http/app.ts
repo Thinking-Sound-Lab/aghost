@@ -1,5 +1,10 @@
 import cookie from "@fastify/cookie"
-import Fastify, { LogController } from "fastify"
+import Fastify, {
+  LogController,
+  type FastifyError,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify"
 import { z } from "zod"
 import type { ApiConfig } from "../config"
 import {
@@ -11,7 +16,8 @@ import {
 import { contactPageQuerySchema } from "../contract/contact"
 import { sendMessageSchema } from "../contract/inbox"
 import { renameWorkspaceSchema } from "../contract/workspace"
-import { createSessionClient } from "../infrastructure/supabase/session-client"
+import type { ApiErrorBody } from "../contract/errors"
+import { createSessionClientFactory } from "../infrastructure/supabase/session-client"
 import type { WebhookService } from "../modules/webhooks/webhook.service"
 import {
   AppError,
@@ -26,7 +32,7 @@ import {
   presentAutomation,
   presentWorkspace,
 } from "./presenters"
-import { readJson, validate } from "./validation"
+import { validate } from "./validation"
 
 const statusByCode = {
   unauthenticated: 401,
@@ -44,18 +50,72 @@ const statusByCode = {
 
 const WEBHOOK_PATH = "/api/webhooks/zernio"
 
+const INTERNAL_ERROR_MESSAGE = "The request could not be completed. Try again."
+
+const rejectionMessages: Record<string, string> = {
+  FST_ERR_CTP_EMPTY_JSON_BODY: "Send a valid JSON body.",
+  FST_ERR_CTP_INVALID_JSON_BODY: "Send a valid JSON body.",
+  FST_ERR_CTP_BODY_TOO_LARGE: "The request body is too large.",
+  FST_ERR_BAD_URL: "This address is not valid.",
+}
+
 type IdParams = { Params: { id: string } }
 type ThreadParams = { Params: { accountId: string; conversationId: string } }
 
-/** Fastify rejects some requests itself, such as a body over its size limit. */
-function isRequestError(error: unknown) {
+function errorBody(
+  code: ApiErrorBody["error"]["code"],
+  message: string,
+  fields?: Record<string, string>
+): ApiErrorBody {
+  return { error: { code, message, ...(fields && { fields }) } }
+}
+
+/** Fastify refused the request itself, for example its URL or body. */
+function isRejection(error: FastifyError): error is FastifyError & {
+  statusCode: number
+} {
   return (
-    error instanceof Error &&
-    "statusCode" in error &&
-    typeof error.statusCode === "number" &&
+    error.code?.startsWith("FST_ERR_") === true &&
+    error.statusCode !== undefined &&
     error.statusCode >= 400 &&
     error.statusCode < 500
   )
+}
+
+function sendError(
+  error: FastifyError,
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  if (error instanceof AppError) {
+    if (error.code === "internal_error") request.log.error(error)
+    return reply
+      .code(statusByCode[error.code])
+      .send(
+        errorBody(
+          error.code,
+          error.code === "internal_error"
+            ? INTERNAL_ERROR_MESSAGE
+            : error.message,
+          error.fields
+        )
+      )
+  }
+  if (isRejection(error)) {
+    request.log.warn(error)
+    return reply
+      .code(error.statusCode)
+      .send(
+        errorBody(
+          "bad_request",
+          rejectionMessages[error.code] ?? "The request could not be read."
+        )
+      )
+  }
+  request.log.error(error)
+  return reply
+    .code(500)
+    .send(errorBody("internal_error", INTERNAL_ERROR_MESSAGE))
 }
 
 export function createApp({
@@ -67,6 +127,8 @@ export function createApp({
   webhooks: WebhookService
   config: ApiConfig
 }) {
+  const appOrigin = new URL(config.appUrl).origin
+  const createSessionClient = createSessionClientFactory(config)
   const app = Fastify({
     logger: true,
     // Each delivery and its status code, including rejected signatures.
@@ -74,49 +136,17 @@ export function createApp({
       disableRequestLogging: (request) =>
         request.routeOptions.url !== WEBHOOK_PATH,
     }),
+    // Zernio's conversation ids are opaque and can exceed the default of 100.
+    routerOptions: { maxParamLength: 1000 },
+    // Malformed URLs and oversized parameters, rejected before routing.
+    frameworkErrors: sendError,
   })
   app.register(cookie)
-  // Bodies stay text: routes parse JSON themselves, and a webhook signature
-  // covers the exact bytes that were sent.
-  app.removeAllContentTypeParsers()
-  app.addContentTypeParser("*", { parseAs: "string" }, (_request, body, done) =>
-    done(null, body)
-  )
   app.decorateRequest("session")
   app.decorateRequest("identity")
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof AppError) {
-      if (error.code === "internal_error") request.log.error(error)
-      return reply.code(statusByCode[error.code]).send({
-        error: {
-          code: error.code,
-          message:
-            error.code === "internal_error"
-              ? "The request could not be completed. Try again."
-              : error.message,
-          ...(error.fields && { fields: error.fields }),
-        },
-      })
-    }
-    if (isRequestError(error))
-      return reply.code(400).send({
-        error: {
-          code: "bad_request",
-          message: "The request could not be read.",
-        },
-      })
-    request.log.error(error)
-    return reply.code(500).send({
-      error: {
-        code: "internal_error",
-        message: "The request could not be completed. Try again.",
-      },
-    })
-  })
+  app.setErrorHandler(sendError)
   app.setNotFoundHandler((_request, reply) =>
-    reply.code(404).send({
-      error: { code: "not_found", message: "This endpoint was not found." },
-    })
+    reply.code(404).send(errorBody("not_found", "This endpoint was not found."))
   )
   app.addHook("onRequest", async (request, reply) => {
     reply.header("Cache-Control", "private, no-store")
@@ -126,7 +156,7 @@ export function createApp({
       !["GET", "HEAD", "OPTIONS"].includes(method) &&
       request.routeOptions.url !== WEBHOOK_PATH
     ) {
-      if (request.headers.origin !== new URL(config.appUrl).origin)
+      if (request.headers.origin !== appOrigin)
         throw new BadRequestError("Request origin is not allowed.")
       if (
         method !== "DELETE" &&
@@ -140,24 +170,33 @@ export function createApp({
   app.register(
     async (api) => {
       api.get("/health", async () => ({ status: "ok" }))
-      api.post<{ Headers: { "x-zernio-signature"?: string } }>(
-        "/webhooks/zernio",
-        async (request) => {
-          if (!config.zernio.webhookSecret)
-            throw new IntegrationNotConfiguredError()
-          // A delivery without a body is signed over the empty string.
-          const rawBody = typeof request.body === "string" ? request.body : ""
-          const receipt = await webhooks.receive(
-            rawBody,
-            request.headers["x-zernio-signature"]
-          )
-          return { receipt }
-        }
-      )
+      api.register(async (hooks) => {
+        // The signature covers the exact bytes sent, so the body stays text.
+        hooks.removeAllContentTypeParsers()
+        hooks.addContentTypeParser(
+          "*",
+          { parseAs: "string" },
+          (_request, body, done) => done(null, body)
+        )
+        hooks.post<{ Headers: { "x-zernio-signature"?: string } }>(
+          "/webhooks/zernio",
+          async (request) => {
+            if (!config.zernio.webhookSecret)
+              throw new IntegrationNotConfiguredError()
+            // A delivery without a body is signed over the empty string.
+            const rawBody = typeof request.body === "string" ? request.body : ""
+            const receipt = await webhooks.receive(
+              rawBody,
+              request.headers["x-zernio-signature"]
+            )
+            return { receipt }
+          }
+        )
+      })
       api.register(
         async (auth) => {
           auth.addHook("onRequest", async (request, reply) => {
-            request.session = createSessionClient(request, reply, config)
+            request.session = createSessionClient(request, reply)
           })
           auth.register(authRoutes(config))
         },
@@ -165,7 +204,7 @@ export function createApp({
       )
       api.register(async (routes) => {
         routes.addHook("onRequest", async (request, reply) => {
-          const session = createSessionClient(request, reply, config)
+          const session = createSessionClient(request, reply)
           const { data, error } = await session.auth.getUser()
           if (error || !data.user) throw new UnauthenticatedError()
           const { data: tokens } = await session.auth.getSession()
@@ -178,7 +217,7 @@ export function createApp({
         )
         routes.patch("/workspace", async (request) => {
           const { services, workspace } = request.identity
-          const input = validate(renameWorkspaceSchema, readJson(request.body))
+          const input = validate(renameWorkspaceSchema, request.body)
           return presentWorkspace(
             await services.workspaces.rename(workspace, input.name)
           )
@@ -227,7 +266,7 @@ export function createApp({
         })
         routes.post("/automations", async (request, reply) => {
           const { services, workspace } = request.identity
-          const input = validate(createAutomationSchema, readJson(request.body))
+          const input = validate(createAutomationSchema, request.body)
           return reply
             .code(201)
             .send(
@@ -247,7 +286,7 @@ export function createApp({
         })
         routes.patch<IdParams>("/automations/:id", async (request) => {
           const { services, workspace } = request.identity
-          const input = validate(updateAutomationSchema, readJson(request.body))
+          const input = validate(updateAutomationSchema, request.body)
           return presentAutomation(
             await services.automations.update(
               workspace,
@@ -258,10 +297,7 @@ export function createApp({
         })
         routes.patch<IdParams>("/automations/:id/status", async (request) => {
           const { services, workspace } = request.identity
-          const { status } = validate(
-            setAutomationStatusSchema,
-            readJson(request.body)
-          )
+          const { status } = validate(setAutomationStatusSchema, request.body)
           return presentAutomation(
             await services.automations.setStatus(
               workspace,
@@ -306,7 +342,7 @@ export function createApp({
           "/inbox/:accountId/:conversationId",
           async (request, reply) => {
             const { services, workspace } = request.identity
-            const { text } = validate(sendMessageSchema, readJson(request.body))
+            const { text } = validate(sendMessageSchema, request.body)
             await services.inbox.sendMessage(
               workspace,
               validate(z.uuid(), request.params.accountId),

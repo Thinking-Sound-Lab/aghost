@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs"
+import { join, sep } from "node:path"
 import { App } from "aws-cdk-lib"
 import { Match, Template } from "aws-cdk-lib/assertions"
 import { describe, expect, it } from "vitest"
@@ -5,12 +7,24 @@ import { SECRET_KEYS } from "../lib/constructs/api-service"
 import { ApiStack } from "../lib/stacks/api-stack"
 import { config, lookups } from "./fixture"
 
-const template = Template.fromStack(
-  new ApiStack(new App({ context: lookups }), "Api", {
-    env: config.env,
-    api: config.api,
-  })
-)
+const app = new App({ context: lookups })
+const stack = new ApiStack(app, "Api", { env: config.env, api: config.api })
+const template = Template.fromStack(stack)
+
+/** The Docker build context the CDK staged for the API's image. */
+function imageContext() {
+  const assembly = app.synth()
+  const manifest = JSON.parse(
+    readFileSync(
+      join(assembly.directory, `${stack.artifactId}.assets.json`),
+      "utf8"
+    )
+  )
+  const [image] = Object.values<{ source: { directory: string } }>(
+    manifest.dockerImages
+  )
+  return join(assembly.directory, image!.source.directory)
+}
 
 function container() {
   const [definition] = Object.values(
@@ -20,17 +34,18 @@ function container() {
 }
 
 describe("API stack", () => {
-  it("runs the API on Graviton Fargate tasks in the default VPC", () => {
+  it("runs the API on x86_64 Fargate tasks in the default VPC", () => {
     template.hasResourceProperties("AWS::ECS::TaskDefinition", {
       RequiresCompatibilities: ["FARGATE"],
       RuntimePlatform: {
-        CpuArchitecture: "ARM64",
+        CpuArchitecture: "X86_64",
         OperatingSystemFamily: "LINUX",
       },
     })
     template.hasResourceProperties("AWS::ECS::Service", {
       LaunchType: "FARGATE",
-      DesiredCount: 2,
+      // Autoscaling owns the count; a deployment must not reset it.
+      DesiredCount: Match.absent(),
       NetworkConfiguration: {
         AwsvpcConfiguration: Match.objectLike({
           AssignPublicIp: "ENABLED",
@@ -81,7 +96,6 @@ describe("API stack", () => {
       "API_HOST",
       "API_PORT",
       "APP_URL",
-      "NODE_ENV",
       "SUPABASE_URL",
       "ZERNIO_API_URL",
     ])
@@ -137,6 +151,18 @@ describe("API stack", () => {
     template.hasResourceProperties(
       "AWS::ApplicationAutoScaling::ScalableTarget",
       { MinCapacity: 2, MaxCapacity: 4 }
+    )
+  })
+
+  it("builds the image from the server's workspace packages only", () => {
+    const context = imageContext()
+    const files = readdirSync(context, { recursive: true }).map(String)
+    expect(files).toContain(join("full", "apps", "server", "src", "index.ts"))
+    // A web-only change cannot alter the image or redeploy the service.
+    expect(files.filter((file) => file.split(sep).includes("web"))).toEqual([])
+    // Neither the web app's importer nor Next.js is in the pruned lockfile.
+    expect(readFileSync(join(context, "pnpm-lock.yaml"), "utf8")).not.toMatch(
+      /^ {2}(apps\/web:|next@)/m
     )
   })
 

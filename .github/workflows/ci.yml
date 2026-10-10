@@ -29,9 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      # Integration tests run against Supabase in Docker, as they do locally.
-      - name: Start Supabase and the API
-        run: pnpm setup:local
+      # The tests run the API in-process against Supabase in Docker.
+      - name: Start Supabase
+        run: pnpm setup:test
       - run: pnpm test
 
   build:
@@ -44,5 +44,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: pnpm build
-      - name: Build the API's production image
-        run: docker build --target production --file apps/server/Dockerfile .
+      # The same pruned context the CDK deploys from.
+      - name: Build the API's image
+        run: |
+          pnpm exec turbo prune server --docker --out-dir "$RUNNER_TEMP/api"
+          docker build "$RUNNER_TEMP/api" --file "$RUNNER_TEMP/api/full/apps/server/Dockerfile"

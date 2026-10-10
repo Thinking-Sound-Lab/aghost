@@ -1,6 +1,6 @@
-# The API image is the only one built from this repository. Its build context
-# is an allowlist, so a change outside these paths does not rebuild or redeploy
-# the API.
+# Build context of the local API image (apps/server/Dockerfile.dev). It is an
+# allowlist: only what that image needs. The deployed image is built from
+# turbo prune output instead; see apps/server/Dockerfile.
 *
 
 !package.json
@@ -16,6 +16,7 @@
 
 !apps/server
 !packages/api
+!packages/env
 !packages/supabase
 !packages/typescript-config
 

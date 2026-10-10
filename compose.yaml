@@ -4,8 +4,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: apps/server/Dockerfile
-      target: development
+      dockerfile: apps/server/Dockerfile.dev
     init: true
     command: ["pnpm", "--filter", "server", "dev"]
     environment:

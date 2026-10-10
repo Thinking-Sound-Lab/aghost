@@ -1,3 +1,4 @@
+import { parseEnvironment } from "@workspace/env"
 import { z } from "zod"
 
 /** The repository whose GitHub Actions workflows may deploy. */
@@ -52,19 +53,7 @@ export type StageConfig = {
 export function loadStageConfig(
   environment: Record<string, string | undefined>
 ): StageConfig {
-  const result = environmentSchema.safeParse(environment)
-
-  if (!result.success) {
-    const problems = result.error.issues
-      .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)
-      .join("\n")
-
-    throw new Error(
-      `The deployment is not configured correctly. Check these environment variables:\n${problems}`
-    )
-  }
-
-  const env = result.data
+  const env = parseEnvironment(environmentSchema, environment, "The deployment")
 
   return {
     stage: env.STAGE,

@@ -17,8 +17,18 @@ jobs:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.actor != 'dependabot[bot]'
-    uses: ./.github/workflows/deploy-web.yml
-    with:
-      environment: preview
-    secrets:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: ${{ steps.web.outputs.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Deploy the web app to a Vercel preview
+        id: web
+        uses: ./.github/actions/deploy-web
+        with:
+          target: preview
+          org-id: ${{ vars.VERCEL_ORG_ID }}
+          project-id: ${{ vars.VERCEL_PROJECT_ID }}
+          token: ${{ secrets.VERCEL_TOKEN }}

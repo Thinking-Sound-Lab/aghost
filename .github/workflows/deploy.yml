@@ -18,22 +18,52 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
-  api:
-    name: API
+  # One job, so a release needs one approval and its steps run in order:
+  # the schema first, then the API that uses it, then the web app that calls it.
+  release:
+    name: Release
     needs: ci
-    uses: ./.github/workflows/deploy-api.yml
-    with:
-      environment: production
+    # The production environment also accepts deployments from main only.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.web.outputs.url }}
     permissions:
       contents: read
       id-token: write
+    env:
+      STAGE: production
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      APP_URL: ${{ vars.APP_URL }}
+      API_DOMAIN_NAME: ${{ vars.API_DOMAIN_NAME }}
+      HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+      HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
 
-  # The web app ships after the API it calls.
-  web:
-    name: Web
-    needs: api
-    uses: ./.github/workflows/deploy-web.yml
-    with:
-      environment: production
-    secrets:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Apply Supabase migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: pnpm exec supabase db push --db-url "$SUPABASE_DB_URL"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # An unchanged image and stack make this a no-op.
+      - name: Deploy the API to ECS
+        run: pnpm --filter infra exec cdk deploy "Aghost-$STAGE-Api" --require-approval never
+
+      - name: Deploy the web app to Vercel
+        id: web
+        uses: ./.github/actions/deploy-web
+        with:
+          target: production
+          org-id: ${{ vars.VERCEL_ORG_ID }}
+          project-id: ${{ vars.VERCEL_PROJECT_ID }}
+          token: ${{ secrets.VERCEL_TOKEN }}

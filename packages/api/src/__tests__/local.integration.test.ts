@@ -48,7 +48,8 @@ class ApiSession {
       url: `/api${path}`,
       headers: {
         origin: new URL(config.appUrl).origin,
-        "Content-Type": "application/json",
+        // Like the web client, a request names a JSON type only with a body.
+        ...(body !== undefined && { "Content-Type": "application/json" }),
         cookie: [...this.cookies]
           .map(([name, value]) => `${name}=${value}`)
           .join("; "),
@@ -491,6 +492,11 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     ).toBe(404)
     expect(fixture.requests.length).toBe(requestsBefore)
     const foreignThread = `/inbox/${account.id}/${fixture.foreignConversationId}`
+    // Zernio's ids are opaque; a long one still reaches the ownership check.
+    expect(
+      (await owner.request(`/inbox/${account.id}/${"c".repeat(150)}`))
+        .statusCode
+    ).toBe(404)
     expect((await owner.request(foreignThread)).statusCode).toBe(404)
     expect(
       (await owner.request(foreignThread, "POST", { text: "Hi" })).statusCode

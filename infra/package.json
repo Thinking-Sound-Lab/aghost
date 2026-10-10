@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@workspace/env": "workspace:*",
     "aws-cdk-lib": "2.273.0",
     "constructs": "10.8.1",
     "zod": "4.6.5"

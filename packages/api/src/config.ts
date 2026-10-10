@@ -1,3 +1,4 @@
+import { parseEnvironment } from "@workspace/env"
 import { z } from "zod"
 
 const environmentSchema = z.object({
@@ -33,19 +34,7 @@ export type ApiConfig = {
 export function loadApiConfig(
   environment: Record<string, string | undefined>
 ): ApiConfig {
-  const result = environmentSchema.safeParse(environment)
-
-  if (!result.success) {
-    const problems = result.error.issues
-      .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)
-      .join("\n")
-
-    throw new Error(
-      `The API is not configured correctly. Check these environment variables:\n${problems}`
-    )
-  }
-
-  const env = result.data
+  const env = parseEnvironment(environmentSchema, environment, "The API")
 
   return {
     appUrl: env.APP_URL,

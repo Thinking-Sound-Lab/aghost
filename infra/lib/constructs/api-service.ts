@@ -34,6 +34,9 @@ export type ApiServiceProps = Pick<
  * The Fastify API as a Fargate service behind an HTTPS load balancer. Tasks
  * run in public subnets with public addresses for their outbound calls; their
  * security group admits traffic only from the load balancer.
+ *
+ * Tasks run on x86_64, which Fargate supports in every Availability Zone of
+ * regions such as us-east-1, where ARM64 is unavailable in one of them.
  */
 export class ApiService extends Construct {
   readonly service: ecsPatterns.ApplicationLoadBalancedFargateService
@@ -54,10 +57,9 @@ export class ApiService extends Construct {
         cpu: props.capacity.cpu,
         memoryLimitMiB: props.capacity.memoryMiB,
         runtimePlatform: {
-          cpuArchitecture: ecs.CpuArchitecture.ARM64,
+          cpuArchitecture: ecs.CpuArchitecture.X86_64,
           operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
         },
-        desiredCount: props.capacity.minTasks,
         taskSubnets: { subnetType: ec2.SubnetType.PUBLIC },
         assignPublicIp: true,
         taskImageOptions: {
@@ -65,7 +67,6 @@ export class ApiService extends Construct {
           containerName: "api",
           containerPort: PORT,
           environment: {
-            NODE_ENV: "production",
             API_HOST: "0.0.0.0",
             API_PORT: String(PORT),
             APP_URL: props.appUrl,
@@ -111,6 +112,7 @@ export class ApiService extends Construct {
     )
 
     this.service.service
+      // Autoscaling owns the task count, so deployments never reset it.
       .autoScaleTaskCount({
         minCapacity: props.capacity.minTasks,
         maxCapacity: props.capacity.maxTasks,

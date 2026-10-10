@@ -7,7 +7,7 @@ import {
 } from "../contract/auth"
 import { BadRequestError, UnauthenticatedError } from "../shared/errors"
 import { presentUser } from "./presenters"
-import { readJson, validate } from "./validation"
+import { validate } from "./validation"
 
 export function authRoutes(config: ApiConfig): FastifyPluginAsync {
   return async (router) => {
@@ -17,7 +17,7 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       return { user: presentUser(data.user) }
     })
     router.post("/sign-in", async (request) => {
-      const input = validate(credentialsSchema, readJson(request.body))
+      const input = validate(credentialsSchema, request.body)
       const { data, error } =
         await request.session.auth.signInWithPassword(input)
       if (error)
@@ -27,7 +27,7 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       return { user: presentUser(data.user) }
     })
     router.post("/sign-up", async (request, reply) => {
-      const input = validate(credentialsSchema, readJson(request.body))
+      const input = validate(credentialsSchema, request.body)
       const { data, error } = await request.session.auth.signUp({
         ...input,
         options: {
@@ -49,7 +49,7 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       return reply.code(204).send()
     })
     router.post("/password-reset", async (request, reply) => {
-      const { email } = validate(emailSchema, readJson(request.body))
+      const { email } = validate(emailSchema, request.body)
       const { error } = await request.session.auth.resetPasswordForEmail(
         email,
         {
@@ -66,7 +66,7 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
     router.post("/password", async (request, reply) => {
       const { data } = await request.session.auth.getUser()
       if (!data.user) throw new UnauthenticatedError()
-      const input = validate(passwordSchema, readJson(request.body))
+      const input = validate(passwordSchema, request.body)
       const { error } = await request.session.auth.updateUser(input)
       if (error) throw new BadRequestError(error.message)
       return reply.code(204).send()
