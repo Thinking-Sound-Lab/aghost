@@ -182,7 +182,7 @@ Every push to `main` releases both apps in one job, so a release needs one appro
 
 ### Web on Vercel
 
-The marketing site and dashboard are one Next.js app. GitHub Actions builds it with `vercel build` and uploads the result with `vercel deploy --prebuilt`, so every release passes CI first. [`apps/web/vercel.json`](apps/web/vercel.json) turns off Vercel's own Git deployments.
+The marketing site and dashboard are one Next.js app. GitHub Actions builds it with `vercel build` and uploads the result with `vercel deploy --prebuilt`, so every release passes CI first. [`apps/web/vercel.json`](apps/web/vercel.json) turns off Vercel's own Git deployments. The Vercel CLI does not read `.gitignore`, so [`.vercelignore`](.vercelignore) keeps local env files out of a deploy made from a developer's machine.
 
 ### API on AWS
 
@@ -233,7 +233,7 @@ pnpm --filter infra exec cdk deploy --all
 The deployment prints `DeployRoleArn` for step 3 and `ApiUrl`, the API's address, for step 2.
 
 > [!NOTE]
-> Skip `cdk bootstrap` and `create-open-id-connect-provider` if the account already has them; the stacks use what exists. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`.
+> Skip `cdk bootstrap` and `create-open-id-connect-provider` if the account already has them; the stacks use what exists. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`. `supabase projects api-keys --reveal` prints the Supabase keys; without `--reveal`, the secret key is masked and will not work.
 
 **2. Vercel.** Create a project with the root directory `apps/web`, add `API_URL=<ApiUrl>` to its Production and Preview environments, and create an access token. Running `vercel link` writes the org and project IDs to `.vercel/project.json`. `APP_URL` is the address Vercel serves the project at.
 
