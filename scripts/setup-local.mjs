@@ -4,11 +4,18 @@ import { ensureRootEnv, fillRootEnv } from "./local-env.mjs"
 import { run } from "./local-command.mjs"
 import { compose } from "./local-compose.mjs"
 
-export async function setupLocal() {
+/**
+ * Starts Supabase, applies pending migrations, and fills its keys into the
+ * root .env. Returns the configured values.
+ *
+ * @param exclude Supabase containers not to start.
+ */
+export async function startSupabase(exclude = []) {
   const env = ensureRootEnv()
   console.log("Starting this project's Supabase Docker containers...")
+  const options = exclude.length ? ["--exclude", exclude.join(",")] : []
   // Supabase start/status report credentials on stdout. Keep that output private.
-  await run("pnpm", ["exec", "supabase", "start"], { quiet: true })
+  await run("pnpm", ["exec", "supabase", "start", ...options], { quiet: true })
   await run("pnpm", ["exec", "supabase", "migration", "up", "--local"])
   const status = JSON.parse(
     await run("pnpm", ["exec", "supabase", "status", "--output", "json"], {
@@ -21,10 +28,14 @@ export async function setupLocal() {
     throw new Error(
       "SUPABASE_URL in the root .env must match this project's local Supabase API address."
     )
-  const configured = fillRootEnv({
+  return fillRootEnv({
     SUPABASE_PUBLISHABLE_KEY: status.ANON_KEY,
     SUPABASE_SECRET_KEY: status.SERVICE_ROLE_KEY,
   })
+}
+
+export async function setupLocal() {
+  const configured = await startSupabase()
   console.log("Starting the API Docker container...")
   await compose(
     ["up", "--detach", "--build", "--wait", "--wait-timeout", "120"],

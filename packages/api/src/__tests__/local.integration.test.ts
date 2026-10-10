@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { parseEnv } from "node:util"
+import type { InjectOptions, LightMyRequestResponse } from "fastify"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { createClient } from "@supabase/supabase-js"
 import {
@@ -29,28 +30,34 @@ const password = `Fixture-${randomUUID()}`
 const eventIds: string[] = []
 const userIds: string[] = []
 
+/** The Set-Cookie headers of a response, as they were sent. */
+const setCookies = (response: LightMyRequestResponse) =>
+  [response.headers["set-cookie"] ?? []].flat().map(String)
+
 class ApiSession {
   readonly cookies = new Map<string, string>()
   constructor(private readonly app: ApiApp) {}
   async request(
     path: string,
-    method = "GET",
+    method: InjectOptions["method"] = "GET",
     body?: unknown,
     extraHeaders?: Record<string, string>
   ) {
-    const response = await this.app.request(`/api${path}`, {
+    const response = await this.app.inject({
       method,
+      url: `/api${path}`,
       headers: {
         origin: new URL(config.appUrl).origin,
-        "Content-Type": "application/json",
+        // Like the web client, a request names a JSON type only with a body.
+        ...(body !== undefined && { "Content-Type": "application/json" }),
         cookie: [...this.cookies]
           .map(([name, value]) => `${name}=${value}`)
           .join("; "),
         ...extraHeaders,
       },
-      ...(body !== undefined && { body: JSON.stringify(body) }),
+      ...(body !== undefined && { payload: JSON.stringify(body) }),
     })
-    for (const cookie of response.headers.getSetCookie()) {
+    for (const cookie of setCookies(response)) {
       const [pair] = cookie.split(";")
       const index = pair!.indexOf("=")
       const name = pair!.slice(0, index)
@@ -93,14 +100,15 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       "POST",
       automationInput()
     )
-    expect(response.status).toBe(201)
+    expect(response.statusCode).toBe(201)
     return (await response.json()) as Automation
   }
 
   async function deliver(payload: Record<string, unknown>, signature?: string) {
     const body = JSON.stringify(payload)
-    return app.request("/api/webhooks/zernio", {
+    return app.inject({
       method: "POST",
+      url: "/api/webhooks/zernio",
       headers: {
         "x-zernio-signature":
           signature ??
@@ -108,7 +116,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
             .update(body)
             .digest("hex"),
       },
-      body,
+      payload: body,
     })
   }
 
@@ -144,15 +152,15 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         email,
         password,
       })
-      expect(signedIn.status).toBe(200)
+      expect(signedIn.statusCode).toBe(200)
       if (index === 0) ownerEmail = email
       const workspace = await (await session.request("/workspace")).json()
       if (index === 0) workspaceId = workspace.id
       else otherWorkspaceId = workspace.id
     }
-    expect((await owner.request("/accounts/connect", "POST", {})).status).toBe(
-      200
-    )
+    expect(
+      (await owner.request("/accounts/connect", "POST", {})).statusCode
+    ).toBe(200)
     const workspace = await admin
       .from("workspaces")
       .select("zernio_profile_id")
@@ -162,7 +170,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       throw new Error("Fixture profile was not persisted")
     profileId = workspace.data.zernio_profile_id
     const synced = await owner.request("/accounts/sync", "POST", {})
-    expect(synced.status).toBe(200)
+    expect(synced.statusCode).toBe(200)
     account = (await synced.json())[0]
   })
 
@@ -189,7 +197,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       email: ownerEmail,
       password,
     })
-    const cookies = signedIn.headers.getSetCookie()
+    const cookies = setCookies(signedIn)
     expect(cookies.length).toBeGreaterThan(0)
     expect(
       cookies.every(
@@ -199,8 +207,10 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(await signedIn.json()).toEqual({
       user: { id: userIds[0], email: ownerEmail },
     })
-    expect(signedIn.headers.get("Cache-Control")).toContain("no-store")
-    expect((await new ApiSession(app).request("/workspace")).status).toBe(401)
+    expect(signedIn.headers["cache-control"]).toContain("no-store")
+    expect((await new ApiSession(app).request("/workspace")).statusCode).toBe(
+      401
+    )
     expect(
       (
         await owner.request(
@@ -209,7 +219,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
           { name: "Changed" },
           { origin: "https://foreign.example" }
         )
-      ).status
+      ).statusCode
     ).toBe(400)
     expect(
       (
@@ -219,7 +229,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
           { name: "Changed" },
           { "Content-Type": "text/plain" }
         )
-      ).status
+      ).statusCode
     ).toBe(400)
   })
 
@@ -237,9 +247,9 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       status: "connected",
     })
     expect(account).not.toHaveProperty("providerAccountId")
-    expect((await other.request(`/accounts/${account.id}/posts`)).status).toBe(
-      404
-    )
+    expect(
+      (await other.request(`/accounts/${account.id}/posts`)).statusCode
+    ).toBe(404)
     expect(await (await other.request("/accounts")).json()).toEqual([])
   })
 
@@ -268,13 +278,15 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         },
       ],
     })
-    expect((await other.request(`/automations/${created.id}`)).status).toBe(404)
+    expect((await other.request(`/automations/${created.id}`)).statusCode).toBe(
+      404
+    )
     expect(
       (
         await other.request(`/automations/${created.id}/status`, "PATCH", {
           status: "paused",
         })
-      ).status
+      ).statusCode
     ).toBe(404)
     const stats = await (await owner.request("/automations/stats")).json()
     expect(stats[created.id]).toMatchObject({
@@ -298,7 +310,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         await owner.request(
           `/automations/${created.id}/activity?limit=51&offset=-1`
         )
-      ).status
+      ).statusCode
     ).toBe(422)
     const updated = await owner.request(`/automations/${created.id}`, "PATCH", {
       ...automationInput(),
@@ -308,7 +320,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       requireFollow: false,
       status: "paused",
     })
-    expect(updated.status).toBe(200)
+    expect(updated.statusCode).toBe(200)
     expect(await updated.json()).toMatchObject({
       status: "paused",
       trigger: { postScope: "any_post" },
@@ -327,12 +339,14 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         await owner.request(`/automations/${created.id}/status`, "PATCH", {
           status: "active",
         })
-      ).status
+      ).statusCode
     ).toBe(200)
     expect(
-      (await owner.request(`/automations/${created.id}`, "DELETE")).status
+      (await owner.request(`/automations/${created.id}`, "DELETE")).statusCode
     ).toBe(204)
-    expect((await owner.request(`/automations/${created.id}`)).status).toBe(404)
+    expect((await owner.request(`/automations/${created.id}`)).statusCode).toBe(
+      404
+    )
     expect(fixture.automations.size).toBe(0)
   })
 
@@ -358,7 +372,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       ...config,
       openingDm: { message: ` ${openingDm.message} `, buttonLabel: "Send it" },
     })
-    expect(response.status).toBe(201)
+    expect(response.statusCode).toBe(201)
     const created = (await response.json()) as Automation
     expect(created.openingDm).toEqual(openingDm)
     expect(lastWrite("POST")).toMatchObject({
@@ -374,7 +388,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
           openingDm,
           requireFollow: true,
         })
-      ).status
+      ).statusCode
     ).toBe(200)
     expect(lastWrite("PATCH")).toMatchObject({
       audience: { followerStatus: "follower", whenUnknown: "verify" },
@@ -385,7 +399,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       ...config,
       openingDm: null,
     })
-    expect(cleared.status).toBe(200)
+    expect(cleared.statusCode).toBe(200)
     expect((await cleared.json()).openingDm).toBeNull()
     expect(lastWrite("PATCH")).toMatchObject({
       audience: { followerStatus: "any", whenUnknown: "send" },
@@ -405,13 +419,13 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       ).error?.code
     ).toBe("23514")
     expect(
-      (await owner.request(`/automations/${created.id}`, "DELETE")).status
+      (await owner.request(`/automations/${created.id}`, "DELETE")).statusCode
     ).toBe(204)
   })
 
   it("lists the workspace's Instagram conversations and reads and replies only on its own threads", async () => {
     const inbox = await owner.request("/inbox")
-    expect(inbox.status).toBe(200)
+    expect(inbox.statusCode).toBe(200)
     expect(await inbox.json()).toEqual([
       {
         id: fixture.conversationId,
@@ -436,14 +450,14 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     })
     fixture.state.inboxAccountsFailed = 1
     try {
-      expect((await owner.request("/inbox")).status).toBe(502)
+      expect((await owner.request("/inbox")).statusCode).toBe(502)
     } finally {
       fixture.state.inboxAccountsFailed = 0
     }
 
     const thread = `/inbox/${account.id}/${encodeURIComponent(fixture.conversationId)}`
     const messages = await owner.request(thread)
-    expect(messages.status).toBe(200)
+    expect(messages.statusCode).toBe(200)
     expect(await messages.json()).toEqual([
       {
         id: "fixture-message-1",
@@ -472,15 +486,20 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     // a thread it does not hold, although Zernio answers for both.
     const requestsBefore = fixture.requests.length
     expect(await (await other.request("/inbox")).json()).toEqual([])
-    expect((await other.request(thread)).status).toBe(404)
-    expect((await other.request(thread, "POST", { text: "Hi" })).status).toBe(
-      404
-    )
+    expect((await other.request(thread)).statusCode).toBe(404)
+    expect(
+      (await other.request(thread, "POST", { text: "Hi" })).statusCode
+    ).toBe(404)
     expect(fixture.requests.length).toBe(requestsBefore)
     const foreignThread = `/inbox/${account.id}/${fixture.foreignConversationId}`
-    expect((await owner.request(foreignThread)).status).toBe(404)
+    // Zernio's ids are opaque; a long one still reaches the ownership check.
     expect(
-      (await owner.request(foreignThread, "POST", { text: "Hi" })).status
+      (await owner.request(`/inbox/${account.id}/${"c".repeat(150)}`))
+        .statusCode
+    ).toBe(404)
+    expect((await owner.request(foreignThread)).statusCode).toBe(404)
+    expect(
+      (await owner.request(foreignThread, "POST", { text: "Hi" })).statusCode
     ).toBe(404)
     expect(
       fixture.requests
@@ -488,15 +507,16 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         .filter((request) => request.path.endsWith("/messages"))
     ).toEqual([])
 
-    expect((await owner.request(thread, "POST", { text: " " })).status).toBe(
-      422
-    )
     expect(
-      (await owner.request(`/inbox/not-an-id/${fixture.foreignConversationId}`))
-        .status
+      (await owner.request(thread, "POST", { text: " " })).statusCode
     ).toBe(422)
     expect(
-      (await owner.request(thread, "POST", { text: " Here you go " })).status
+      (await owner.request(`/inbox/not-an-id/${fixture.foreignConversationId}`))
+        .statusCode
+    ).toBe(422)
+    expect(
+      (await owner.request(thread, "POST", { text: " Here you go " }))
+        .statusCode
     ).toBe(204)
     expect(fixture.requests.at(-1)).toMatchObject({
       method: "POST",
@@ -510,7 +530,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
 
   it("lists the workspace's Instagram contacts a page at a time", async () => {
     const response = await owner.request("/contacts?search=ann&offset=50")
-    expect(response.status).toBe(200)
+    expect(response.statusCode).toBe(200)
     expect(await response.json()).toEqual({
       contacts: [
         {
@@ -550,7 +570,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       total: 0,
       hasMore: false,
     })
-    expect((await owner.request("/contacts?offset=-1")).status).toBe(422)
+    expect((await owner.request("/contacts?offset=-1")).statusCode).toBe(422)
   })
 
   it("rejects a post that does not belong to the selected account before a provider write", async () => {
@@ -559,7 +579,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       ...automationInput(),
       trigger: { postScope: "specific_post", platformPostId: "foreign-post" },
     })
-    expect(response.status).toBe(422)
+    expect(response.statusCode).toBe(422)
     expect(fixture.automations.size).toBe(writesBefore)
   })
 
@@ -570,7 +590,8 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     ]) {
       fixture.state.failureStatus = providerStatus!
       expect(
-        (await owner.request("/automations", "POST", automationInput())).status
+        (await owner.request("/automations", "POST", automationInput()))
+          .statusCode
       ).toBe(expectedStatus)
     }
     expect(await (await owner.request("/automations")).json()).toEqual([])
@@ -581,7 +602,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         await owner.request(`/automations/${created.id}/status`, "PATCH", {
           status: "paused",
         })
-      ).status
+      ).statusCode
     ).toBe(502)
     expect(
       await (await owner.request(`/automations/${created.id}`)).json()
@@ -592,9 +613,9 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   it("refuses provider account responses from another profile", async () => {
     fixture.state.outsideProfile = true
     try {
-      expect((await owner.request("/accounts/sync", "POST", {})).status).toBe(
-        502
-      )
+      expect(
+        (await owner.request("/accounts/sync", "POST", {})).statusCode
+      ).toBe(502)
       expect(await (await owner.request("/accounts")).json()).toEqual([account])
     } finally {
       fixture.state.outsideProfile = false
@@ -668,7 +689,9 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     const responses = await Promise.all(
       Array.from({ length: 6 }, () => deliver(payload))
     )
-    expect(responses.every((response) => response.status === 200)).toBe(true)
+    expect(responses.every((response) => response.statusCode === 200)).toBe(
+      true
+    )
     const receipts = await Promise.all(
       responses.map((response) => response.json())
     )
@@ -747,7 +770,9 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       },
     })
     expect(await response.json()).toEqual({ receipt: "ignored" })
-    expect((await other.request("/accounts/sync", "POST", {})).status).toBe(409)
+    expect((await other.request("/accounts/sync", "POST", {})).statusCode).toBe(
+      409
+    )
     expect(
       (
         await admin
@@ -786,7 +811,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     const signature = createHmac("sha256", "fixture-webhook-secret")
       .update(JSON.stringify(payload))
       .digest("hex")
-    expect((await deliver(payload, `${signature}junk`)).status).toBe(401)
+    expect((await deliver(payload, `${signature}junk`)).statusCode).toBe(401)
     expect(
       (await admin.from("webhook_events").select("id").eq("id", payload.id))
         .data
@@ -800,15 +825,15 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       email,
       password,
     })
-    expect(response.status).toBe(201)
+    expect(response.statusCode).toBe(201)
     const result = await response.json()
     if (result.user) userIds.push(result.user.id)
     expect(result.needsConfirmation).toBe(false)
-    expect((await session.request("/workspace")).status).toBe(200)
-    expect((await session.request("/auth/sign-out", "POST", {})).status).toBe(
-      204
-    )
-    expect((await session.request("/auth/session")).status).toBe(401)
+    expect((await session.request("/workspace")).statusCode).toBe(200)
+    expect(
+      (await session.request("/auth/sign-out", "POST", {})).statusCode
+    ).toBe(204)
+    expect((await session.request("/auth/session")).statusCode).toBe(401)
   })
 
   it("blocks activation while disconnected and removes dependent automations before disconnecting", async () => {
@@ -830,19 +855,21 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         await owner.request(`/automations/${created.id}/status`, "PATCH", {
           status: "active",
         })
-      ).status
+      ).statusCode
     ).toBe(409)
     expect(
       (
         await owner.request(`/automations/${created.id}/status`, "PATCH", {
           status: "paused",
         })
-      ).status
+      ).statusCode
     ).toBe(200)
     expect(
-      (await owner.request(`/accounts/${account.id}`, "DELETE")).status
+      (await owner.request(`/accounts/${account.id}`, "DELETE")).statusCode
     ).toBe(204)
-    expect((await owner.request(`/automations/${created.id}`)).status).toBe(404)
+    expect((await owner.request(`/automations/${created.id}`)).statusCode).toBe(
+      404
+    )
     expect(fixture.automations.size).toBe(0)
     const writes = fixture.requests.filter(
       (request) => request.method === "DELETE"
@@ -863,10 +890,10 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       instagramConfigured: false,
     })
     expect(
-      (await disabled.request("/accounts/connect", "POST", {})).status
+      (await disabled.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(503)
     expect(
-      (await disabled.request("/webhooks/zernio", "POST", {})).status
+      (await disabled.request("/webhooks/zernio", "POST", {})).statusCode
     ).toBe(503)
   })
 })

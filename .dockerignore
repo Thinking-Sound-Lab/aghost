@@ -1,15 +1,27 @@
-.git
-.context
-.env*
-**/.env*
-node_modules
+# Build context of the local API image (apps/server/Dockerfile.dev). It is an
+# allowlist: only what that image needs. The deployed image is built from
+# turbo prune output instead; see apps/server/Dockerfile.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!tsconfig.json
+
+# pnpm resolves the lockfile against the manifest of every workspace.
+!apps/*/package.json
+!packages/*/package.json
+!infra/package.json
+
+!apps/server
+!packages/api
+!packages/env
+!packages/supabase
+!packages/typescript-config
+
 **/node_modules
-.next
-**/.next
-.turbo
+**/.env*
 **/.turbo
 **/*.tsbuildinfo
-coverage
 **/coverage
-supabase/.temp
-supabase/.branches

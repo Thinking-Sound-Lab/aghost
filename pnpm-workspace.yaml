@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "infra"
 
 # The SDK bundles this at runtime but references it in its public declarations.
 packageExtensions:

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  # Deploy runs these checks on main before it releases.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Format, lint, and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      # The tests run the API in-process against Supabase in Docker.
+      - name: Start Supabase
+        run: pnpm setup:test
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      # Next.js requires the proxy destination at build time.
+      API_URL: http://127.0.0.1:4000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      # The same pruned context the CDK deploys from.
+      - name: Build the API's image
+        run: |
+          pnpm exec turbo prune server --docker --out-dir "$RUNNER_TEMP/api"
+          docker build "$RUNNER_TEMP/api" --file "$RUNNER_TEMP/api/full/apps/server/Dockerfile"

@@ -1,5 +1,5 @@
 import type { z } from "zod"
-import { BadRequestError, ValidationError } from "../shared/errors"
+import { ValidationError } from "../shared/errors"
 
 export function validate<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input)
@@ -10,14 +10,4 @@ export function validate<T>(schema: z.ZodType<T>, input: unknown): T {
     throw new ValidationError(fields)
   }
   return result.data
-}
-
-export async function readJson(request: {
-  json(): Promise<unknown>
-}): Promise<unknown> {
-  try {
-    return await request.json()
-  } catch (error) {
-    throw new BadRequestError("Send a valid JSON body.", error)
-  }
 }
