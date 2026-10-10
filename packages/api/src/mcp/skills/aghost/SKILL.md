@@ -5,11 +5,21 @@ description: Configure Aghost MCP or REST access, manage Instagram comment-to-DM
 
 # Aghost
 
-Configure the connection, verify it, then carry out the user's Aghost task. These instructions can be pasted into an agent chat or installed as a SKILL.md using the host's documented skill location.
+Configure the connection, verify it, then carry out the user's Aghost task. Pasted instructions apply to the current task; installing the file makes the skill discoverable for later tasks.
 
 App URL: {{AGHOST_APP_URL}}
 
 If the URL is a template placeholder, ask for the app URL. A localhost URL is reachable only from the computer running Aghost; a remote agent needs a reachable hosted URL. Do not create a public tunnel as part of setup.
+
+## Install for reuse
+
+When the user asks to install the skill, save this file in the project using the host's supported location. The containing folder must be named aghost. Preserve an existing skill rather than overwriting it without checking.
+
+- Codex: .agents/skills/aghost/SKILL.md; invoke with $aghost. See [Codex skills](https://learn.chatgpt.com/docs/build-skills).
+- Claude Code: .claude/skills/aghost/SKILL.md; invoke with /aghost. See [Claude Code skills](https://code.claude.com/docs/en/skills).
+- Cursor: .agents/skills/aghost/SKILL.md or .cursor/skills/aghost/SKILL.md. Confirm it appears in the client's skills list. See [Cursor skills](https://cursor.com/docs/skills).
+
+Download the configured file from {{AGHOST_APP_URL}}/api/mcp/skill.md if the pasted text is incomplete. Other agents can follow the pasted instructions even if they do not support installed skills. If a newly installed skill is not discovered, check the host's reload instructions.
 
 ## Credentials
 
@@ -23,13 +33,21 @@ The HTTP endpoint is {{AGHOST_APP_URL}}/api/mcp. Authentication is an Authorizat
 
 ### Codex
 
-After making AGHOST_API_KEY available to the Codex process, use the installed CLI's supported flags:
+For a trusted project, merge this table into .codex/config.toml after making AGHOST_API_KEY available to the Codex process:
+
+```toml
+[mcp_servers.aghost]
+url = "{{AGHOST_APP_URL}}/api/mcp"
+bearer_token_env_var = "AGHOST_API_KEY"
+```
+
+If the user wants a user-scoped connection instead, use the installed CLI's supported flags:
 
 ```sh
 codex mcp add aghost --url '{{AGHOST_APP_URL}}/api/mcp' --bearer-token-env-var AGHOST_API_KEY
 ```
 
-Check `codex mcp add --help` and `codex mcp get aghost`. The CLI's default configuration is user-scoped, so explain that scope before changing it. A configuration entry alone is not proof of a live connection.
+Check `codex mcp add --help`, `codex mcp get aghost`, and [Codex MCP documentation](https://learn.chatgpt.com/docs/extend/mcp). Project configuration requires project trust; do not change trust settings yourself. A configuration entry alone is not proof of a live connection.
 
 ### Claude Code
 
@@ -68,9 +86,11 @@ Use [Cursor's MCP documentation](https://cursor.com/docs/mcp) for configuration 
 
 ### Other agents
 
-Use the host's native HTTP MCP configuration with the same URL and Bearer header. If the host cannot load MCP servers, use the REST API below. Report a required restart or user approval instead of claiming the connection is ready.
+Use the host's native HTTP MCP configuration with the same URL and Bearer header. If the host cannot load MCP servers, use the REST API below.
 
 ## Verify and use the connection
+
+After saving configuration, inspect the client's MCP connection status. A running session may need a client-supported reconnect or restart before newly configured tools appear; a new environment variable may also require relaunching the host. If that step needs the user, report exactly what remains. Verify an allowed read through REST in the current task when available, and report that separately from MCP readiness.
 
 Discover MCP tools and make an allowed read, such as get_workspace or list_automations. Only tools permitted by the key are advertised. If using REST, fetch the authenticated OpenAPI contract to discover current paths, input schemas, and scopes:
 
