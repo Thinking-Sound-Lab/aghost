@@ -10,7 +10,7 @@ type ApiKeysState = {
   busy: boolean
   error: string | null
   load: () => Promise<void>
-  create: () => Promise<void>
+  create: (name: string) => Promise<void>
   revoke: (id: string) => Promise<void>
   reset: () => void
 }
@@ -42,12 +42,12 @@ export const useApiKeysStore = create<ApiKeysState>((set, get) => ({
         set({ status: "error", error: errorMessage(error) })
     }
   },
-  create: async () => {
+  create: async (name) => {
     if (get().busy || get().created) return
     const current = generation
     set({ busy: true, error: null, created: null })
     try {
-      const created = await api.apiKeys.create()
+      const created = await api.apiKeys.create({ name })
       if (current === generation)
         set({ created, keys: [created.key, ...get().keys] })
     } catch (error) {

@@ -23,7 +23,7 @@ Download the configured file from {{AGHOST_APP_URL}}/api/mcp/skill.md if the pas
 
 ## Credentials
 
-Use an existing AGHOST_API_KEY from the agent's environment or secret store. Otherwise ask the user to click + API key in Settings → API and make the new key available to the agent. Creation needs no name, permission selection, or expiry setting. New keys have full agent access and work until revoked. The full token is shown only when created.
+Use an existing AGHOST_API_KEY from the agent's environment or secret store. Otherwise ask the user to click + API key in Settings → API, enter a name in the dialog, and click Create key. Ask them to make the new key available to the agent. There is no permission selection or expiry setting. New keys have full agent access and work until revoked. The full token is shown once in the dialog and cannot be viewed again after closing it.
 
 Keep the key in a private secret store or environment variable accessible to the host agent. Do not put it in this skill, source control, terminal history, logs, or the final response. Do not assume an IDE reads the project's .env automatically. Preserve other settings when updating client configuration.
 

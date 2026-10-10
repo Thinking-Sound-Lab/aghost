@@ -1,6 +1,6 @@
 # MCP
 
-Open **Settings → MCP** (`/settings#mcp`) for your endpoint and client configuration. Click **+ API key** in **Settings → API** and save the key first. [New API keys](api.md) have full agent access and no expiry; revoked keys stop working on the next exchange.
+Open **Settings → MCP** (`/settings#mcp`) for your endpoint and client configuration. Click **+ API key** in **Settings → API**, enter a name, and save the key shown once in the dialog. [New API keys](api.md) have full agent access and no expiry; revoked keys stop working on the next exchange.
 
 Use **Copy skill** to give your agent setup instructions. The copied text includes the configured app URL and guidance for Claude Code, Codex, Cursor, and agents using REST. It uses environment references for credentials. The agent needs an existing workspace API key or asks the user to create one; it does not generate credentials itself.
 

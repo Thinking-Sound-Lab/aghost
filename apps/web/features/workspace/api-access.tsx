@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { KeyRound, Plus } from "lucide-react"
+import { KeyRound } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   ConfirmButton,
@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/auth-store"
 import { useApiKeysStore } from "@/stores/api-keys-store"
 import { timeAgo } from "@/lib/format"
 import { CopyButton } from "./access-copy-button"
+import { ApiKeyDialog } from "./api-key-dialog"
 
 export function ApiAccess() {
   const store = useApiKeysStore()
@@ -33,17 +34,7 @@ export function ApiAccess() {
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-medium">API access</h2>
-          <Button
-            type="button"
-            aria-label="Create API key"
-            disabled={
-              store.busy || store.status !== "ready" || store.created !== null
-            }
-            onClick={() => void store.create()}
-          >
-            <Plus />
-            API key
-          </Button>
+          <ApiKeyDialog />
         </div>
         <p className="text-sm text-muted-foreground">
           Use API keys to let agents access and manage this workspace. Keys work
@@ -58,37 +49,6 @@ export function ApiAccess() {
       </div>
 
       <ErrorBanner message={store.error} />
-      {store.created && (
-        <div
-          role="status"
-          className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium">Save your new key</h3>
-            <CopyButton
-              key={store.created.key.id}
-              value={store.created.token}
-              label="Copy key"
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            This is the only time the full key is shown. Keep it in your
-            agent&apos;s secrets or environment variables.
-          </p>
-          <code className="rounded bg-background p-3 font-mono text-xs break-all select-all">
-            {store.created.token}
-          </code>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="justify-self-start"
-            onClick={() => useApiKeysStore.setState({ created: null })}
-          >
-            I&apos;ve saved the key
-          </Button>
-        </div>
-      )}
 
       <div className="grid gap-3">
         <h3 className="text-sm font-medium">Workspace keys</h3>
@@ -144,17 +104,15 @@ export function ApiAccess() {
       </div>
 
       <div className="grid gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-medium">Make an API request</h3>
-          <CopyButton value={example} label="Copy request" />
-        </div>
+        <h3 className="text-sm font-medium">Make an API request</h3>
         <p className="text-sm text-muted-foreground">
           Send your saved key in the Authorization header. Replace YOUR_API_KEY
           in this example to list your automations.
         </p>
-        <pre className="overflow-auto rounded-lg border bg-muted/30 p-4 text-xs">
-          {example}
-        </pre>
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+          <pre className="min-w-0 flex-1 overflow-auto text-xs">{example}</pre>
+          <CopyButton value={example} label="Copy request" />
+        </div>
         <p className="text-sm text-muted-foreground">
           The OpenAPI reference is available at{" "}
           <code className="text-xs break-all">

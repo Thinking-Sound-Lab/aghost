@@ -131,7 +131,7 @@ To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without i
 
 ## API
 
-Open **Settings → API** and click **+ API key** to create a workspace key immediately. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; read accounts, posts, contacts, and inbox conversations; and send inbox messages.
+Open **Settings → API**, click **+ API key**, and name your workspace key in the dialog. After creation, copy and save the key before closing the dialog; the full key will not be shown again. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; read accounts, posts, contacts, and inbox conversations; and send inbox messages.
 
 Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full agent access and no expiry; revoke them in Settings to stop access. `GET /api/v1/openapi.json` provides the REST API contract. See the [REST API guide](docs/api.md) for requests and deployment requirements.
 

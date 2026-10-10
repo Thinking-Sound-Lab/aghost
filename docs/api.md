@@ -1,6 +1,6 @@
 # REST API
 
-Open **Settings → API** (`/settings#api`) and click **+ API key**. A key is created immediately with an automatic name, full agent access, and no expiry. There is no creation form. Revoke the key in Settings to stop access.
+Open **Settings → API** (`/settings#api`) and click **+ API key**. Enter a name in the dialog and click **Create key**. Copy and save the key beside the **Copy key** button before closing the dialog; the full key will not be shown again. New keys have full agent access and no expiry. Revoke the key in Settings to stop access.
 
 Save the full token when it is created. Existing keys only show their name, prefix, status, and last use. The database stores a SHA-256 hash of a randomly generated 256-bit token; key data is accessible only to the backend's service role.
 
@@ -64,7 +64,7 @@ Activating an automation can deliver real DMs and public replies. `send_message`
 Key management remains on cookie-authenticated routes, protected by the existing origin checks:
 
 - `GET /api/api-keys` lists safe metadata.
-- `POST /api/api-keys` takes `{}` and returns `{ key, token }` once. The server supplies the name, all agent capabilities, and no expiry. Existing API clients can still supply optional `name`, `scopes`, and `expiresAt`; the dashboard sends none of these fields.
+- `POST /api/api-keys` accepts `{ "name": "Claude Code" }` and returns `{ key, token }` once. The dashboard sends only the name; the server supplies all agent capabilities and no expiry. An empty `{}` remains valid and uses the default name. Existing API clients can still supply optional `scopes` and `expiresAt`.
 - `DELETE /api/api-keys/:id` revokes that workspace's key.
 
 Apply `20261010130000_workspace_api_keys.sql` before deploying this API version. No new environment variables or provider credentials are required. The existing `/api` web proxy exposes both endpoints; agents can also call the backend URL directly. Keep production connections on HTTPS.
