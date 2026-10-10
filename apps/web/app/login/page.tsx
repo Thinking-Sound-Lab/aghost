@@ -1,4 +1,4 @@
-import { AuthForm } from "@/features/auth/auth-form"
+import { SignIn } from "@/features/auth/sign-in"
 export default async function Page({
   searchParams,
 }: {
@@ -6,12 +6,9 @@ export default async function Page({
 }) {
   const { error } = await searchParams
   return (
-    <AuthForm
-      mode="login"
-      initialError={
-        error === "confirmation"
-          ? "The email link is invalid or expired. Request a new link or log in."
-          : undefined
+    <SignIn
+      error={
+        error === "google" ? "Google sign-in did not finish. Try again." : null
       }
     />
   )

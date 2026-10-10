@@ -34,7 +34,19 @@ export async function startSupabase(exclude = []) {
   })
 }
 
+const GOOGLE_CREDENTIALS = [
+  "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID",
+  "SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET",
+]
+
 export async function setupLocal() {
+  // Supabase starts without them, and Google then refuses every sign-in.
+  const env = ensureRootEnv()
+  const missing = GOOGLE_CREDENTIALS.filter((name) => !env[name])
+  if (missing.length)
+    throw new Error(
+      `Set ${missing.join(" and ")} in the root .env. See "Google sign-in" in the README.`
+    )
   const configured = await startSupabase()
   console.log("Starting the API Docker container...")
   await compose(

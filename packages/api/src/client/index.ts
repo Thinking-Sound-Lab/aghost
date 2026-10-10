@@ -11,14 +11,12 @@ import {
   type ApiKey,
   type CreateApiKeyInput,
   type CreatedApiKey,
-  type Credentials,
   type InstagramAccount,
   type InstagramPost,
   type IntegrationStatus,
   type Message,
   type SendMessageInput,
   type SessionUser,
-  type SignUpResult,
   type UpdateAutomationInput,
   type Workspace,
 } from "../contract"
@@ -101,16 +99,10 @@ export function createApiClient(
         request<void>(`/api-keys/${encodeURIComponent(id)}`, "DELETE"),
     },
     auth: {
+      /** Where to send the browser to sign in with Google. */
+      googleSignInUrl: `${baseUrl}/auth/google`,
       session: () => request<{ user: SessionUser }>("/auth/session"),
-      signIn: (input: Credentials) =>
-        request<{ user: SessionUser }>("/auth/sign-in", "POST", input),
-      signUp: (input: Credentials) =>
-        request<SignUpResult>("/auth/sign-up", "POST", input),
       signOut: () => request<void>("/auth/sign-out", "POST", {}),
-      resetPassword: (email: string) =>
-        request<void>("/auth/password-reset", "POST", { email }),
-      updatePassword: (password: string) =>
-        request<void>("/auth/password", "POST", { password }),
     },
     workspace: {
       get: () => request<Workspace>("/workspace"),

@@ -22,6 +22,7 @@ import type { Automation } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
 import type { ApiApp } from "../http/app"
 import { hashApiKey } from "../modules/api-keys/api-key.service"
+import { signInDisposableUser } from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 
 const config = loadApiConfig(
@@ -147,28 +148,17 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     address = await app.listen({ port: 0, host: "127.0.0.1" })
     for (let index = 0; index < 2; index++) {
       const email = `aghost-agent-${randomUUID()}@example.com`
-      const password = `Fixture-${randomUUID()}`
       const { data, error } = await admin.auth.admin.createUser({
         email,
-        password,
         email_confirm: true,
       })
       if (error || !data.user)
         throw new Error("Could not create disposable agent integration user")
       userIds.push(data.user.id)
-      const signedIn = await app.inject({
-        method: "POST",
-        url: "/api/auth/sign-in",
-        headers: {
-          origin: new URL(config.appUrl).origin,
-          "content-type": "application/json",
-        },
-        payload: JSON.stringify({ email, password }),
-      })
-      expect(signedIn.statusCode, signedIn.body).toBe(200)
-      const cookie = [signedIn.headers["set-cookie"] ?? []]
-        .flat()
-        .map((value) => String(value).split(";")[0])
+      const cookies = new Map<string, string>()
+      const signedIn = await signInDisposableUser(config, email, cookies)
+      const cookie = [...cookies]
+        .map(([name, value]) => `${name}=${value}`)
         .join("; ")
       const workspace = (
         await session("/workspace", "GET", undefined, cookie)
@@ -176,14 +166,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
       if (index === 0) {
         ownerCookie = cookie
         workspaceId = workspace.id
-        const auth = createClient<Database>(
-          config.supabase.url,
-          config.supabase.publishableKey
-        )
-        const signed = await auth.auth.signInWithPassword({ email, password })
-        if (!signed.data.session)
-          throw new Error("Could not get the fixture's user JWT")
-        ownerAccessToken = signed.data.session.access_token
+        ownerAccessToken = signedIn.access_token
       } else {
         otherCookie = cookie
         otherWorkspaceId = workspace.id
