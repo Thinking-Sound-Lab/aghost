@@ -37,7 +37,7 @@ export const features = [
   },
   {
     title: "Followers-only links",
-    text: "Send the link only to people who follow you. Everyone else is asked to follow first.",
+    text: "Send the link only to people who follow you. Anyone Instagram can't confirm as a follower is asked to follow first.",
   },
   {
     title: "Inbox, contacts, and stats",
@@ -69,7 +69,7 @@ export const faqs = [
   {
     question: "Why does the first DM have a button?",
     answer:
-      "Instagram allows one automatic message per comment. Once the commenter responds, for example by tapping a button, you can message them for the next 24 hours. With an opening message, the commenter taps its button and the DM with your link follows. The opening message is optional: without it, the link DM is sent straight away.",
+      "Instagram allows one automatic message per comment. Once the commenter responds, for example by tapping a button, you can message them for the next 24 hours. With an opening message, the commenter taps its button and the DM with your link follows. The opening message is optional: without it, and without the follower rule, the link DM is sent straight away.",
   },
   {
     question: "Can aghost reply to every comment, not only keywords?",
@@ -78,7 +78,7 @@ export const faqs = [
   {
     question: "Can I send the link only to my followers?",
     answer:
-      "Yes. With the follower rule on, people who already follow you get the link straight away. Everyone else is asked to follow first.",
+      "Yes. With the follower rule on, people Instagram can confirm as your followers get the link straight away. Everyone else gets a message asking them to follow, and the link is sent once they tap to confirm.",
   },
   {
     question: "How is aghost different from ManyChat?",

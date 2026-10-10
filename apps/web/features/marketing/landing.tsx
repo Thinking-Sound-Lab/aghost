@@ -48,7 +48,7 @@ const sections = [
 export function Landing() {
   return (
     <div className="overflow-x-clip bg-white text-black">
-      <header className="mx-auto flex h-20 max-w-6xl items-center gap-10 px-6">
+      <header className="mx-auto flex h-20 max-w-6xl items-center gap-4 px-6 md:gap-10">
         <Brand />
         <nav
           aria-label="Main"
@@ -61,7 +61,10 @@ export function Landing() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Link href="/login" className={cn(QUIET, "h-10 px-5 text-sm")}>
+          <Link
+            href="/login"
+            className={cn(QUIET, "hidden h-10 px-5 text-sm sm:inline-flex")}
+          >
             Log in
           </Link>
           <Link href="/signup" className={cn(PRIMARY, "h-10 px-5 text-sm")}>
@@ -78,12 +81,12 @@ export function Landing() {
             "grid items-center gap-x-12 gap-y-16 pt-10 pb-24 lg:grid-cols-[1fr_auto] lg:pt-14"
           )}
         >
-          <div className="grid max-w-2xl gap-6">
+          <div className="grid max-w-2xl min-w-0 gap-6">
             <p className="flex w-fit items-center gap-2 rounded-full bg-brand/15 px-3.5 py-1.5 text-sm font-medium">
               <span className="size-2 rounded-full bg-brand" />
               Instagram DM automation
             </p>
-            <h1 className="text-5xl leading-[1.05] font-bold tracking-tight sm:text-6xl">
+            <h1 className="text-[2.5rem] leading-[1.05] font-bold tracking-tight min-[390px]:text-5xl sm:text-6xl">
               Turn Instagram comments into{" "}
               <span className="rounded-2xl bg-brand px-3">DMs</span>{" "}
               automatically.
@@ -225,7 +228,8 @@ export function Landing() {
 /** The DM a commenter receives, with the mascot and a sample comment. */
 function HeroArt() {
   return (
-    <div className="relative isolate mx-auto w-fit px-5 sm:px-16">
+    // The phone is 300px wide, so the narrowest screens shrink the whole scene.
+    <div className="relative isolate mx-auto w-fit px-5 max-[389px]:[zoom:0.8] sm:px-16">
       <span className="absolute inset-x-0 inset-y-14 -z-10 rounded-[48px] bg-brand-offwhite" />
       <span className="absolute top-20 right-5 -z-10 size-14 bg-[radial-gradient(circle,rgb(0_0_0/0.18)_1.5px,transparent_1.5px)] bg-size-[14px_14px]" />
       <span className="absolute top-6 left-6 -z-10 size-7 rounded-full bg-brand-blue" />
