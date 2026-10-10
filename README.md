@@ -164,7 +164,7 @@ The colours are Tailwind tokens in [`globals.css`](packages/ui/src/styles/global
 
 The landing page is built to be read by search engines and by AI assistants such as ChatGPT, Claude, Perplexity, and Google's AI Overviews. Google's guidance is that both need the same things: crawlable, server-rendered pages that say something specific.
 
-- **One copy of the text.** [`content.ts`](apps/web/features/marketing/content.ts) holds the steps, features, and questions. The page, its structured data, and `/llms.txt` all read it, so crawlers are told what visitors see.
+- **One copy of the text.** [`content.ts`](apps/web/features/marketing/content.ts) holds the facts, steps, features, and questions. The page, its structured data, and `/llms.txt` all read it, so crawlers are told what visitors see.
 - **Answers first.** The page opens by saying what aghost is, and each question is a heading with a direct answer under it.
 - **Structured data.** The page describes itself as an `Organization`, `WebSite`, `WebApplication`, and `FAQPage` in JSON-LD. It claims no price, rating, or review, because the product has none to show yet.
 - **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits every crawler, including the ones that feed AI search, and keeps them out of `/api`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages and password recovery answer with `noindex`.

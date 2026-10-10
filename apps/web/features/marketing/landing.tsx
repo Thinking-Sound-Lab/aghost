@@ -1,42 +1,41 @@
 import Link from "next/link"
-import {
-  ArrowRight,
-  Check,
-  Hash,
-  Inbox,
-  Link2,
-  MousePointerClick,
-  Plus,
-  Reply,
-  UserCheck,
-} from "lucide-react"
+import { ArrowRight, Check, Plus } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Brand, Mascot } from "@/components/brand"
-import { InstagramPreview } from "@/features/automations/instagram-preview"
-import { faqs, features, steps } from "./content"
+import { faqs, facts, features, steps } from "./content"
+import { Demo } from "./demo"
+import {
+  featureScenes,
+  InboxScene,
+  SafetyScene,
+  Scene,
+  StatsScene,
+  stepScenes,
+} from "./illustrations"
 
 const PILL =
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
 const PRIMARY = cn(PILL, "bg-brand text-black hover:bg-brand/80")
-const QUIET = cn(PILL, "text-black ring-1 ring-black/15 hover:bg-black/5")
+const DARK = cn(PILL, "bg-black text-white hover:bg-black/80")
 
 const SECTION = "mx-auto max-w-6xl scroll-mt-6 px-6"
-const HEADING = "text-3xl font-bold tracking-tight text-balance sm:text-4xl"
+const EYEBROW =
+  "text-xs font-semibold tracking-[0.16em] text-brand-gray uppercase"
+const DISPLAY =
+  "text-[2.6rem] leading-[1.12] font-extrabold tracking-[-0.045em] text-balance sm:text-6xl"
+// The second line of a headline sits on a green marker. Black on green reads;
+// green text on white would not.
+const MARKER = "box-decoration-clone rounded-2xl bg-brand px-3"
+const LEAD = "text-lg text-brand-gray"
 
-// The mascot's orbs, in the order they number the steps.
-const ORBS = [
-  "bg-brand-blue text-white",
-  "bg-brand-orange text-black",
-  "bg-brand-red text-white",
-]
-
-const FEATURE_ICONS = [
-  { icon: Hash, orb: "bg-brand text-black" },
-  { icon: Reply, orb: "bg-brand-blue text-white" },
-  { icon: MousePointerClick, orb: "bg-brand-cyan text-black" },
-  { icon: Link2, orb: "bg-brand-orange text-black" },
-  { icon: UserCheck, orb: "bg-brand-red text-white" },
-  { icon: Inbox, orb: "bg-black text-white" },
+// Light tints of the palette, in the order the cards use them.
+const TINTS = [
+  "bg-brand-orange/25",
+  "bg-brand-blue/12",
+  "bg-brand-red/12",
+  "bg-brand/20",
+  "bg-brand-cyan/20",
+  "bg-brand-orange/15",
 ]
 
 const sections = [
@@ -45,10 +44,40 @@ const sections = [
   { href: "#faq", label: "FAQ" },
 ]
 
+function Headline({
+  as: Tag = "h2",
+  lead,
+  accent,
+  className,
+}: {
+  as?: "h1" | "h2"
+  lead: string
+  accent: string
+  className?: string
+}) {
+  return (
+    <Tag className={cn(DISPLAY, className)}>
+      {lead}{" "}
+      <span className="mt-1 block">
+        <span className={MARKER}>{accent}</span>
+      </span>
+    </Tag>
+  )
+}
+
+function GetStarted({ className }: { className?: string }) {
+  return (
+    <Link href="/signup" className={cn(PRIMARY, "h-12 px-7", className)}>
+      Get started
+      <ArrowRight className="size-4" />
+    </Link>
+  )
+}
+
 export function Landing() {
   return (
     <div className="overflow-x-clip bg-white text-black">
-      <header className="mx-auto flex h-20 max-w-6xl items-center gap-4 px-6 md:gap-10">
+      <header className="mx-auto grid h-20 max-w-6xl grid-cols-[1fr_auto] items-center gap-4 px-6 md:grid-cols-[1fr_auto_1fr]">
         <Brand />
         <nav
           aria-label="Main"
@@ -60,14 +89,14 @@ export function Landing() {
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center justify-end gap-5">
           <Link
             href="/login"
-            className={cn(QUIET, "hidden h-10 px-5 text-sm sm:inline-flex")}
+            className="hidden text-[15px] font-medium hover:text-brand-gray sm:block"
           >
             Log in
           </Link>
-          <Link href="/signup" className={cn(PRIMARY, "h-10 px-5 text-sm")}>
+          <Link href="/signup" className={cn(DARK, "h-10 px-5 text-sm")}>
             Get started
             <ArrowRight className="size-4" />
           </Link>
@@ -75,202 +104,296 @@ export function Landing() {
       </header>
 
       <main>
-        <section
-          className={cn(
-            SECTION,
-            "grid items-center gap-x-12 gap-y-16 pt-10 pb-24 lg:grid-cols-[1fr_auto] lg:pt-14"
-          )}
-        >
-          <div className="grid max-w-2xl min-w-0 gap-6">
-            <p className="flex w-fit items-center gap-2 rounded-full bg-brand/15 px-3.5 py-1.5 text-sm font-medium">
-              <span className="size-2 rounded-full bg-brand" />
-              Instagram DM automation
-            </p>
-            <h1 className="text-[2.5rem] leading-[1.05] font-bold tracking-tight min-[390px]:text-5xl sm:text-6xl">
-              Turn Instagram comments into{" "}
-              <span className="rounded-2xl bg-brand px-3">DMs</span>{" "}
-              automatically.
-            </h1>
-            <p className="max-w-xl text-lg text-brand-gray">
-              aghost is an Instagram DM automation tool. When someone comments
-              your keyword on a post or reel, aghost replies in public and sends
-              them your link by DM.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/signup" className={cn(PRIMARY, "h-12 px-7")}>
-                Get started
-                <ArrowRight className="size-4" />
-              </Link>
-              <a href="#how-it-works" className={cn(QUIET, "h-12 px-7")}>
-                How it works
-              </a>
-            </div>
-          </div>
-          <HeroArt />
+        <section className="mx-auto grid max-w-5xl justify-items-center gap-6 px-6 pt-14 pb-20 text-center sm:pt-20">
+          <Mascot size={96} eager className="drop-shadow-xl" />
+          <p className={EYEBROW}>Instagram DM automation</p>
+          <Headline
+            as="h1"
+            lead="Turn Instagram comments"
+            accent="into DMs, automatically."
+            className="sm:text-7xl"
+          />
+          <p className={cn(LEAD, "max-w-2xl sm:text-xl")}>
+            aghost replies to every comment that has your keyword and sends the
+            commenter your link by DM. Set it up once, and it runs while you
+            sleep.
+          </p>
+          <GetStarted />
+          <p className="text-sm text-brand-gray">
+            Instagram professional account required · You never share your
+            password
+          </p>
         </section>
 
-        <section id="how-it-works" className={SECTION}>
-          <div className="rounded-[40px] bg-brand-offwhite px-6 py-14 sm:px-12">
-            <h2 className={HEADING}>How comment-to-DM automation works</h2>
-            <p className="mt-3 text-lg text-brand-gray">
-              An automation takes three steps to set up.
-            </p>
-            <ol className="mt-10 grid gap-10 md:grid-cols-3">
-              {steps.map((step, index) => (
-                <li key={step.title} className="grid content-start gap-3">
-                  <span
-                    className={cn(
-                      "grid size-10 place-items-center rounded-full font-bold",
-                      ORBS[index]
-                    )}
-                  >
-                    {index + 1}
+        <Demo cta={<GetStarted className="w-full" />} />
+
+        <section aria-label="aghost in numbers" className="bg-brand/10">
+          <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-y-8 px-6 py-12 md:grid-cols-4 md:divide-x md:divide-black/10">
+            {facts.map((fact) => (
+              <div
+                key={fact.label}
+                className="grid justify-items-center gap-1 text-center"
+              >
+                <dt className="order-2 text-brand-gray">{fact.label}</dt>
+                <dd className="order-1 text-5xl font-extrabold tracking-[-0.04em]">
+                  {fact.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section id="how-it-works" className={cn(SECTION, "py-24")}>
+          <div className="grid justify-items-center gap-5 text-center">
+            <p className={EYEBROW}>How it works</p>
+            <Headline lead="Set up in minutes." accent="Three steps." />
+          </div>
+          <ol className="mt-14 grid gap-5 md:grid-cols-3">
+            {steps.map((step, index) => (
+              <li
+                key={step.title}
+                className={cn(
+                  "grid content-start gap-4 rounded-3xl border-2 border-black p-3 pb-6",
+                  TINTS[index]
+                )}
+              >
+                <Scene className="rounded-2xl border-2 border-black bg-white/70">
+                  {stepScenes[index]}
+                </Scene>
+                <div className="grid gap-2 px-3">
+                  <span className="w-fit rounded-full bg-black px-2.5 py-1 text-[11px] font-bold tracking-[0.12em] text-white">
+                    STEP {String(index + 1).padStart(2, "0")}
                   </span>
                   <h3 className="text-xl font-bold tracking-tight">
                     {step.title}
                   </h3>
                   <p className="text-brand-gray">{step.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section
+          id="features"
+          className="scroll-mt-6 bg-brand-offwhite px-6 py-24"
+        >
+          <div className="mx-auto max-w-6xl">
+            <div className="grid justify-items-center gap-5 text-center">
+              <p className={EYEBROW}>Everything you need</p>
+              <Headline
+                lead="Built for the whole"
+                accent="comment-to-DM funnel."
+              />
+              <p className={cn(LEAD, "max-w-xl")}>
+                From the first comment to the link click: automated, tracked,
+                and in one dashboard.
+              </p>
+            </div>
+            <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature, index) => (
+                <li
+                  key={feature.title}
+                  className="overflow-hidden rounded-3xl border border-black bg-white"
+                >
+                  <Scene className={cn("border-b border-black", TINTS[index])}>
+                    {featureScenes[index]}
+                  </Scene>
+                  <div className="grid gap-1.5 p-5">
+                    <p className={EYEBROW}>{feature.label}</p>
+                    <h3 className="text-lg font-bold tracking-tight">
+                      {feature.title}
+                    </h3>
+                    <p className="text-brand-gray">{feature.text}</p>
+                  </div>
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
         </section>
 
-        <section id="features" className={cn(SECTION, "py-24")}>
-          <h2 className={HEADING}>What aghost automates</h2>
-          <ul className="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, index) => {
-              const { icon: Icon, orb } = FEATURE_ICONS[index]!
-              return (
-                <li key={feature.title} className="grid content-start gap-3">
-                  <span
-                    className={cn(
-                      "grid size-10 place-items-center rounded-full",
-                      orb
-                    )}
-                  >
-                    <Icon className="size-5" />
-                  </span>
-                  <h3 className="text-xl font-bold tracking-tight">
-                    {feature.title}
-                  </h3>
-                  <p className="text-brand-gray">{feature.text}</p>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
+        <Story
+          eyebrow="Stats · built in"
+          lead="Know which DM"
+          accent="got the click."
+          text="Every automation counts its comments, DMs sent, and link clicks. There is nothing to set up."
+          points={[
+            "Comments, DMs sent, and link clicks per automation",
+            "A log of every DM: sent, waiting for a tap, or failed",
+            "See which post and keyword actually work",
+          ]}
+          scene={<StatsScene />}
+        />
+        <Story
+          eyebrow="Inbox"
+          lead="Every conversation."
+          accent="One inbox."
+          text="When people reply, answer them from aghost. Your Instagram contacts are there too."
+          points={[
+            "Reply to DMs without switching apps",
+            "Your Instagram contacts in one list",
+            "Search conversations and contacts",
+          ]}
+          scene={<InboxScene />}
+          flip
+        />
+        <Story
+          eyebrow="Account safety"
+          lead="Safe by"
+          accent="design."
+          text="aghost follows Instagram's rules for automated messages on every send."
+          points={[
+            "Connect through Instagram's own login",
+            "Your password is never shared with aghost",
+            "Only professional accounts, as Instagram requires",
+          ]}
+          scene={<SafetyScene />}
+        />
 
-        <section id="faq" className={SECTION}>
-          <h2 className={HEADING}>Frequently asked questions</h2>
-          <div className="mt-10 grid gap-2">
+        <section id="faq" className={cn(SECTION, "max-w-3xl py-24")}>
+          <div className="grid justify-items-center gap-5 text-center">
+            <p className={EYEBROW}>FAQ</p>
+            <Headline lead="Common questions," accent="straight answers." />
+          </div>
+          <div className="mt-12 divide-y divide-black/10 border-y border-black/10">
             {faqs.map((faq) => (
-              <details
-                key={faq.question}
-                className="group rounded-3xl bg-brand-offwhite px-6 open:pb-6"
-              >
+              <details key={faq.question} className="group">
                 <summary className="flex cursor-pointer list-none items-center gap-4 py-5 [&::-webkit-details-marker]:hidden">
-                  <h3 className="mr-auto text-lg font-medium">
+                  <h3 className="mr-auto text-lg font-semibold">
                     {faq.question}
                   </h3>
-                  <Plus className="size-5 shrink-0 transition-transform group-open:rotate-45" />
+                  <Plus className="size-5 shrink-0 text-brand-gray transition-transform group-open:rotate-45" />
                 </summary>
-                <p className="max-w-3xl text-brand-gray">{faq.answer}</p>
+                <p className="pb-6 text-brand-gray">{faq.answer}</p>
               </details>
             ))}
           </div>
         </section>
 
-        <section className={cn(SECTION, "py-24")}>
-          <div className="relative isolate grid justify-items-center gap-6 overflow-hidden rounded-[40px] bg-black px-6 py-16 text-center text-white">
-            <span className="absolute -top-8 -left-8 -z-10 size-28 rounded-full bg-brand-blue" />
-            <span className="absolute top-10 right-12 -z-10 size-6 rounded-full bg-brand-orange" />
-            <span className="absolute right-24 -bottom-6 -z-10 h-12 w-40 rounded-full bg-brand-cyan" />
-            <span className="absolute bottom-12 left-16 -z-10 size-8 rounded-full bg-brand-red" />
-            <Mascot size={112} />
-            <h2 className={HEADING}>
-              Your next comment could be a conversation.
+        <section className={cn(SECTION, "pb-16")}>
+          <div className="relative isolate overflow-hidden rounded-[2.5rem] bg-black px-8 py-16 text-white sm:px-14">
+            <h2 className="text-[2.6rem] leading-[1.05] font-extrabold tracking-[-0.045em] sm:text-6xl">
+              Reply to every comment. <br />
+              Send every link. <br />
+              <span className="text-brand">Even while you sleep.</span>
             </h2>
-            <Link href="/signup" className={cn(PRIMARY, "h-12 px-7")}>
-              Get started
-              <ArrowRight className="size-4" />
-            </Link>
+            <p className="mt-6 max-w-md text-lg text-white/70">
+              Set up your first automation in three steps.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <GetStarted />
+              <a
+                href="#how-it-works"
+                className={cn(
+                  PILL,
+                  "h-12 px-7 text-white ring-1 ring-white/30 hover:bg-white/10"
+                )}
+              >
+                How it works
+              </a>
+            </div>
+            <Mascot
+              size={220}
+              className="absolute -right-6 -bottom-10 -z-10 max-md:hidden lg:right-10"
+            />
           </div>
         </section>
       </main>
 
-      <footer className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-4 px-6 pb-12 text-sm text-brand-gray">
-        <span className="text-black">
+      <footer className="mx-auto grid max-w-6xl gap-10 px-6 pb-14 text-sm sm:grid-cols-[1fr_auto_auto] sm:gap-16">
+        <div className="grid content-start gap-3">
           <Brand />
-        </span>
-        <p>Instagram comment-to-DM automation.</p>
-        <nav
-          aria-label="Footer"
-          className="flex flex-wrap gap-x-6 gap-y-2 sm:ml-auto"
-        >
-          {sections.map((item) => (
-            <a key={item.href} href={item.href} className="hover:text-black">
-              {item.label}
-            </a>
-          ))}
-          <Link href="/login" className="hover:text-black">
-            Log in
-          </Link>
-          <Link href="/signup" className="hover:text-black">
-            Sign up
-          </Link>
-        </nav>
+          <p className="max-w-xs text-brand-gray">
+            Instagram comment-to-DM automation.
+          </p>
+        </div>
+        <FooterLinks title="Product" links={sections} />
+        <FooterLinks
+          title="Account"
+          links={[
+            { href: "/signup", label: "Sign up" },
+            { href: "/login", label: "Log in" },
+          ]}
+        />
       </footer>
     </div>
   )
 }
 
-/** The DM a commenter receives, with the mascot and a sample comment. */
-function HeroArt() {
+/** A feature told at length: text on one side, its picture on the other. */
+function Story({
+  eyebrow,
+  lead,
+  accent,
+  text,
+  points,
+  scene,
+  flip = false,
+}: {
+  eyebrow: string
+  lead: string
+  accent: string
+  text: string
+  points: string[]
+  scene: React.ReactNode
+  flip?: boolean
+}) {
   return (
-    // The phone is 300px wide, so the narrowest screens shrink the whole scene.
-    <div className="relative isolate mx-auto w-fit px-5 max-[389px]:[zoom:0.8] sm:px-16">
-      <span className="absolute inset-x-0 inset-y-14 -z-10 rounded-[48px] bg-brand-offwhite" />
-      <span className="absolute top-20 right-5 -z-10 size-14 bg-[radial-gradient(circle,rgb(0_0_0/0.18)_1.5px,transparent_1.5px)] bg-size-[14px_14px]" />
-      <span className="absolute top-6 left-6 -z-10 size-7 rounded-full bg-brand-blue" />
-      <span className="absolute right-1 bottom-5 -z-10 h-6 w-14 rounded-full bg-brand-cyan" />
-      <InstagramPreview
-        screen="dm"
-        account={{ username: "studio.maya", picture: null }}
-        post={null}
-        keyword="GUIDE"
-        commentReply={null}
-        openingDm={{
-          message: "Hey {{first_name}}! Thanks for the comment 💬",
-          buttonLabel: "Send me the guide",
-        }}
-        dmMessage="Here's your free guide ✨"
-        buttons={["Download"]}
-      />
-      <p
-        aria-hidden
-        className="absolute top-28 left-0 flex items-center gap-2 rounded-full bg-white py-1.5 pr-4 pl-1.5 text-sm shadow-lg ring-1 ring-black/5"
-      >
-        <span className="grid size-7 place-items-center rounded-full bg-brand-orange text-xs font-bold">
-          A
-        </span>
-        <b>alex</b> GUIDE
-      </p>
-      <p
-        aria-hidden
-        className="absolute top-44 right-0 flex items-center gap-2 rounded-full bg-black py-1.5 pr-4 pl-1.5 text-sm font-medium text-white shadow-lg"
-      >
-        <span className="grid size-7 place-items-center rounded-full bg-brand text-black">
-          <Check className="size-4" strokeWidth={3} />
-        </span>
-        DM sent
-      </p>
-      <Mascot
-        size={168}
-        eager
-        alt="The aghost mascot, a friendly green ghost"
-        className="absolute -bottom-10 -left-4 size-28 drop-shadow-xl sm:-bottom-12 sm:-left-14 sm:size-42"
-      />
-    </div>
+    <section
+      className={cn(
+        SECTION,
+        "grid grid-cols-[minmax(0,1fr)] items-center gap-12 py-20 md:grid-cols-2 md:gap-16"
+      )}
+    >
+      <div className={cn("grid content-start gap-5", flip && "md:order-2")}>
+        <p className={EYEBROW}>{eyebrow}</p>
+        <Headline lead={lead} accent={accent} className="sm:text-5xl" />
+        <p className={LEAD}>{text}</p>
+        <ul className="grid gap-3">
+          {points.map((point) => (
+            <li key={point} className="flex items-start gap-3">
+              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-black text-brand">
+                <Check className="size-3" strokeWidth={3} />
+              </span>
+              {point}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {scene}
+    </section>
+  )
+}
+
+function FooterLinks({
+  title,
+  links,
+}: {
+  title: string
+  links: { href: string; label: string }[]
+}) {
+  return (
+    <nav aria-label={title} className="grid content-start gap-3">
+      <p className="font-semibold">{title}</p>
+      {links.map((link) =>
+        link.href.startsWith("#") ? (
+          <a
+            key={link.href}
+            href={link.href}
+            className="text-brand-gray hover:text-black"
+          >
+            {link.label}
+          </a>
+        ) : (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="text-brand-gray hover:text-black"
+          >
+            {link.label}
+          </Link>
+        )
+      )}
+    </nav>
   )
 }
