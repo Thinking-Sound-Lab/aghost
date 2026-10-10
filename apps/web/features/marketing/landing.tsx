@@ -220,7 +220,7 @@ export function Landing() {
           points={[
             "Comments, DMs sent, and link clicks per automation",
             "A log of every DM: sent, waiting for a tap, or failed",
-            "See which post and keyword actually work",
+            "Compare automations to see which one works",
           ]}
           scene={<StatsScene />}
         />
