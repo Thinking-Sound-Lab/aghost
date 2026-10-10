@@ -1,4 +1,12 @@
+import type { Metadata } from "next"
 import { AuthForm } from "@/features/auth/auth-form"
+
+export const metadata: Metadata = {
+  title: "Log in",
+  description: "Log in to aghost to manage your Instagram DM automations.",
+  alternates: { canonical: "/login" },
+}
+
 export default async function Page({
   searchParams,
 }: {

@@ -67,5 +67,7 @@ export function webEnvironment(values, inherited = process.env) {
   if (!apiUrl)
     throw new Error("Set API_URL in the root .env or deployment environment.")
   environment.API_URL = apiUrl
+  // The site's public address, for canonical links. Vercel supplies its own.
+  if (values.APP_URL) environment.APP_URL = values.APP_URL
   return environment
 }

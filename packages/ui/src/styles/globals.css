@@ -50,6 +50,17 @@
   --font-sans: var(--font-sans);
 }
 
+/* The brand palette. The mascot's green leads; its orbs are the accents. */
+@theme {
+  --color-brand: #22dc72;
+  --color-brand-blue: #145bff;
+  --color-brand-cyan: #13c9d1;
+  --color-brand-orange: #ffb213;
+  --color-brand-red: #ff3b18;
+  --color-brand-gray: #687280;
+  --color-brand-offwhite: #f6f7f8;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.006 285.885);

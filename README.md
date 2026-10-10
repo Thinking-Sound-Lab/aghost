@@ -1,14 +1,16 @@
 <div align="center">
 
+<img src="apps/web/public/mascot.png" alt="The aghost mascot, a green ghost with four coloured orbs" width="128" />
+
 # aghost
 
-**Reply to Instagram comments with automatic DMs.**
+**Turn Instagram comments into DMs, automatically.**
 
 Comment-to-DM automation built with Next.js, Fastify, Supabase, and Zernio.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
-[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [API](#api) · [MCP](#mcp) · [Testing](#testing) · [Deployment](#deployment)
+[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [API](#api) · [MCP](#mcp) · [Brand](#brand) · [Search and AI assistants](#search-and-ai-assistants) · [Testing](#testing) · [Deployment](#deployment)
 
 </div>
 
@@ -109,22 +111,22 @@ The trycloudflare.com address changes each time the tunnel starts, so run `pnpm 
 
 **`.env` at the repository root is the only local configuration file.** Its template is [.env.example](.env.example). `pnpm dev` and `pnpm setup:local` create it, fill in the local Supabase keys, and never overwrite values you set. Do not add env files under `apps/server` or `apps/web`.
 
-| Variable                   | Read by | Purpose                                                        |
-| -------------------------- | ------- | -------------------------------------------------------------- |
-| `APP_URL`                  | API     | The browser-facing origin, for origin checks and redirects     |
-| `API_URL`                  | Web     | Where Next.js forwards `/api` requests                         |
-| `API_PORT`                 | API     | The port the API listens on                                    |
-| `API_HOST`                 | API     | The interface the API listens on                               |
-| `SUPABASE_URL`             | API     | Supabase's address from the host, also used by tests           |
-| `SUPABASE_PUBLISHABLE_KEY` | API     | Filled in by setup                                             |
-| `SUPABASE_SECRET_KEY`      | API     | Filled in by setup                                             |
-| `ZERNIO_API_URL`           | API     | The Zernio API                                                 |
-| `ZERNIO_API_KEY`           | API     | Enables Instagram features; empty leaves them unavailable      |
-| `ZERNIO_WEBHOOK_SECRET`    | API     | Verifies webhook signatures; `pnpm local:tunnel` generates one |
+| Variable                   | Read by  | Purpose                                                          |
+| -------------------------- | -------- | ---------------------------------------------------------------- |
+| `APP_URL`                  | API, Web | The browser-facing origin, for origin checks and canonical links |
+| `API_URL`                  | Web      | Where Next.js forwards `/api` requests                           |
+| `API_PORT`                 | API      | The port the API listens on                                      |
+| `API_HOST`                 | API      | The interface the API listens on                                 |
+| `SUPABASE_URL`             | API      | Supabase's address from the host, also used by tests             |
+| `SUPABASE_PUBLISHABLE_KEY` | API      | Filled in by setup                                               |
+| `SUPABASE_SECRET_KEY`      | API      | Filled in by setup                                               |
+| `ZERNIO_API_URL`           | API      | The Zernio API                                                   |
+| `ZERNIO_API_KEY`           | API      | Enables Instagram features; empty leaves them unavailable        |
+| `ZERNIO_WEBHOOK_SECRET`    | API      | Verifies webhook signatures; `pnpm local:tunnel` generates one   |
 
 To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without it, sign-in and workspaces work and Instagram connections are explicitly unavailable; the app never substitutes sample accounts or analytics.
 
-- Only `API_URL` reaches Next.js. Supabase and Zernio credentials go to the API container only. Env files are ignored by Git and excluded from Docker images.
+- Only `APP_URL` and `API_URL` reach Next.js. Supabase and Zernio credentials go to the API container only. Env files are ignored by Git and excluded from Docker images.
 - Compose gives the API container `http://supabase_kong_aghost:8000` as `SUPABASE_URL`, so it talks to Supabase over the Docker network.
 - For a public or tunneled setup, update `APP_URL` and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`.
 - Deployed environments inject these variables directly; no env file is needed.
@@ -140,6 +142,35 @@ Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full a
 Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool.
 
 MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
+
+## Brand
+
+The mascot is the logo. [`mascot.png`](apps/web/public/mascot.png) is the one source image; the favicon, the Apple icon, and the share image in `apps/web/app` are made from it. The typeface is Inter.
+
+| Colour       | Hex       | Role    |
+| ------------ | --------- | ------- |
+| Aghost Green | `#22DC72` | Primary |
+| Blue         | `#145BFF` | Accent  |
+| Cyan         | `#13C9D1` | Accent  |
+| Orange       | `#FFB213` | Accent  |
+| Red          | `#FF3B18` | Accent  |
+| Black        | `#000000` | Neutral |
+| Gray         | `#687280` | Neutral |
+| Off White    | `#F6F7F8` | Neutral |
+
+The colours are Tailwind tokens in [`globals.css`](packages/ui/src/styles/globals.css): `bg-brand`, `bg-brand-blue`, `text-brand-gray`, and so on. Buttons on green carry black text, because white on Aghost Green is too faint to read. The marketing site uses the full palette; the dashboard stays neutral and carries only the logo.
+
+## Search and AI assistants
+
+The landing page is built to be read by search engines and by AI assistants such as ChatGPT, Claude, Perplexity, and Google's AI Overviews. Google's guidance is that both need the same things: crawlable, server-rendered pages that say something specific.
+
+- **One copy of the text.** [`content.ts`](apps/web/features/marketing/content.ts) holds the steps, features, and questions. The page, its structured data, and `/llms.txt` all read it, so crawlers are told what visitors see.
+- **Answers first.** The page opens by saying what aghost is, and each question is a heading with a direct answer under it.
+- **Structured data.** The page describes itself as an `Organization`, `WebSite`, `WebApplication`, and `FAQPage` in JSON-LD. It claims no price, rating, or review, because the product has none to show yet.
+- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits every crawler, including the ones that feed AI search, and keeps them out of `/api`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages and password recovery answer with `noindex`.
+- **`/llms.txt`.** A plain-text summary for assistants that choose to read one. Google has said it does not use the file, so treat it as a courtesy and not as a ranking factor.
+
+Canonical links, the sitemap, and the structured data use the site's public origin: `APP_URL` locally, and the project's production domain on Vercel.
 
 ## Project structure
 
@@ -252,7 +283,7 @@ The deployment prints `DeployRoleArn` for step 3 and `ApiUrl`, the API's address
 > [!NOTE]
 > Skip `cdk bootstrap` and `create-open-id-connect-provider` if the account already has them; the stacks use what exists. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`. `supabase projects api-keys --reveal` prints the Supabase keys; without `--reveal`, the secret key is masked and will not work.
 
-**2. Vercel.** Create a project with the root directory `apps/web`, connect it to the GitHub repository, and add `API_URL=<ApiUrl>` to its Production and Preview environments. `APP_URL` is the address Vercel serves the project at.
+**2. Vercel.** Create a project with the root directory `apps/web`, connect it to the GitHub repository, and add `API_URL=<ApiUrl>` to its Production and Preview environments. `APP_URL` is the address Vercel serves the project at. The web app reads that address from Vercel's own `VERCEL_PROJECT_PRODUCTION_URL`, so the project needs no `APP_URL` of its own; set one only to publish a different address in canonical links.
 
 **3. GitHub.** Under **Settings → Environments**, create `prod`, limit its deployment branches to `main`, and add:
 
