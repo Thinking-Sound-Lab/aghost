@@ -20,7 +20,7 @@ export const facts = [
 export const steps = [
   {
     title: "Connect Instagram",
-    text: "Sign up, then connect your Instagram professional account through Instagram's own login. You never share your password.",
+    text: "Sign in with Google, then connect your Instagram professional account through Instagram's own login. You never share your password.",
   },
   {
     title: "Pick a post and keywords",

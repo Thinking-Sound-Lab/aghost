@@ -14,6 +14,7 @@ import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
+import { signInDisposableUser } from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 
 const config = loadApiConfig(
@@ -26,7 +27,7 @@ if (
 }
 const admin = createAdminSupabaseClient(config.supabase)
 const runId = randomUUID()
-const password = `Fixture-${randomUUID()}`
+const appOrigin = new URL(config.appUrl).origin
 const eventIds: string[] = []
 const userIds: string[] = []
 
@@ -47,7 +48,7 @@ class ApiSession {
       method,
       url: `/api${path}`,
       headers: {
-        origin: new URL(config.appUrl).origin,
+        origin: appOrigin,
         // Like the web client, a request names a JSON type only with a body.
         ...(body !== undefined && { "Content-Type": "application/json" }),
         cookie: [...this.cookies]
@@ -142,17 +143,12 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       const email = `aghost-fixture-${runId}-${index}@example.com`
       const { data, error } = await admin.auth.admin.createUser({
         email,
-        password,
         email_confirm: true,
       })
       if (error || !data.user)
         throw new Error("Could not create the disposable integration user")
       userIds.push(data.user.id)
-      const signedIn = await session.request("/auth/sign-in", "POST", {
-        email,
-        password,
-      })
-      expect(signedIn.statusCode).toBe(200)
+      await signInDisposableUser(config, email, session.cookies)
       if (index === 0) ownerEmail = email
       const workspace = await (await session.request("/workspace")).json()
       if (index === 0) workspaceId = workspace.id
@@ -192,22 +188,53 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       throw new Error(`Fixture cleanup failed: ${errors.join(", ")}`)
   })
 
-  it("uses HttpOnly session cookies and rejects unauthenticated or cross-origin requests", async () => {
-    const signedIn = await owner.request("/auth/sign-in", "POST", {
-      email: ownerEmail,
-      password,
+  it("returns a sign-in that did not complete to the login page", async () => {
+    const visitor = new ApiSession(app)
+    // Cancelled at Google, refused by Supabase, and a code nobody asked for.
+    for (const query of ["", "?error=access_denied", "?code=not-a-code"]) {
+      const callback = await visitor.request(`/auth/callback${query}`)
+      expect(callback.statusCode).toBe(302)
+      expect(callback.headers.location).toBe(`${appOrigin}/login?error=google`)
+    }
+    expect((await visitor.request("/auth/session")).statusCode).toBe(401)
+  })
+
+  it("accepts Google as the only way to sign in", async () => {
+    const settings = await fetch(`${config.supabase.url}/auth/v1/settings`, {
+      headers: { apikey: config.supabase.publishableKey },
     })
-    const cookies = setCookies(signedIn)
-    expect(cookies.length).toBeGreaterThan(0)
+    expect((await settings.json()).external).toMatchObject({
+      google: true,
+      email: false,
+    })
+    const credentials = {
+      email: `aghost-email-${runId}@example.com`,
+      password: `Fixture-${randomUUID()}`,
+    }
+    for (const path of ["/auth/sign-in", "/auth/sign-up"]) {
+      expect(
+        (await new ApiSession(app).request(path, "POST", credentials))
+          .statusCode
+      ).toBe(404)
+    }
+    // Supabase's own endpoints are public, so it refuses email there too.
+    const supabase = createClient<Database>(
+      config.supabase.url,
+      config.supabase.publishableKey,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    )
+    const signedUp = await supabase.auth.signUp(credentials)
+    if (signedUp.data.user) userIds.push(signedUp.data.user.id)
+    expect(signedUp.error?.code).toBe("email_provider_disabled")
     expect(
-      cookies.every(
-        (value) => /HttpOnly/i.test(value) && /SameSite=Lax/i.test(value)
-      )
-    ).toBe(true)
-    expect(await signedIn.json()).toEqual({
+      (await supabase.auth.signInWithOtp({ email: ownerEmail })).error?.code
+    ).toBe("email_provider_disabled")
+  })
+
+  it("reads the session from HttpOnly cookies and rejects unauthenticated or cross-origin requests", async () => {
+    expect(await (await owner.request("/auth/session")).json()).toEqual({
       user: { id: userIds[0], email: ownerEmail },
     })
-    expect(signedIn.headers["cache-control"]).toContain("no-store")
     expect((await new ApiSession(app).request("/workspace")).statusCode).toBe(
       401
     )
@@ -623,20 +650,8 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   })
 
   it("enforces tenant reads and disallows client-side writes and webhook RPC execution", async () => {
-    const auth = createClient<Database>(
-      config.supabase.url,
-      config.supabase.publishableKey,
-      { auth: { persistSession: false, autoRefreshToken: false } }
-    )
-    const { data, error } = await auth.auth.signInWithPassword({
-      email: ownerEmail,
-      password,
-    })
-    expect(error).toBeNull()
-    const user = createUserSupabaseClient(
-      config.supabase,
-      data.session!.access_token
-    )
+    const session = await signInDisposableUser(config, ownerEmail, new Map())
+    const user = createUserSupabaseClient(config.supabase, session.access_token)
     expect((await user.from("workspaces").select("id")).data).toEqual([
       { id: workspaceId },
     ])
@@ -818,21 +833,23 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     ).toEqual([])
   })
 
-  it("signs up a user, creates their workspace, and clears the session on sign-out", async () => {
+  it("creates a new user's workspace and clears the session on sign-out", async () => {
     const session = new ApiSession(app)
-    const email = `aghost-signup-${runId}@example.com`
-    const response = await session.request("/auth/sign-up", "POST", {
+    const email = `aghost-new-${runId}@example.com`
+    const { data } = await admin.auth.admin.createUser({
       email,
-      password,
+      email_confirm: true,
     })
-    expect(response.statusCode).toBe(201)
-    const result = await response.json()
-    if (result.user) userIds.push(result.user.id)
-    expect(result.needsConfirmation).toBe(false)
+    if (!data.user) throw new Error("Could not create the disposable user")
+    userIds.push(data.user.id)
+    await signInDisposableUser(config, email, session.cookies)
     expect((await session.request("/workspace")).statusCode).toBe(200)
-    expect(
-      (await session.request("/auth/sign-out", "POST", {})).statusCode
-    ).toBe(204)
+    const signedOut = await session.request("/auth/sign-out", "POST", {})
+    expect(signedOut.statusCode).toBe(204)
+    const cleared = setCookies(signedOut)
+    expect(cleared.length).toBeGreaterThan(0)
+    expect(cleared.every((value) => /HttpOnly/i.test(value))).toBe(true)
+    expect(session.cookies.size).toBe(0)
     expect((await session.request("/auth/session")).statusCode).toBe(401)
   })
 

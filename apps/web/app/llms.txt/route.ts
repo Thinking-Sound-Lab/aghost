@@ -24,8 +24,7 @@ ${faqs.map((faq) => `- ${faq.question} ${faq.answer}`).join("\n")}
 ## Pages
 
 - [Home](${site.url}/): What ${site.name} does, how it works, and answers to common questions
-- [Sign up](${site.url}/signup): Create an account
-- [Log in](${site.url}/login): Open the dashboard
+- [Log in or sign up](${site.url}/login): Continue with Google to open the dashboard
 `
 
 export function GET() {

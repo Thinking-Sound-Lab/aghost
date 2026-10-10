@@ -1,9 +1,10 @@
 import type { Metadata } from "next"
-import { AuthForm } from "@/features/auth/auth-form"
+import { SignIn } from "@/features/auth/sign-in"
 
 export const metadata: Metadata = {
-  title: "Log in",
-  description: "Log in to aghost to manage your Instagram DM automations.",
+  title: "Log in or sign up",
+  description:
+    "Log in or sign up to aghost with Google, and turn Instagram comments into DMs.",
   alternates: { canonical: "/login" },
 }
 
@@ -14,12 +15,9 @@ export default async function Page({
 }) {
   const { error } = await searchParams
   return (
-    <AuthForm
-      mode="login"
-      initialError={
-        error === "confirmation"
-          ? "The email link is invalid or expired. Request a new link or log in."
-          : undefined
+    <SignIn
+      error={
+        error === "google" ? "Google sign-in did not finish. Try again." : null
       }
     />
   )

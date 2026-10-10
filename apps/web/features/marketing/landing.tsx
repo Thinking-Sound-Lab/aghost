@@ -67,7 +67,7 @@ function Headline({
 
 function GetStarted({ className }: { className?: string }) {
   return (
-    <Link href="/signup" className={cn(PRIMARY, "h-12 px-7", className)}>
+    <Link href="/login" className={cn(PRIMARY, "h-12 px-7", className)}>
       Get started
       <ArrowRight className="size-4" />
     </Link>
@@ -96,7 +96,7 @@ export function Landing() {
           >
             Log in
           </Link>
-          <Link href="/signup" className={cn(DARK, "h-10 px-5 text-sm")}>
+          <Link href="/login" className={cn(DARK, "h-10 px-5 text-sm")}>
             Get started
             <ArrowRight className="size-4" />
           </Link>
@@ -310,10 +310,7 @@ export function Landing() {
         <FooterLinks title="Product" links={sections} />
         <FooterLinks
           title="Account"
-          links={[
-            { href: "/signup", label: "Sign up" },
-            { href: "/login", label: "Log in" },
-          ]}
+          links={[{ href: "/login", label: "Log in or sign up" }]}
         />
       </footer>
     </div>
