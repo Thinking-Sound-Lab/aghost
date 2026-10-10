@@ -251,9 +251,12 @@ The deployment prints `DeployRoleArn` for step 3 and `ApiUrl`, the API's address
 | `APP_URL`               | Variable | The web origin, for example `https://aghost.com` |
 | `SUPABASE_URL`          | Variable | `https://<project>.supabase.co`                  |
 | `SUPABASE_PROJECT_ID`   | Variable | The Supabase project's reference ID              |
+| `SUPABASE_POOLER_URL`   | Variable | The project's session pooler address             |
 | `SUPABASE_ACCESS_TOKEN` | Secret   | A scoped Supabase access token                   |
 
 Create the token in the Supabase dashboard under **Account → Access Tokens**. Scope it to this project only, with **Database: Read-write**. The Release job uses it to create a short-lived database role for the migrations, so no database password is stored.
+
+GitHub's runners have no IPv6, and the database's direct address is IPv6-only, so migrations connect through the IPv4 session pooler. Its address has no password: `postgresql://postgres.<project>@<pooler-host>:5432/postgres`, shown in the dashboard under **Connect → Session pooler**, or saved to `supabase/.temp/pooler-url` by `supabase link`.
 
 > [!TIP]
 > Add required reviewers to the `prod` environment to approve each release before it starts.
