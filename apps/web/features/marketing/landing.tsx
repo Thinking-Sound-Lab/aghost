@@ -14,7 +14,7 @@ export function Landing() {
         >
           Log in
         </Link>
-        <Link href="/signup" className={buttonVariants()}>
+        <Link href="/login" className={buttonVariants()}>
           Get started
         </Link>
       </header>
@@ -28,7 +28,7 @@ export function Landing() {
             automatically.
           </p>
           <Link
-            href="/signup"
+            href="/login"
             className={buttonVariants({
               size: "lg",
               className: "justify-self-start",

@@ -9,14 +9,12 @@ type AuthState = {
   error: string | null
   load: () => Promise<void>
   signOut: () => Promise<void>
-  setUser: (user: SessionUser) => void
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: "idle",
   user: null,
   error: null,
-  setUser: (user) => set({ user, status: "signed_in", error: null }),
   load: async () => {
     if (get().status === "loading") return
     set({ status: "loading", error: null })
@@ -47,28 +45,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     }
   },
-}))
-
-type FormState = {
-  email: string
-  password: string
-  busy: boolean
-  error: string | null
-  message: string | null
-  set: (
-    patch: Partial<
-      Pick<FormState, "email" | "password" | "busy" | "error" | "message">
-    >
-  ) => void
-  reset: () => void
-}
-export const useAuthForm = create<FormState>((set) => ({
-  email: "",
-  password: "",
-  busy: false,
-  error: null,
-  message: null,
-  set: (patch) => set(patch),
-  reset: () =>
-    set({ email: "", password: "", busy: false, error: null, message: null }),
 }))

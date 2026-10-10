@@ -58,6 +58,8 @@ pnpm install
 pnpm dev
 ```
 
+The first run stops and asks for a Google OAuth client: see [Google sign-in](#google-sign-in).
+
 `pnpm dev` prepares the root `.env`, starts Supabase in Docker and applies pending migrations, starts the API in Docker, and then starts Next.js on the host. API changes reload inside the container; web changes use hot reload.
 
 | Service         | Address                                   |
@@ -65,7 +67,6 @@ pnpm dev
 | Web app         | [localhost:3000](http://localhost:3000)   |
 | API             | `127.0.0.1:4000`                          |
 | Supabase Studio | [localhost:54323](http://localhost:54323) |
-| Email previews  | [localhost:54324](http://localhost:54324) |
 
 Closing the web process leaves the Docker services running; `pnpm local:stop` stops them and keeps the database.
 
@@ -85,6 +86,16 @@ Closing the web process leaves the Docker services running; `pnpm local:stop` st
 | `pnpm db:status`    | Shows the local Supabase services                                                     |
 | `pnpm db:types`     | Regenerates `packages/supabase/src/database.types.ts`                                 |
 | `pnpm db:reset`     | Resets the local database. **Destructive**: only for disposable data                  |
+
+### Google sign-in
+
+Google is the only way to sign in, and a first sign-in creates the account. Supabase does the exchange with Google, so it holds the OAuth client:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), create an OAuth client ID of type **Web application**.
+2. Add `http://127.0.0.1:54321/auth/v1/callback` to its authorized redirect URIs.
+3. Set `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` in the root `.env`.
+
+Supabase reads both values when it starts. After changing them, or after switching from a branch with different sign-in settings, run `pnpm local:stop` and then `pnpm dev`.
 
 ### Zernio webhooks locally
 
@@ -108,22 +119,24 @@ The trycloudflare.com address changes each time the tunnel starts, so run `pnpm 
 
 **`.env` at the repository root is the only local configuration file.** Its template is [.env.example](.env.example). `pnpm dev` and `pnpm setup:local` create it, fill in the local Supabase keys, and never overwrite values you set. Do not add env files under `apps/server` or `apps/web`.
 
-| Variable                   | Read by | Purpose                                                        |
-| -------------------------- | ------- | -------------------------------------------------------------- |
-| `APP_URL`                  | API     | The browser-facing origin, for origin checks and redirects     |
-| `API_URL`                  | Web     | Where Next.js forwards `/api` requests                         |
-| `API_PORT`                 | API     | The port the API listens on                                    |
-| `API_HOST`                 | API     | The interface the API listens on                               |
-| `SUPABASE_URL`             | API     | Supabase's address from the host, also used by tests           |
-| `SUPABASE_PUBLISHABLE_KEY` | API     | Filled in by setup                                             |
-| `SUPABASE_SECRET_KEY`      | API     | Filled in by setup                                             |
-| `ZERNIO_API_URL`           | API     | The Zernio API                                                 |
-| `ZERNIO_API_KEY`           | API     | Enables Instagram features; empty leaves them unavailable      |
-| `ZERNIO_WEBHOOK_SECRET`    | API     | Verifies webhook signatures; `pnpm local:tunnel` generates one |
+| Variable                                  | Read by  | Purpose                                                        |
+| ----------------------------------------- | -------- | -------------------------------------------------------------- |
+| `APP_URL`                                 | API      | The browser-facing origin, for origin checks and redirects     |
+| `API_URL`                                 | Web      | Where Next.js forwards `/api` requests                         |
+| `API_PORT`                                | API      | The port the API listens on                                    |
+| `API_HOST`                                | API      | The interface the API listens on                               |
+| `SUPABASE_URL`                            | API      | Supabase's address from the host, also used by tests           |
+| `SUPABASE_PUBLISHABLE_KEY`                | API      | Filled in by setup                                             |
+| `SUPABASE_SECRET_KEY`                     | API      | Filled in by setup                                             |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Supabase | The Google OAuth client for [sign-in](#google-sign-in)         |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`    | Supabase | That client's secret                                           |
+| `ZERNIO_API_URL`                          | API      | The Zernio API                                                 |
+| `ZERNIO_API_KEY`                          | API      | Enables Instagram features; empty leaves them unavailable      |
+| `ZERNIO_WEBHOOK_SECRET`                   | API      | Verifies webhook signatures; `pnpm local:tunnel` generates one |
 
 To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without it, sign-in and workspaces work and Instagram connections are explicitly unavailable; the app never substitutes sample accounts or analytics.
 
-- Only `API_URL` reaches Next.js. Supabase and Zernio credentials go to the API container only. Env files are ignored by Git and excluded from Docker images.
+- Only `API_URL` reaches Next.js. Supabase and Zernio credentials go to the API container only, and the Google client to Supabase only. Env files are ignored by Git and excluded from Docker images.
 - Compose gives the API container `http://supabase_kong_aghost:8000` as `SUPABASE_URL`, so it talks to Supabase over the Docker network.
 - For a public or tunneled setup, update `APP_URL` and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`.
 - Deployed environments inject these variables directly; no env file is needed.
@@ -157,7 +170,7 @@ pnpm verify:local  # end-to-end checks against the running app
 
 `pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. CI uses `pnpm setup:test` instead, which starts only what the tests need. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
 
-With the app running, `pnpm verify:local` checks pages, HttpOnly authentication through the Next.js proxy, workspace persistence, sign-out, and password-recovery emails and PKCE callbacks. It removes its disposable user and emails afterwards. Browser interaction and visual review are separate checks.
+With the app running, `pnpm verify:local` checks pages, the Next.js proxy, and the start of Google sign-in: the HttpOnly PKCE cookie, the redirect to Google with the client from the root `.env`, and the return to the login page when a sign-in does not finish. Signing in with a Google account, browser interaction, and visual review are separate checks.
 
 Live OAuth and comment-to-DM delivery need Zernio credentials and an authorized professional Instagram account.
 
@@ -261,10 +274,10 @@ GitHub's runners have no IPv6, and the database's direct address is IPv6-only, s
 > [!TIP]
 > Add required reviewers to the `prod` environment to approve each release before it starts.
 
-**4. Supabase and Zernio.** Allow `<APP_URL>/api/auth/callback` in Supabase's redirect URLs. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected` and `account.disconnected`.
+**4. Supabase, Google, and Zernio.** In the Supabase dashboard, under **Authentication**, enable the Google provider with an OAuth client's ID and secret, disable the Email provider, and allow `<APP_URL>/api/auth/callback` in the redirect URLs. Add `https://<project>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs in the Google Cloud console. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected` and `account.disconnected`.
 
 > [!NOTE]
-> The API accepts writes only from `APP_URL`'s origin. Previews show the site and dashboard, but signing in from a preview is refused.
+> Google sign-in returns to `APP_URL`, and the API accepts writes only from its origin. Previews show the site and dashboard, but signing in from a preview does not work.
 
 ### Reviewing infrastructure changes
 

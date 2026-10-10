@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { InjectOptions } from "fastify"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { createApi } from "../container"
 import { apiErrorBodySchema } from "../contract/errors"
 
@@ -54,7 +54,7 @@ describe("requests the API rejects", () => {
     expect(
       await reject({
         method: "POST",
-        url: "/api/auth/sign-in",
+        url: "/api/auth/sign-out",
         headers: json,
         payload: "{nope",
       })
@@ -83,5 +83,68 @@ describe("requests the API rejects", () => {
       status: 404,
       error: { code: "not_found" },
     })
+  })
+})
+
+describe("Google sign-in", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("sends the browser to the address Supabase answers with and keeps the PKCE verifier in an HttpOnly cookie", async () => {
+    const googleUrl =
+      "https://accounts.google.com/o/oauth2/v2/auth?state=signed"
+    const supabase = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(null, { status: 302, headers: { location: googleUrl } })
+      )
+    vi.stubGlobal("fetch", supabase)
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/google",
+    })
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(googleUrl)
+    const [address, options] = supabase.mock.calls[0]!
+    const authorize = new URL(String(address))
+    expect(authorize.origin + authorize.pathname).toBe(
+      "http://127.0.0.1:9/auth/v1/authorize"
+    )
+    expect(Object.fromEntries(authorize.searchParams)).toMatchObject({
+      provider: "google",
+      redirect_to: "http://localhost:3000/api/auth/callback",
+      code_challenge: expect.stringMatching(/.+/),
+      code_challenge_method: "s256",
+      prompt: "select_account",
+    })
+    expect(options).toMatchObject({ redirect: "manual" })
+    const cookies = [response.headers["set-cookie"] ?? []].flat().map(String)
+    expect(cookies.length).toBeGreaterThan(0)
+    expect(
+      cookies.every(
+        (value) => /HttpOnly/i.test(value) && /SameSite=Lax/i.test(value)
+      )
+    ).toBe(true)
+  })
+
+  it("returns to the login page when Supabase refuses to start the sign-in", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json(
+            { msg: "Unsupported provider: provider is not enabled" },
+            { status: 400 }
+          )
+        )
+    )
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/google",
+    })
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      "http://localhost:3000/login?error=google"
+    )
   })
 })

@@ -1,12 +1,11 @@
 "use client"
 
 import { useEffect, type FormEvent } from "react"
-import Link from "next/link"
 import { create } from "zustand"
 import { CreditCard, RefreshCw } from "lucide-react"
 import { WORKSPACE_NAME_MAX_LENGTH } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
-import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Instagram } from "@/components/instagram-icon"
 import { Avatar, ConfirmButton, EmptyState, Page } from "@/components/interface"
@@ -207,14 +206,6 @@ function Account() {
     <div className="divide-y">
       <Row label="Email">
         <span className="truncate text-sm">{auth.user?.email}</span>
-      </Row>
-      <Row label="Password">
-        <Link
-          href="/forgot-password"
-          className={buttonVariants({ variant: "secondary" })}
-        >
-          Reset password
-        </Link>
       </Row>
       <Row label="Session">
         <Button variant="secondary" onClick={() => void auth.signOut()}>
