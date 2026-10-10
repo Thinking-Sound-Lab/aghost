@@ -32,6 +32,28 @@ export function McpAccess() {
 
   return (
     <section className="grid gap-8">
+      <div className="grid gap-3">
+        <h2 className="text-sm font-medium">Let your agent set this up</h2>
+        <p className="text-sm text-muted-foreground">
+          Paste this skill into Claude Code, Codex, Cursor, or another agent. It
+          includes this app&apos;s address and guides your agent through
+          configuring the connection with your API key.
+        </p>
+        <ErrorBanner message={skill.error} />
+        <div className="flex flex-wrap items-start gap-2">
+          <CopyButton
+            value={skill.content}
+            label={skill.status === "loading" ? "Loading skill…" : "Copy skill"}
+            disabled={skill.status !== "ready"}
+          />
+          {skill.status === "error" && (
+            <Button variant="secondary" size="sm" onClick={() => void load()}>
+              Retry
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="grid gap-2">
         <h2 className="text-sm font-medium">Connect with MCP</h2>
         <p className="text-sm text-muted-foreground">
@@ -65,28 +87,6 @@ export function McpAccess() {
         <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
           <pre className="min-w-0 flex-1 overflow-auto text-xs">{config}</pre>
           <CopyButton value={config} label="Copy config" />
-        </div>
-      </div>
-
-      <div className="grid gap-3">
-        <h3 className="text-sm font-medium">Let your agent set this up</h3>
-        <p className="text-sm text-muted-foreground">
-          Paste this skill into Claude Code, Codex, Cursor, or another agent. It
-          includes this app&apos;s address and guides your agent through
-          configuring the connection with your API key.
-        </p>
-        <ErrorBanner message={skill.error} />
-        <div className="flex flex-wrap items-start gap-2">
-          <CopyButton
-            value={skill.content}
-            label={skill.status === "loading" ? "Loading skill…" : "Copy skill"}
-            disabled={skill.status !== "ready"}
-          />
-          {skill.status === "error" && (
-            <Button variant="secondary" size="sm" onClick={() => void load()}>
-              Retry
-            </Button>
-          )}
         </div>
       </div>
     </section>

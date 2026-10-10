@@ -31,21 +31,9 @@ export function ApiAccess() {
 
   return (
     <section className="grid gap-8">
-      <div className="grid gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">API access</h2>
-          <ApiKeyDialog />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Use API keys to let agents access and manage this workspace. Keys work
-          until you revoke them.
-        </p>
-        <div className="grid gap-1 rounded-lg border p-3 text-xs">
-          <p>
-            <span className="mr-3 text-muted-foreground">API</span>
-            <code className="break-all">{origin}/api/v1</code>
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium">API access</h2>
+        <ApiKeyDialog />
       </div>
 
       <ErrorBanner message={store.error} />
