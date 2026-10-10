@@ -1,0 +1,9 @@
+# The Vercel CLI does not read .gitignore. Without this file, a deploy from a
+# developer's machine uploads local secrets and tooling as source.
+.env*
+!.env.example
+.context
+.conductor
+.github
+infra
+supabase
