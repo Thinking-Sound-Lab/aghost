@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const API_ERROR_CODES = [
   "unauthenticated",
+  "forbidden",
   "bad_request",
   "validation_failed",
   "not_found",

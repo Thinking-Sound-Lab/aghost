@@ -8,6 +8,9 @@ import {
   type ContactPage,
   type Conversation,
   type CreateAutomationInput,
+  type ApiKey,
+  type CreateApiKeyInput,
+  type CreatedApiKey,
   type InstagramAccount,
   type InstagramPost,
   type IntegrationStatus,
@@ -36,7 +39,8 @@ export function createApiClient(
   async function request<T>(
     path: string,
     method = "GET",
-    body?: unknown
+    body?: unknown,
+    format: "json" | "markdown" = "json"
   ): Promise<T> {
     let response: Response
     try {
@@ -58,6 +62,11 @@ export function createApiClient(
     if (response.ok && response.status === 204) return undefined as T
     let payload: unknown
     try {
+      if (response.ok && format === "markdown") {
+        if (!response.headers.get("Content-Type")?.startsWith("text/markdown"))
+          throw new Error("Expected Markdown")
+        return (await response.text()) as T
+      }
       payload = await response.json()
     } catch {
       throw new ApiClientError(
@@ -78,6 +87,17 @@ export function createApiClient(
     return payload as T
   }
   return {
+    mcp: {
+      skill: () =>
+        request<string>("/mcp/skill.md", "GET", undefined, "markdown"),
+    },
+    apiKeys: {
+      list: () => request<ApiKey[]>("/api-keys"),
+      create: (input: CreateApiKeyInput = {}) =>
+        request<CreatedApiKey>("/api-keys", "POST", input),
+      revoke: (id: string) =>
+        request<void>(`/api-keys/${encodeURIComponent(id)}`, "DELETE"),
+    },
     auth: {
       /** Where to send the browser to sign in with Google. */
       googleSignInUrl: `${baseUrl}/auth/google`,

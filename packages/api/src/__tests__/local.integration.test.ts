@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs"
 import { parseEnv } from "node:util"
 import type { InjectOptions, LightMyRequestResponse } from "fastify"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import {
   createAdminSupabaseClient,
@@ -15,6 +14,7 @@ import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
+import { signInDisposableUser } from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 
 const config = loadApiConfig(
@@ -68,38 +68,6 @@ class ApiSession {
     }
     return response
   }
-}
-
-/**
- * Signs a disposable user in without Google: a one-time link from the admin
- * API becomes the session cookies the API reads.
- */
-async function signIn(session: ApiSession, email: string) {
-  const link = await admin.auth.admin.generateLink({ type: "magiclink", email })
-  if (link.error) throw new Error("Could not create a one-time sign-in link")
-  const client = createServerClient<Database>(
-    config.supabase.url,
-    config.supabase.publishableKey,
-    {
-      cookies: {
-        getAll: () =>
-          [...session.cookies].map(([name, value]) => ({ name, value })),
-        setAll: (cookies) => {
-          for (const { name, value } of cookies) {
-            if (value) session.cookies.set(name, value)
-            else session.cookies.delete(name)
-          }
-        },
-      },
-    }
-  )
-  const { data, error } = await client.auth.verifyOtp({
-    token_hash: link.data.properties.hashed_token,
-    type: "magiclink",
-  })
-  if (error || !data.session)
-    throw new Error("Could not sign the disposable user in")
-  return data.session
 }
 
 describe("local API, provider SDK, and PostgreSQL integration", () => {
@@ -180,7 +148,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       if (error || !data.user)
         throw new Error("Could not create the disposable integration user")
       userIds.push(data.user.id)
-      await signIn(session, email)
+      await signInDisposableUser(config, email, session.cookies)
       if (index === 0) ownerEmail = email
       const workspace = await (await session.request("/workspace")).json()
       if (index === 0) workspaceId = workspace.id
@@ -682,7 +650,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   })
 
   it("enforces tenant reads and disallows client-side writes and webhook RPC execution", async () => {
-    const session = await signIn(new ApiSession(app), ownerEmail)
+    const session = await signInDisposableUser(config, ownerEmail, new Map())
     const user = createUserSupabaseClient(config.supabase, session.access_token)
     expect((await user.from("workspaces").select("id")).data).toEqual([
       { id: workspaceId },
@@ -874,7 +842,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     })
     if (!data.user) throw new Error("Could not create the disposable user")
     userIds.push(data.user.id)
-    await signIn(session, email)
+    await signInDisposableUser(config, email, session.cookies)
     expect((await session.request("/workspace")).statusCode).toBe(200)
     const signedOut = await session.request("/auth/sign-out", "POST", {})
     expect(signedOut.statusCode).toBe(204)

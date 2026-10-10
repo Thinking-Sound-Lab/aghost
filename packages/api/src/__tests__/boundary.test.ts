@@ -102,6 +102,32 @@ describe("webhook signature boundary", () => {
 })
 
 describe("browser API client failures", () => {
+  it("downloads the agent skill as Markdown", async () => {
+    const markdown = "---\nname: aghost\n---\nConfigure the connection."
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(markdown, {
+        headers: { "Content-Type": "text/markdown; charset=utf-8" },
+      })
+    )
+    await expect(createApiClient("/api", transport).mcp.skill()).resolves.toBe(
+      markdown
+    )
+  })
+
+  it("rejects an HTML proxy page instead of copying it as an agent skill", async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response("<html>Proxy error</html>", {
+        headers: { "Content-Type": "text/html" },
+      })
+    )
+    await expect(
+      createApiClient("/api", transport).mcp.skill()
+    ).rejects.toMatchObject({
+      code: "internal_error",
+      message: "The server returned an unexpected response.",
+    })
+  })
+
   it("preserves field validation errors", async () => {
     const transport = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json(

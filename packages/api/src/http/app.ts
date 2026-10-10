@@ -6,6 +6,7 @@ import Fastify, {
   type FastifyRequest,
 } from "fastify"
 import { z } from "zod"
+import { createApiKeySchema } from "../contract/api-key"
 import type { ApiConfig } from "../config"
 import {
   activityPageQuerySchema,
@@ -26,7 +27,9 @@ import {
   UnauthenticatedError,
 } from "../shared/errors"
 import { authRoutes } from "./auth.routes"
-import type { Authenticate } from "./context"
+import type { Authenticate, AuthenticateAgent } from "./context"
+import { agentRoutes } from "./agent.routes"
+import { mcpRoutes } from "../mcp/routes"
 import {
   presentAccount,
   presentAutomation,
@@ -36,6 +39,7 @@ import { validate } from "./validation"
 
 const statusByCode = {
   unauthenticated: 401,
+  forbidden: 403,
   bad_request: 400,
   validation_failed: 422,
   not_found: 404,
@@ -120,17 +124,19 @@ function sendError(
 
 export function createApp({
   authenticate,
+  authenticateAgent,
   webhooks,
   config,
 }: {
   authenticate: Authenticate
+  authenticateAgent: AuthenticateAgent
   webhooks: WebhookService
   config: ApiConfig
 }) {
   const appOrigin = new URL(config.appUrl).origin
   const createSessionClient = createSessionClientFactory(config)
   const app = Fastify({
-    logger: true,
+    logger: { redact: ["req.headers.authorization", "req.headers.cookie"] },
     // Each delivery and its status code, including rejected signatures.
     logController: new LogController({
       disableRequestLogging: (request) =>
@@ -144,6 +150,7 @@ export function createApp({
   app.register(cookie)
   app.decorateRequest("session")
   app.decorateRequest("identity")
+  app.decorateRequest("agentIdentity")
   app.setErrorHandler(sendError)
   app.setNotFoundHandler((_request, reply) =>
     reply.code(404).send(errorBody("not_found", "This endpoint was not found."))
@@ -152,11 +159,19 @@ export function createApp({
     reply.header("Cache-Control", "private, no-store")
     reply.header("X-Content-Type-Options", "nosniff")
     const method = request.method
+    const agent = request.routeOptions.config.agent === true
+    if (
+      agent &&
+      request.headers.origin !== undefined &&
+      request.headers.origin !== appOrigin
+    ) {
+      throw new BadRequestError("Request origin is not allowed.")
+    }
     if (
       !["GET", "HEAD", "OPTIONS"].includes(method) &&
       request.routeOptions.url !== WEBHOOK_PATH
     ) {
-      if (request.headers.origin !== appOrigin)
+      if (!agent && request.headers.origin !== appOrigin)
         throw new BadRequestError("Request origin is not allowed.")
       if (
         method !== "DELETE" &&
@@ -170,6 +185,8 @@ export function createApp({
   app.register(
     async (api) => {
       api.get("/health", async () => ({ status: "ok" }))
+      api.register(agentRoutes(authenticateAgent), { prefix: "/v1" })
+      api.register(mcpRoutes(authenticateAgent, config.appUrl))
       api.register(async (hooks) => {
         // The signature covers the exact bytes sent, so the body stays text.
         hooks.removeAllContentTypeParsers()
@@ -215,6 +232,29 @@ export function createApp({
         routes.get("/workspace", async (request) =>
           presentWorkspace(request.identity.workspace)
         )
+        routes.get("/api-keys", async (request) => {
+          const { services, workspace } = request.identity
+          return services.apiKeys.list(workspace)
+        })
+        routes.post("/api-keys", async (request, reply) => {
+          const { services, workspace } = request.identity
+          return reply
+            .code(201)
+            .send(
+              await services.apiKeys.create(
+                workspace,
+                validate(createApiKeySchema, request.body)
+              )
+            )
+        })
+        routes.delete<IdParams>("/api-keys/:id", async (request, reply) => {
+          const { services, workspace } = request.identity
+          await services.apiKeys.revoke(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+          return reply.code(204).send()
+        })
         routes.patch("/workspace", async (request) => {
           const { services, workspace } = request.identity
           const input = validate(renameWorkspaceSchema, request.body)
