@@ -1,0 +1,39 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One release at a time. A running CloudFormation update is never cancelled.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  api:
+    name: API
+    needs: ci
+    uses: ./.github/workflows/deploy-api.yml
+    with:
+      environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+  # The web app ships after the API it calls.
+  web:
+    name: Web
+    needs: api
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      environment: production
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

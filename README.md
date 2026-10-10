@@ -1,100 +1,279 @@
+<div align="center">
+
 # aghost
 
-Instagram comment-to-DM automation using Next.js, Zustand, Supabase, and Zernio.
+**Reply to Instagram comments with automatic DMs.**
+
+Comment-to-DM automation built with Next.js, Fastify, Supabase, and Zernio.
+
+[![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
+
+[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [Testing](#testing) · [Deployment](#deployment)
+
+</div>
+
+---
+
+## Stack
+
+| Layer              | Built with                                                            |
+| ------------------ | --------------------------------------------------------------------- |
+| **Web**            | Next.js marketing site and dashboard, Zustand, shadcn/ui · on Vercel  |
+| **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS |
+| **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth              |
+| **Instagram**      | Zernio for account connections, automations, inbox, and contacts      |
+| **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  browser(["Browser"])
+  subgraph vercel["Vercel"]
+    web["Next.js<br/>site and dashboard"]
+  end
+  subgraph aws["AWS · default VPC"]
+    alb["Load balancer<br/>HTTPS"] --> api["Fastify API<br/>ECS Fargate"]
+  end
+  supabase[("Supabase<br/>Postgres and Auth")]
+  zernio["Zernio<br/>Instagram API"]
+
+  browser -->|"pages and /api"| web
+  web -->|"/api/* rewrite"| alb
+  api --> supabase
+  api <-->|"calls and webhooks"| zernio
+```
+
+- **One origin for the browser.** Pages and `/api` share the web app's origin; Next.js rewrites `/api/*` to the API. Locally, the same proxy points at the API in Docker.
+- **UI in the app, rules in the package.** Business rules and provider calls live in `packages/api`. The web app renders UI and calls the API through its typed client.
+- **Tenant isolation.** Supabase row-level security scopes reads to a workspace, and the API verifies the user before privileged writes. Account webhook updates and their deduplication ledger entry commit in one transaction.
+- **No credentials in the browser.** Provider keys stay in the API. Session cookies are HttpOnly and use Secure on HTTPS origins.
 
 ## Run locally
 
-Requirements: Node.js 22 or newer, pnpm, and Docker with Docker Compose.
+You need Node.js 22 or newer, pnpm, and Docker with Docker Compose.
 
 ```sh
 pnpm install
 pnpm dev
 ```
 
-`pnpm dev` prepares the root `.env`, starts Supabase's Docker containers, applies pending local migrations, starts the API in Docker, and then starts Next.js on the host. API source changes reload inside its container; web changes use Next.js hot reload.
+`pnpm dev` prepares the root `.env`, starts Supabase in Docker and applies pending migrations, starts the API in Docker, and then starts Next.js on the host. API changes reload inside the container; web changes use hot reload.
 
-Open [localhost:3000](http://localhost:3000). The API is published at `127.0.0.1:4000`; Supabase Studio is at [localhost:54323](http://localhost:54323), and local email previews are at [localhost:54324](http://localhost:54324).
+| Service         | Address                                   |
+| --------------- | ----------------------------------------- |
+| Web app         | [localhost:3000](http://localhost:3000)   |
+| API             | `127.0.0.1:4000`                          |
+| Supabase Studio | [localhost:54323](http://localhost:54323) |
+| Email previews  | [localhost:54324](http://localhost:54324) |
 
-Closing the web process leaves the Docker services running. Stop this project's API, webhook tunnel, and Supabase with:
+Closing the web process leaves the Docker services running; `pnpm local:stop` stops them and keeps the database.
 
-```sh
-pnpm local:stop
-```
+> [!NOTE]
+> The stack uses fixed local ports, so run it in one workspace at a time. The Supabase CLI manages its containers from `supabase/config.toml`, and `compose.yaml` runs the API on Supabase's Docker network.
 
-This preserves database data. `pnpm local:start` starts or rebuilds the Docker backend without starting the web app. `pnpm local:logs` follows API logs, and `pnpm local:status` shows the API container. Re-run `pnpm local:start` after changing environment variables or dependencies.
+### Commands
 
-The Supabase CLI manages its Docker services from `supabase/config.toml`; `compose.yaml` manages the API and connects it to Supabase's existing Docker network. This stack uses this project's fixed local ports and should run in one workspace at a time.
+| Command             | What it does                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm dev`          | Starts the Docker backend, then the web app                                           |
+| `pnpm local:start`  | Starts or rebuilds the Docker backend only. Run it after changing env or dependencies |
+| `pnpm local:stop`   | Stops the API, webhook tunnel, and Supabase. Database data is kept                    |
+| `pnpm local:logs`   | Follows the API's logs                                                                |
+| `pnpm local:status` | Shows the API container                                                               |
+| `pnpm local:tunnel` | Receives Zernio webhooks on your machine ([below](#zernio-webhooks-locally))          |
+| `pnpm db:status`    | Shows the local Supabase services                                                     |
+| `pnpm db:types`     | Regenerates `packages/supabase/src/database.types.ts`                                 |
+| `pnpm db:reset`     | Resets the local database. **Destructive**: only for disposable data                  |
 
-## Zernio webhooks locally
+### Zernio webhooks locally
 
-Zernio notifies the API when an Instagram account connects or disconnects. To receive those events on your machine:
+Zernio notifies the API when an Instagram account connects or disconnects. To receive those events on your machine, run:
 
 ```sh
 pnpm local:tunnel
 ```
 
-This starts a [Cloudflare quick tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) in Docker, which needs no Cloudflare account. The tunnel makes only `/api/webhooks/zernio` public, and Cloudflare answers 404 for every other path. The command then:
+This starts a [Cloudflare quick tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) in Docker, which needs no Cloudflare account. Only `/api/webhooks/zernio` is public; Cloudflare answers 404 for every other path. The command then:
 
 1. Generates `ZERNIO_WEBHOOK_SECRET` in the root `.env` if it is empty.
-2. Creates or updates a Zernio webhook named `aghost local tunnel` that points to the tunnel address and subscribes to `account.connected` and `account.disconnected`.
-3. Asks Zernio to send a test event through the tunnel and fails if it is not delivered.
+2. Creates or updates a Zernio webhook named `aghost local tunnel` that points to the tunnel and subscribes to `account.connected` and `account.disconnected`.
+3. Asks Zernio to send a test event through the tunnel, and fails if it is not delivered.
 
-`ZERNIO_API_KEY` is required. Deliveries and their status codes appear in `pnpm local:logs`; a 401 means the signature did not match the secret. The trycloudflare.com address changes each time the tunnel starts, so run `pnpm local:tunnel` again after `pnpm local:stop` or a Docker restart. While the tunnel is stopped, Zernio's deliveries to the previous address fail, and you can resend them from Zernio's webhook logs.
+`ZERNIO_API_KEY` is required. Deliveries and their status codes appear in `pnpm local:logs`; a 401 means the signature did not match the secret.
 
-Connecting an account does not depend on the tunnel: after Zernio's authorization, `/accounts/callback` reads the account list from Zernio directly.
+The trycloudflare.com address changes each time the tunnel starts, so run `pnpm local:tunnel` again after `pnpm local:stop` or a Docker restart. While the tunnel is stopped, deliveries to the old address fail; you can resend them from Zernio's webhook logs. Connecting an account does not depend on the tunnel: after authorization, `/accounts/callback` reads the account list from Zernio directly.
 
-## One environment file
+## Configuration
 
-**`.env` at the repository root is the only local configuration file.** Its template is [.env.example](.env.example).
+**`.env` at the repository root is the only local configuration file.** Its template is [.env.example](.env.example). `pnpm dev` and `pnpm setup:local` create it, fill in the local Supabase keys, and never overwrite values you set. Do not add env files under `apps/server` or `apps/web`.
 
-`pnpm dev` or `pnpm setup:local` creates it from the template and fills empty local Supabase credentials. Setup preserves existing values and does not reset the database. Do not add env files under `apps/server` or `apps/web`; both apps get their settings from the root file.
+| Variable                   | Read by | Purpose                                                        |
+| -------------------------- | ------- | -------------------------------------------------------------- |
+| `APP_URL`                  | API     | The browser-facing origin, for origin checks and redirects     |
+| `API_URL`                  | Web     | Where Next.js forwards `/api` requests                         |
+| `API_PORT`                 | API     | The port the API listens on                                    |
+| `API_HOST`                 | API     | The interface the API listens on                               |
+| `SUPABASE_URL`             | API     | Supabase's address from the host, also used by tests           |
+| `SUPABASE_PUBLISHABLE_KEY` | API     | Filled in by setup                                             |
+| `SUPABASE_SECRET_KEY`      | API     | Filled in by setup                                             |
+| `ZERNIO_API_URL`           | API     | The Zernio API                                                 |
+| `ZERNIO_API_KEY`           | API     | Enables Instagram features; empty leaves them unavailable      |
+| `ZERNIO_WEBHOOK_SECRET`    | API     | Verifies webhook signatures; `pnpm local:tunnel` generates one |
 
-Fill this field in the root `.env`:
+To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without it, sign-in and workspaces work and Instagram connections are explicitly unavailable; the app never substitutes sample accounts or analytics.
 
-```dotenv
-ZERNIO_API_KEY=your-api-key
-```
+- Only `API_URL` reaches Next.js. Supabase and Zernio credentials go to the API container only. Env files are ignored by Git and excluded from Docker images.
+- Compose gives the API container `http://supabase_kong_aghost:8000` as `SUPABASE_URL`, so it talks to Supabase over the Docker network.
+- For a public or tunneled setup, update `APP_URL` and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`.
+- Deployed environments inject these variables directly; no env file is needed.
 
-Then run `pnpm local:start` to apply the changes to the API container. With the credentials empty, authentication and workspaces work locally; Instagram connections are explicitly unavailable. The application does not substitute sample accounts or analytics.
-
-Only `API_URL` from the root file is passed to Next.js for its server-side `/api` proxy. Supabase and Zernio credentials are provided to the API container. The root env file and backups are ignored by Git and excluded from Docker images.
-
-`SUPABASE_URL` is the host address used by local tools and tests. Compose supplies `http://supabase_kong_aghost:8000` to the API container so it connects directly over the Supabase Docker network.
-
-`APP_URL` is the browser-facing origin used for request-origin checks and redirects. For a public or tunneled setup, update it and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`. In production, configure the deployed `/api/webhooks/zernio` endpoint in Zernio with the same webhook secret and subscribe to `account.connected` and `account.disconnected`.
-
-No provider credentials are exposed to browser JavaScript. Session cookies are HttpOnly and use Secure on HTTPS origins. The API's start command accepts injected environment variables without requiring an env file, which also supports container hosting.
-
-## Structure
+## Project structure
 
 ```text
-.env.example          Single configuration template
-compose.yaml          Local API container, webhook tunnel, and Supabase network
-apps/web/             Next.js pages (Home, Contacts, Automations, Inbox,
-                      Settings), UI features, and Zustand stores
-apps/server/          HTTP server entry point and Dockerfile
-packages/api/         Contracts, API client, domain services, HTTP routes,
-                      Supabase repositories, and Zernio adapters
-packages/supabase/    Backend database clients and generated database types
-packages/ui/          Shared shadcn UI components
-supabase/             CLI config and forward-only migrations
-scripts/              Local setup, root env, and verification helpers
+.
+├── apps
+│   ├── web/             Next.js pages, UI features, and Zustand stores
+│   └── server/          Fastify entry point and Dockerfile
+├── packages
+│   ├── api/             Contracts, client, services, routes, Supabase and Zernio adapters
+│   ├── supabase/        Database clients and generated types
+│   └── ui/              Shared shadcn components
+├── infra/               AWS CDK app for the API
+├── supabase/            CLI config and forward-only migrations
+├── scripts/             Local setup, env, and verification helpers
+├── .github/             CI and deployment workflows
+├── compose.yaml         Local API container, webhook tunnel, and Supabase network
+└── .env.example         The configuration template
 ```
 
-The web app calls the shared API client through a same-origin `/api` proxy. Business rules and provider calls live in `packages/api`. Supabase row-level security scopes reads to a workspace; the API verifies the user before privileged writes. Account webhook updates and their deduplication ledger entry commit in one database transaction.
-
-## Checks
+## Testing
 
 ```sh
-pnpm verify
-pnpm verify:local
+pnpm verify        # types, lint, tests, and production builds
+pnpm verify:local  # end-to-end checks against the running app
 ```
 
-`pnpm verify` runs type checks, lint, root env tests, backend integration tests, and production builds. Integration tests require the local Supabase stack started by `pnpm setup:local` or `pnpm dev`. Provider adapter tests use a local HTTP fixture and do not send real Instagram messages.
+`pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
 
-With the app running, `pnpm verify:local` checks pages, HttpOnly authentication through the Next.js proxy, workspace persistence, sign-out, and password-recovery emails and PKCE callbacks through the running Docker API. It removes its disposable local user and test emails. Browser interaction and visual review are separate checks.
+With the app running, `pnpm verify:local` checks pages, HttpOnly authentication through the Next.js proxy, workspace persistence, sign-out, and password-recovery emails and PKCE callbacks. It removes its disposable user and emails afterwards. Browser interaction and visual review are separate checks.
 
-Live OAuth and comment-to-DM delivery require configured Zernio credentials and an authorized professional Instagram account.
+Live OAuth and comment-to-DM delivery need Zernio credentials and an authorized professional Instagram account.
 
-Useful commands: `pnpm db:status` and `pnpm db:types`. `pnpm db:reset` is destructive and intended only for disposable local data.
+## Deployment
 
+```mermaid
+flowchart LR
+  pr(["Pull request"]) --> checks["CI"]
+  pr --> preview["Web preview<br/>Vercel"]
+  main(["Push to main"]) --> gate["CI"] --> migrate["Supabase<br/>migrations"] --> api["API<br/>AWS ECS"] --> web["Web<br/>Vercel"]
+```
+
+| Workflow         | Trigger                     | Steps                                       |
+| ---------------- | --------------------------- | ------------------------------------------- |
+| `ci.yml`         | Pull requests, releases     | Format, lint, types, tests, builds          |
+| `preview.yml`    | Pull requests               | Web app → Vercel preview                    |
+| `deploy.yml`     | Push to `main`, manual run  | CI → API → web app                          |
+| `deploy-api.yml` | `deploy.yml`                | Supabase migrations → `cdk deploy`          |
+| `deploy-web.yml` | `deploy.yml`, `preview.yml` | `vercel build` → `vercel deploy --prebuilt` |
+
+Every push to `main` releases both apps, the API first so the web app never calls an API that is behind it. An unchanged API deploys as a no-op: the CDK skips images already in ECR, and CloudFormation finds no changes.
+
+### Web on Vercel
+
+The marketing site and dashboard are one Next.js app. GitHub Actions builds it with `vercel build` and uploads the result with `vercel deploy --prebuilt`, so every release passes CI first. [`apps/web/vercel.json`](apps/web/vercel.json) turns off Vercel's own Git deployments.
+
+### API on AWS
+
+[`infra/`](infra/) defines the API with the AWS CDK:
+
+- **Compute.** Fargate tasks on Graviton, from two to four, scaling on CPU, behind an HTTPS load balancer with a Route 53 record and an ACM certificate.
+- **Network.** The account's default VPC. Tasks get public addresses for their outbound calls to Supabase, Zernio, and ECR; their security group admits traffic only from the load balancer.
+- **Secrets.** Supabase and Zernio credentials come from Secrets Manager at task start.
+- **Releases.** New tasks must pass `/api/health` before old ones stop, and the circuit breaker rolls back a release that never becomes healthy. Logs are kept for 30 days.
+- **Access.** GitHub Actions signs in through OIDC, without stored AWS keys. Its role can only use the roles that `cdk bootstrap` created.
+
+```text
+infra
+├── bin/app.ts                         Reads the stage's settings and creates the stacks
+├── lib/config.ts                      Validates the settings and names any missing variable
+├── lib/stacks/api-stack.ts            Default VPC, image, DNS zone, and credentials of a stage
+├── lib/constructs/api-service.ts      Fargate service, load balancer, health checks, scaling
+├── lib/stacks/github-deploy-stack.ts  The role GitHub Actions deploys with
+└── test/                              Assertions on the synthesized templates
+```
+
+### One-time setup
+
+**1. AWS.** Create a Route 53 hosted zone for the API's domain. Then, from the repository root and with administrator credentials, run:
+
+```sh
+export STAGE=production AWS_ACCOUNT_ID=123456789012 AWS_REGION=us-east-1 \
+  APP_URL=https://aghost.com API_DOMAIN_NAME=api.aghost.com \
+  HOSTED_ZONE_ID=Z0123456789 HOSTED_ZONE_NAME=aghost.com \
+  SUPABASE_URL=https://your-project.supabase.co
+
+pnpm --filter infra exec cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
+
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com --client-id-list sts.amazonaws.com
+
+aws secretsmanager create-secret --name aghost/production/api --secret-string '{
+  "SUPABASE_PUBLISHABLE_KEY": "…",
+  "SUPABASE_SECRET_KEY": "…",
+  "ZERNIO_API_KEY": "…",
+  "ZERNIO_WEBHOOK_SECRET": "…"
+}'
+
+pnpm --filter infra exec cdk deploy Aghost-production-GitHubDeploy
+```
+
+The last command prints `DeployRoleArn` for step 3.
+
+> [!NOTE]
+> Skip `create-open-id-connect-provider` if the account already trusts GitHub Actions; the stack uses the existing provider. If the region's default VPC was deleted, recreate it with `aws ec2 create-default-vpc`.
+
+**2. Vercel.** Create a project with the root directory `apps/web`, add `API_URL=https://<API_DOMAIN_NAME>` to its Production and Preview environments, and create an access token. Running `vercel link` writes the org and project IDs to `.vercel/project.json`.
+
+**3. GitHub.** Under **Settings → Environments**, create `production` and add:
+
+| Name                  | Type     | Value                                            |
+| --------------------- | -------- | ------------------------------------------------ |
+| `AWS_ACCOUNT_ID`      | Variable | The 12-digit account ID                          |
+| `AWS_REGION`          | Variable | For example `us-east-1`                          |
+| `AWS_DEPLOY_ROLE_ARN` | Variable | `DeployRoleArn` from step 1                      |
+| `APP_URL`             | Variable | The web origin, for example `https://aghost.com` |
+| `API_DOMAIN_NAME`     | Variable | For example `api.aghost.com`                     |
+| `HOSTED_ZONE_ID`      | Variable | The Route 53 zone of the API's domain            |
+| `HOSTED_ZONE_NAME`    | Variable | That zone's name, for example `aghost.com`       |
+| `SUPABASE_URL`        | Variable | `https://<project>.supabase.co`                  |
+| `SUPABASE_DB_URL`     | Secret   | Supabase's session pooler connection string      |
+
+Under **Settings → Secrets and variables → Actions**, add for the repository:
+
+| Name                | Type     | Value                       |
+| ------------------- | -------- | --------------------------- |
+| `VERCEL_ORG_ID`     | Variable | From `.vercel/project.json` |
+| `VERCEL_PROJECT_ID` | Variable | From `.vercel/project.json` |
+| `VERCEL_TOKEN`      | Secret   | The Vercel access token     |
+
+> [!IMPORTANT]
+> Use the session pooler string for `SUPABASE_DB_URL`. GitHub's runners have no IPv6, and Supabase's direct connection is IPv6-only.
+
+> [!TIP]
+> Add required reviewers to the `production` environment to approve each release before it starts.
+
+**4. Supabase and Zernio.** Allow `<APP_URL>/api/auth/callback` in Supabase's redirect URLs. Point the Zernio webhook to `https://<API_DOMAIN_NAME>/api/webhooks/zernio` with the same secret, subscribed to `account.connected` and `account.disconnected`.
+
+> [!NOTE]
+> The API accepts writes only from `APP_URL`'s origin. Previews show the site and dashboard, but signing in from a preview is refused.
+
+### Reviewing infrastructure changes
+
+With AWS credentials and the variables from step 1, compare a change with what is deployed:
+
+```sh
+pnpm --filter infra exec cdk diff Aghost-production-Api
+```
+
+Synthesis looks up the default VPC in the account, so it needs credentials; the tests use a recorded copy and run offline.

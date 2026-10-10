@@ -1,5 +1,5 @@
-import { Hono } from "hono"
-import { logger } from "hono/logger"
+import cookie from "@fastify/cookie"
+import Fastify, { LogController } from "fastify"
 import { z } from "zod"
 import type { ApiConfig } from "../config"
 import {
@@ -20,7 +20,7 @@ import {
   UnauthenticatedError,
 } from "../shared/errors"
 import { authRoutes } from "./auth.routes"
-import type { Authenticate, HttpEnv } from "./context"
+import type { Authenticate } from "./context"
 import {
   presentAccount,
   presentAutomation,
@@ -42,6 +42,22 @@ const statusByCode = {
   integration_not_configured: 503,
 } as const
 
+const WEBHOOK_PATH = "/api/webhooks/zernio"
+
+type IdParams = { Params: { id: string } }
+type ThreadParams = { Params: { accountId: string; conversationId: string } }
+
+/** Fastify rejects some requests itself, such as a body over its size limit. */
+function isRequestError(error: unknown) {
+  return (
+    error instanceof Error &&
+    "statusCode" in error &&
+    typeof error.statusCode === "number" &&
+    error.statusCode >= 400 &&
+    error.statusCode < 500
+  )
+}
+
 export function createApp({
   authenticate,
   webhooks,
@@ -51,241 +67,264 @@ export function createApp({
   webhooks: WebhookService
   config: ApiConfig
 }) {
-  const app = new Hono<HttpEnv>().basePath("/api")
-  app.onError((error, c) => {
-    if (error instanceof AppError) {
-      if (error.code === "internal_error") console.error(error)
-      return c.json(
-        {
-          error: {
-            code: error.code,
-            message:
-              error.code === "internal_error"
-                ? "The request could not be completed. Try again."
-                : error.message,
-            ...(error.fields && { fields: error.fields }),
-          },
-        },
-        statusByCode[error.code]
-      )
-    }
-    console.error(error)
-    return c.json(
-      {
-        error: {
-          code: "internal_error",
-          message: "The request could not be completed. Try again.",
-        },
-      },
-      500
-    )
+  const app = Fastify({
+    logger: true,
+    // Each delivery and its status code, including rejected signatures.
+    logController: new LogController({
+      disableRequestLogging: (request) =>
+        request.routeOptions.url !== WEBHOOK_PATH,
+    }),
   })
-  app.notFound((c) =>
-    c.json(
-      { error: { code: "not_found", message: "This endpoint was not found." } },
-      404
-    )
+  app.register(cookie)
+  // Bodies stay text: routes parse JSON themselves, and a webhook signature
+  // covers the exact bytes that were sent.
+  app.removeAllContentTypeParsers()
+  app.addContentTypeParser("*", { parseAs: "string" }, (_request, body, done) =>
+    done(null, body)
   )
-  app.use("*", async (c, next) => {
-    c.header("Cache-Control", "private, no-store")
-    c.header("X-Content-Type-Options", "nosniff")
-    const method = c.req.method
+  app.decorateRequest("session")
+  app.decorateRequest("identity")
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof AppError) {
+      if (error.code === "internal_error") request.log.error(error)
+      return reply.code(statusByCode[error.code]).send({
+        error: {
+          code: error.code,
+          message:
+            error.code === "internal_error"
+              ? "The request could not be completed. Try again."
+              : error.message,
+          ...(error.fields && { fields: error.fields }),
+        },
+      })
+    }
+    if (isRequestError(error))
+      return reply.code(400).send({
+        error: {
+          code: "bad_request",
+          message: "The request could not be read.",
+        },
+      })
+    request.log.error(error)
+    return reply.code(500).send({
+      error: {
+        code: "internal_error",
+        message: "The request could not be completed. Try again.",
+      },
+    })
+  })
+  app.setNotFoundHandler((_request, reply) =>
+    reply.code(404).send({
+      error: { code: "not_found", message: "This endpoint was not found." },
+    })
+  )
+  app.addHook("onRequest", async (request, reply) => {
+    reply.header("Cache-Control", "private, no-store")
+    reply.header("X-Content-Type-Options", "nosniff")
+    const method = request.method
     if (
       !["GET", "HEAD", "OPTIONS"].includes(method) &&
-      c.req.path !== "/api/webhooks/zernio"
+      request.routeOptions.url !== WEBHOOK_PATH
     ) {
-      if (c.req.header("origin") !== new URL(config.appUrl).origin)
+      if (request.headers.origin !== new URL(config.appUrl).origin)
         throw new BadRequestError("Request origin is not allowed.")
       if (
         method !== "DELETE" &&
-        !c.req.header("content-type")?.includes("application/json")
+        !request.headers["content-type"]?.includes("application/json")
       )
         throw new BadRequestError(
           "Send JSON with Content-Type: application/json."
         )
     }
-    await next()
   })
-  app.get("/health", (c) => c.json({ status: "ok" }))
-  // Each delivery and its status code, including rejected signatures.
-  app.use("/webhooks/*", logger())
-  app.post("/webhooks/zernio", async (c) => {
-    if (!config.zernio.webhookSecret) throw new IntegrationNotConfiguredError()
-    const receipt = await webhooks.receive(
-      await c.req.text(),
-      c.req.header("x-zernio-signature")
-    )
-    return c.json({ receipt })
-  })
-  app.use("/auth/*", async (c, next) => {
-    c.set("session", createSessionClient(c, config))
-    await next()
-  })
-  app.route("/auth", authRoutes(config))
-
-  const protectedRoutes = new Hono<HttpEnv>()
-  protectedRoutes.use("*", async (c, next) => {
-    const session = createSessionClient(c, config)
-    const { data, error } = await session.auth.getUser()
-    if (error || !data.user) throw new UnauthenticatedError()
-    const { data: tokens } = await session.auth.getSession()
-    if (!tokens.session) throw new UnauthenticatedError()
-    c.set("identity", await authenticate(tokens.session.access_token))
-    c.set("session", session)
-    await next()
-  })
-  protectedRoutes.get("/workspace", (c) =>
-    c.json(presentWorkspace(c.get("identity").workspace))
+  app.register(
+    async (api) => {
+      api.get("/health", async () => ({ status: "ok" }))
+      api.post<{ Headers: { "x-zernio-signature"?: string } }>(
+        "/webhooks/zernio",
+        async (request) => {
+          if (!config.zernio.webhookSecret)
+            throw new IntegrationNotConfiguredError()
+          // A delivery without a body is signed over the empty string.
+          const rawBody = typeof request.body === "string" ? request.body : ""
+          const receipt = await webhooks.receive(
+            rawBody,
+            request.headers["x-zernio-signature"]
+          )
+          return { receipt }
+        }
+      )
+      api.register(
+        async (auth) => {
+          auth.addHook("onRequest", async (request, reply) => {
+            request.session = createSessionClient(request, reply, config)
+          })
+          auth.register(authRoutes(config))
+        },
+        { prefix: "/auth" }
+      )
+      api.register(async (routes) => {
+        routes.addHook("onRequest", async (request, reply) => {
+          const session = createSessionClient(request, reply, config)
+          const { data, error } = await session.auth.getUser()
+          if (error || !data.user) throw new UnauthenticatedError()
+          const { data: tokens } = await session.auth.getSession()
+          if (!tokens.session) throw new UnauthenticatedError()
+          request.identity = await authenticate(tokens.session.access_token)
+          request.session = session
+        })
+        routes.get("/workspace", async (request) =>
+          presentWorkspace(request.identity.workspace)
+        )
+        routes.patch("/workspace", async (request) => {
+          const { services, workspace } = request.identity
+          const input = validate(renameWorkspaceSchema, readJson(request.body))
+          return presentWorkspace(
+            await services.workspaces.rename(workspace, input.name)
+          )
+        })
+        routes.get("/integrations", async () => ({
+          instagramConfigured: Boolean(config.zernio.apiKey),
+        }))
+        routes.get("/accounts", async (request) => {
+          const { services, workspace } = request.identity
+          return (await services.accounts.list(workspace)).map(presentAccount)
+        })
+        routes.post("/accounts/connect", async (request) => {
+          const { services, workspace } = request.identity
+          return {
+            authUrl: await services.accounts.startConnection(workspace),
+          }
+        })
+        routes.post("/accounts/sync", async (request) => {
+          const { services, workspace } = request.identity
+          return (await services.accounts.sync(workspace)).map(presentAccount)
+        })
+        routes.get<IdParams>("/accounts/:id/posts", async (request) => {
+          const { services, workspace } = request.identity
+          return services.accounts.listRecentPosts(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+        })
+        routes.delete<IdParams>("/accounts/:id", async (request, reply) => {
+          const { services, workspace } = request.identity
+          await services.accounts.remove(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+          return reply.code(204).send()
+        })
+        routes.get("/automations", async (request) => {
+          const { services, workspace } = request.identity
+          return (await services.automations.list(workspace)).map(
+            presentAutomation
+          )
+        })
+        routes.get("/automations/stats", async (request) => {
+          const { services, workspace } = request.identity
+          return services.automations.listStats(workspace)
+        })
+        routes.post("/automations", async (request, reply) => {
+          const { services, workspace } = request.identity
+          const input = validate(createAutomationSchema, readJson(request.body))
+          return reply
+            .code(201)
+            .send(
+              presentAutomation(
+                await services.automations.create(workspace, input)
+              )
+            )
+        })
+        routes.get<IdParams>("/automations/:id", async (request) => {
+          const { services, workspace } = request.identity
+          return presentAutomation(
+            await services.automations.get(
+              workspace,
+              validate(z.uuid(), request.params.id)
+            )
+          )
+        })
+        routes.patch<IdParams>("/automations/:id", async (request) => {
+          const { services, workspace } = request.identity
+          const input = validate(updateAutomationSchema, readJson(request.body))
+          return presentAutomation(
+            await services.automations.update(
+              workspace,
+              validate(z.uuid(), request.params.id),
+              input
+            )
+          )
+        })
+        routes.patch<IdParams>("/automations/:id/status", async (request) => {
+          const { services, workspace } = request.identity
+          const { status } = validate(
+            setAutomationStatusSchema,
+            readJson(request.body)
+          )
+          return presentAutomation(
+            await services.automations.setStatus(
+              workspace,
+              validate(z.uuid(), request.params.id),
+              status
+            )
+          )
+        })
+        routes.delete<IdParams>("/automations/:id", async (request, reply) => {
+          const { services, workspace } = request.identity
+          await services.automations.delete(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+          return reply.code(204).send()
+        })
+        routes.get<IdParams>("/automations/:id/activity", async (request) => {
+          const { services, workspace } = request.identity
+          const page = validate(activityPageQuerySchema, request.query)
+          return services.automations.listActivity(
+            workspace,
+            validate(z.uuid(), request.params.id),
+            page
+          )
+        })
+        routes.get("/inbox", async (request) => {
+          const { services, workspace } = request.identity
+          return services.inbox.listConversations(workspace)
+        })
+        routes.get<ThreadParams>(
+          "/inbox/:accountId/:conversationId",
+          async (request) => {
+            const { services, workspace } = request.identity
+            return services.inbox.listMessages(
+              workspace,
+              validate(z.uuid(), request.params.accountId),
+              request.params.conversationId
+            )
+          }
+        )
+        routes.post<ThreadParams>(
+          "/inbox/:accountId/:conversationId",
+          async (request, reply) => {
+            const { services, workspace } = request.identity
+            const { text } = validate(sendMessageSchema, readJson(request.body))
+            await services.inbox.sendMessage(
+              workspace,
+              validate(z.uuid(), request.params.accountId),
+              request.params.conversationId,
+              text
+            )
+            return reply.code(204).send()
+          }
+        )
+        routes.get("/contacts", async (request) => {
+          const { services, workspace } = request.identity
+          const query = validate(contactPageQuerySchema, request.query)
+          return services.contacts.list(workspace, query)
+        })
+      })
+    },
+    { prefix: "/api" }
   )
-  protectedRoutes.patch("/workspace", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const input = validate(renameWorkspaceSchema, await readJson(c.req))
-    return c.json(
-      presentWorkspace(await services.workspaces.rename(workspace, input.name))
-    )
-  })
-  protectedRoutes.get("/integrations", (c) =>
-    c.json({ instagramConfigured: Boolean(config.zernio.apiKey) })
-  )
-  protectedRoutes.get("/accounts", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json((await services.accounts.list(workspace)).map(presentAccount))
-  })
-  protectedRoutes.post("/accounts/connect", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json({
-      authUrl: await services.accounts.startConnection(workspace),
-    })
-  })
-  protectedRoutes.post("/accounts/sync", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json((await services.accounts.sync(workspace)).map(presentAccount))
-  })
-  protectedRoutes.get("/accounts/:id/posts", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json(
-      await services.accounts.listRecentPosts(
-        workspace,
-        validate(z.uuid(), c.req.param("id"))
-      )
-    )
-  })
-  protectedRoutes.delete("/accounts/:id", async (c) => {
-    const { services, workspace } = c.get("identity")
-    await services.accounts.remove(
-      workspace,
-      validate(z.uuid(), c.req.param("id"))
-    )
-    return c.body(null, 204)
-  })
-  protectedRoutes.get("/automations", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json(
-      (await services.automations.list(workspace)).map(presentAutomation)
-    )
-  })
-  protectedRoutes.get("/automations/stats", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json(await services.automations.listStats(workspace))
-  })
-  protectedRoutes.post("/automations", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const input = validate(createAutomationSchema, await readJson(c.req))
-    return c.json(
-      presentAutomation(await services.automations.create(workspace, input)),
-      201
-    )
-  })
-  protectedRoutes.get("/automations/:id", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json(
-      presentAutomation(
-        await services.automations.get(
-          workspace,
-          validate(z.uuid(), c.req.param("id"))
-        )
-      )
-    )
-  })
-  protectedRoutes.patch("/automations/:id", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const input = validate(updateAutomationSchema, await readJson(c.req))
-    return c.json(
-      presentAutomation(
-        await services.automations.update(
-          workspace,
-          validate(z.uuid(), c.req.param("id")),
-          input
-        )
-      )
-    )
-  })
-  protectedRoutes.patch("/automations/:id/status", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const { status } = validate(
-      setAutomationStatusSchema,
-      await readJson(c.req)
-    )
-    return c.json(
-      presentAutomation(
-        await services.automations.setStatus(
-          workspace,
-          validate(z.uuid(), c.req.param("id")),
-          status
-        )
-      )
-    )
-  })
-  protectedRoutes.delete("/automations/:id", async (c) => {
-    const { services, workspace } = c.get("identity")
-    await services.automations.delete(
-      workspace,
-      validate(z.uuid(), c.req.param("id"))
-    )
-    return c.body(null, 204)
-  })
-  protectedRoutes.get("/automations/:id/activity", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const page = validate(activityPageQuerySchema, c.req.query())
-    return c.json(
-      await services.automations.listActivity(
-        workspace,
-        validate(z.uuid(), c.req.param("id")),
-        page
-      )
-    )
-  })
-  protectedRoutes.get("/inbox", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json(await services.inbox.listConversations(workspace))
-  })
-  protectedRoutes.get("/inbox/:accountId/:conversationId", async (c) => {
-    const { services, workspace } = c.get("identity")
-    return c.json(
-      await services.inbox.listMessages(
-        workspace,
-        validate(z.uuid(), c.req.param("accountId")),
-        c.req.param("conversationId")
-      )
-    )
-  })
-  protectedRoutes.post("/inbox/:accountId/:conversationId", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const { text } = validate(sendMessageSchema, await readJson(c.req))
-    await services.inbox.sendMessage(
-      workspace,
-      validate(z.uuid(), c.req.param("accountId")),
-      c.req.param("conversationId"),
-      text
-    )
-    return c.body(null, 204)
-  })
-  protectedRoutes.get("/contacts", async (c) => {
-    const { services, workspace } = c.get("identity")
-    const query = validate(contactPageQuerySchema, c.req.query())
-    return c.json(await services.contacts.list(workspace, query))
-  })
-  app.route("/", protectedRoutes)
   return app
 }
 

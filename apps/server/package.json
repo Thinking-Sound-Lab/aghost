@@ -10,15 +10,14 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.9",
     "@workspace/api": "workspace:*",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/node": "^22",
-    "@workspace/typescript-config": "workspace:*",
     "@workspace/eslint-config": "workspace:*",
-    "typescript": "^5",
-    "eslint": "^10"
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^10",
+    "typescript": "^5"
   }
 }

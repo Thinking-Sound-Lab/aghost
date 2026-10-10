@@ -1,15 +1,26 @@
-.git
-.context
-.env*
-**/.env*
-node_modules
+# The API image is the only one built from this repository. Its build context
+# is an allowlist, so a change outside these paths does not rebuild or redeploy
+# the API.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!.npmrc
+!tsconfig.json
+
+# pnpm resolves the lockfile against the manifest of every workspace.
+!apps/*/package.json
+!packages/*/package.json
+!infra/package.json
+
+!apps/server
+!packages/api
+!packages/supabase
+!packages/typescript-config
+
 **/node_modules
-.next
-**/.next
-.turbo
+**/.env*
 **/.turbo
 **/*.tsbuildinfo
-coverage
 **/coverage
-supabase/.temp
-supabase/.branches

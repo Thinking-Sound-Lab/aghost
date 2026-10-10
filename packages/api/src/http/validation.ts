@@ -12,11 +12,12 @@ export function validate<T>(schema: z.ZodType<T>, input: unknown): T {
   return result.data
 }
 
-export async function readJson(request: {
-  json(): Promise<unknown>
-}): Promise<unknown> {
+/** Request bodies reach the routes as the text that was sent. */
+export function readJson(body: unknown): unknown {
+  if (typeof body !== "string")
+    throw new BadRequestError("Send a valid JSON body.")
   try {
-    return await request.json()
+    return JSON.parse(body)
   } catch (error) {
     throw new BadRequestError("Send a valid JSON body.", error)
   }

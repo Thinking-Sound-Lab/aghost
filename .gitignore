@@ -46,3 +46,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+
+# aws cdk
+cdk.out
+# CDK lookup results name the AWS account; the repository is public, so each
+# deploy looks the default VPC up again instead.
+infra/cdk.context.json
