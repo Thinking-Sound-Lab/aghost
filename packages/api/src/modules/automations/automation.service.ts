@@ -33,12 +33,18 @@ export interface PostCatalog {
   listRecentPosts(providerAccountId: string): Promise<InstagramPost[]>
 }
 
+/** Checks that the workspace's plan lets automations run. */
+export interface AutomationPlan {
+  assertCanRunAutomations(workspace: WorkspaceRecord): Promise<void>
+}
+
 export class AutomationService {
   constructor(
     private readonly automations: AutomationRepository,
     private readonly provider: AutomationProvider,
     private readonly accounts: AutomationAccounts,
-    private readonly posts: PostCatalog
+    private readonly posts: PostCatalog,
+    private readonly plan: AutomationPlan
   ) {}
 
   list(workspace: WorkspaceRecord): Promise<AutomationRecord[]> {
@@ -64,6 +70,8 @@ export class AutomationService {
       input.instagramAccountId
     )
     assertConnected(account)
+    if (input.status === "active")
+      await this.plan.assertCanRunAutomations(workspace)
 
     const config: AutomationConfig = {
       name: input.name,
@@ -109,7 +117,10 @@ export class AutomationService {
   ): Promise<AutomationRecord> {
     const current = await this.get(workspace, id)
     const account = await this.getAccount(workspace.id, current.accountId)
-    if (input.status === "active") assertConnected(account)
+    if (input.status === "active") {
+      assertConnected(account)
+      await this.plan.assertCanRunAutomations(workspace)
+    }
 
     const config: AutomationConfig = {
       name: input.name,
@@ -145,6 +156,7 @@ export class AutomationService {
 
     if (status === "active") {
       assertConnected(await this.getAccount(workspace.id, current.accountId))
+      await this.plan.assertCanRunAutomations(workspace)
     }
 
     await this.provider.setStatus(current.providerAutomationId, status)
@@ -173,6 +185,17 @@ export class AutomationService {
     for (const automation of automations) {
       await this.provider.delete(automation.providerAutomationId)
       await this.automations.delete(workspaceId, automation.id)
+    }
+  }
+
+  /** Pauses every running automation, for a workspace whose plan has ended. */
+  async pauseAll(workspaceId: string): Promise<void> {
+    const automations = await this.automations.listByWorkspace(workspaceId)
+
+    for (const automation of automations) {
+      if (automation.status !== "active") continue
+      await this.provider.setStatus(automation.providerAutomationId, "paused")
+      await this.automations.updateStatus(workspaceId, automation.id, "paused")
     }
   }
 

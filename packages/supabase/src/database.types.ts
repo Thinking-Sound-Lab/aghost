@@ -228,6 +228,60 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_billing: {
+        Row: {
+          billing_interval: string | null
+          cancel_at_period_end: boolean | null
+          created_at: string
+          currency: string | null
+          current_period_end: string | null
+          dodo_customer_id: string
+          dodo_subscription_id: string | null
+          plan: string | null
+          status: string | null
+          subscription_created_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          billing_interval?: string | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          currency?: string | null
+          current_period_end?: string | null
+          dodo_customer_id: string
+          dodo_subscription_id?: string | null
+          plan?: string | null
+          status?: string | null
+          subscription_created_at?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          billing_interval?: string | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          currency?: string | null
+          current_period_end?: string | null
+          dodo_customer_id?: string
+          dodo_subscription_id?: string | null
+          plan?: string | null
+          status?: string | null
+          subscription_created_at?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_billing_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string

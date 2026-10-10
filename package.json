@@ -15,6 +15,7 @@
     "db:status": "supabase status",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema public > packages/supabase/src/database.types.ts && prettier --write packages/supabase/src/database.types.ts",
+    "billing:setup": "node scripts/billing-setup.mjs",
     "setup:local": "node scripts/setup-local.mjs",
     "setup:test": "node scripts/setup-test.mjs",
     "local:start": "node scripts/setup-local.mjs",

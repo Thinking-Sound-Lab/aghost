@@ -8,6 +8,8 @@ export const API_ERROR_CODES = [
   "not_found",
   "conflict",
   "account_disconnected",
+  "plan_required",
+  "plan_limit_reached",
   "invalid_webhook_signature",
   "provider_rate_limited",
   "provider_error",

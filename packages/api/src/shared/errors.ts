@@ -75,6 +75,20 @@ export class AccountDisconnectedError extends AppError {
   }
 }
 
+/** The workspace has no plan, or its plan has ended. */
+export class PlanRequiredError extends AppError {
+  constructor(action: string) {
+    super("plan_required", `Choose a plan to ${action}.`)
+  }
+}
+
+/** The workspace's plan does not include another Instagram account. */
+export class PlanLimitError extends AppError {
+  constructor(message: string) {
+    super("plan_limit_reached", message)
+  }
+}
+
 export class InvalidWebhookSignatureError extends AppError {
   constructor() {
     super("invalid_webhook_signature", "The webhook signature is not valid.")
@@ -110,6 +124,15 @@ export class IntegrationNotConfiguredError extends AppError {
     super(
       "integration_not_configured",
       "Instagram connection is not available yet. Contact your workspace administrator."
+    )
+  }
+}
+
+export class BillingNotConfiguredError extends AppError {
+  constructor() {
+    super(
+      "integration_not_configured",
+      "Billing is not available yet. Contact your workspace administrator."
     )
   }
 }

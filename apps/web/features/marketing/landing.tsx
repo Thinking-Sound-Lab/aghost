@@ -9,9 +9,12 @@ export function Landing() {
       <header className="flex h-16 items-center gap-2">
         <Brand />
         <Link
-          href="/login"
+          href="/pricing"
           className={buttonVariants({ variant: "ghost", className: "ml-auto" })}
         >
+          Pricing
+        </Link>
+        <Link href="/login" className={buttonVariants({ variant: "ghost" })}>
           Log in
         </Link>
         <Link href="/login" className={buttonVariants()}>
@@ -20,13 +23,29 @@ export function Landing() {
       </header>
       <main className="grid flex-1 items-center gap-12 py-12 md:grid-cols-[1fr_auto]">
         <div className="grid max-w-md gap-5">
+          <p className="text-sm font-medium">MCP + REST API, built in</p>
           <h1 className="text-5xl font-semibold tracking-tight">
-            Turn comments into conversations.
+            Instagram automation, built for agents.
           </h1>
           <p className="text-lg text-muted-foreground">
-            Someone comments a keyword on your post. They get your link in a DM,
-            automatically.
+            Let your AI agent create, manage and monitor comment-to-DM
+            automations. Connect through MCP or build your own workflows with
+            the REST API.
           </p>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div className="grid gap-1">
+              <dt className="font-semibold">MCP for your AI agent</dt>
+              <dd className="text-muted-foreground">
+                Connect Claude Code, Codex or Cursor.
+              </dd>
+            </div>
+            <div className="grid gap-1">
+              <dt className="font-semibold">REST API for your workflows</dt>
+              <dd className="text-muted-foreground">
+                Create automations and read results from your own apps.
+              </dd>
+            </div>
+          </dl>
           <Link
             href="/login"
             className={buttonVariants({

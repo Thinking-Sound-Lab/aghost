@@ -4,6 +4,7 @@ import { BadRequestError, UnauthenticatedError } from "../shared/errors"
 import { presentUser } from "./presenters"
 
 const SIGN_IN_FAILED_PATH = "/login?error=google"
+const RETURN_COOKIE = "aghost-auth-return"
 
 export function authRoutes(config: ApiConfig): FastifyPluginAsync {
   const appUrl = (path: string) => new URL(path, config.appUrl).toString()
@@ -15,34 +16,45 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
     })
     // The browser navigates here. Google signs the person in and Supabase
     // sends them back to /callback; a first sign-in creates their account.
-    router.get("/google", async (request, reply) => {
-      const { data, error } = await request.session.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: appUrl("/api/auth/callback"),
-          skipBrowserRedirect: true,
-          // Someone with several Google accounts chooses one each time.
-          queryParams: { prompt: "select_account" },
-        },
-      })
-      if (error) throw error
-      // Supabase answers this address with a redirect to Google. Reading it
-      // here sends the browser straight to Google, so it never needs the
-      // address the API reaches Supabase at, which is private in Docker.
-      try {
-        const response = await fetch(data.url, { redirect: "manual" })
-        const googleUrl = response.headers.get("location")
-        if (!googleUrl)
-          throw new Error(
-            `Supabase answered ${response.status}: ${await response.text()}`
-          )
-        return reply.redirect(googleUrl)
-      } catch (cause) {
-        // The browser navigated here, so the login page reports the failure.
-        request.log.error(cause, "Could not start Google sign-in")
-        return reply.redirect(appUrl(SIGN_IN_FAILED_PATH))
+    router.get<{ Querystring: { next?: string } }>(
+      "/google",
+      async (request, reply) => {
+        const billing = request.query.next === "billing"
+        reply.setCookie(RETURN_COOKIE, billing ? "billing" : "home", {
+          path: "/api/auth",
+          httpOnly: true,
+          sameSite: "lax",
+          secure: new URL(config.appUrl).protocol === "https:",
+          maxAge: 600,
+        })
+        const { data, error } = await request.session.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: appUrl("/api/auth/callback"),
+            skipBrowserRedirect: true,
+            // Someone with several Google accounts chooses one each time.
+            queryParams: { prompt: "select_account" },
+          },
+        })
+        if (error) throw error
+        // Supabase answers this address with a redirect to Google. Reading it
+        // here sends the browser straight to Google, so it never needs the
+        // address the API reaches Supabase at, which is private in Docker.
+        try {
+          const response = await fetch(data.url, { redirect: "manual" })
+          const googleUrl = response.headers.get("location")
+          if (!googleUrl)
+            throw new Error(
+              `Supabase answered ${response.status}: ${await response.text()}`
+            )
+          return reply.redirect(googleUrl)
+        } catch (cause) {
+          // The browser navigated here, so the login page reports the failure.
+          request.log.error(cause, "Could not start Google sign-in")
+          return reply.redirect(appUrl(SIGN_IN_FAILED_PATH))
+        }
       }
-    })
+    )
     router.post("/sign-out", async (request, reply) => {
       const { error } = await request.session.auth.signOut()
       if (error) throw new BadRequestError("Could not sign out. Try again.")
@@ -52,11 +64,16 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       "/callback",
       async (request, reply) => {
         const { code } = request.query
+        const destination =
+          request.cookies[RETURN_COOKIE] === "billing"
+            ? "/settings#billing"
+            : "/home"
+        reply.clearCookie(RETURN_COOKIE, { path: "/api/auth" })
         // Without a code, the sign-in was cancelled or refused.
         if (!code) return reply.redirect(appUrl(SIGN_IN_FAILED_PATH))
         const { error } =
           await request.session.auth.exchangeCodeForSession(code)
-        return reply.redirect(appUrl(error ? SIGN_IN_FAILED_PATH : "/home"))
+        return reply.redirect(appUrl(error ? SIGN_IN_FAILED_PATH : destination))
       }
     )
   }

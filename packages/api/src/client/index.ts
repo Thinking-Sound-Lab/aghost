@@ -19,6 +19,10 @@ import {
   type SessionUser,
   type UpdateAutomationInput,
   type Workspace,
+  type BillingState,
+  type BillingRedirect,
+  type ChoosePlanInput,
+  type PlanChangeResult,
 } from "../contract"
 
 export class ApiClientError extends Error {
@@ -110,6 +114,15 @@ export function createApiClient(
         request<Workspace>("/workspace", "PATCH", { name }),
     },
     integrations: () => request<IntegrationStatus>("/integrations"),
+    billing: {
+      get: () => request<BillingState>("/billing"),
+      sync: () => request<BillingState>("/billing/sync", "POST", {}),
+      checkout: (choice: ChoosePlanInput) =>
+        request<BillingRedirect>("/billing/checkout", "POST", choice),
+      changePlan: (choice: ChoosePlanInput) =>
+        request<PlanChangeResult>("/billing/plan", "POST", choice),
+      portal: () => request<BillingRedirect>("/billing/portal", "POST", {}),
+    },
     accounts: {
       list: () => request<InstagramAccount[]>("/accounts"),
       connect: () =>

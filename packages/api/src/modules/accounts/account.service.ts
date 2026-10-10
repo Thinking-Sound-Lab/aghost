@@ -15,6 +15,11 @@ export interface AccountAutomations {
   deleteAllForAccount(workspaceId: string, accountId: string): Promise<void>
 }
 
+/** Checks that the workspace's plan has room for another account. */
+export interface AccountPlan {
+  assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void>
+}
+
 export class AccountService {
   constructor(
     private readonly accounts: AccountRepository,
@@ -22,7 +27,8 @@ export class AccountService {
     private readonly profiles: ProviderProfiles,
     private readonly automations: AccountAutomations,
     /** Where the provider sends the browser once the user has authorized. */
-    private readonly connectRedirectUrl: string
+    private readonly connectRedirectUrl: string,
+    private readonly plan: AccountPlan
   ) {}
 
   list(workspace: WorkspaceRecord): Promise<AccountRecord[]> {
@@ -30,6 +36,7 @@ export class AccountService {
   }
 
   async startConnection(workspace: WorkspaceRecord): Promise<string> {
+    await this.plan.assertCanConnectAccount(workspace)
     const providerProfileId =
       await this.profiles.ensureProviderProfile(workspace)
 
@@ -55,7 +62,7 @@ export class AccountService {
     ])
 
     for (const account of reported) {
-      await this.accounts.save(workspace.id, {
+      const saved = await this.accounts.save(workspace.id, {
         providerAccountId: account.providerAccountId,
         username: account.username,
         displayName: account.displayName,
@@ -65,6 +72,15 @@ export class AccountService {
           ? null
           : DISCONNECT_REASONS.accessExpired,
       })
+      // The database serializes connections from OAuth sync and webhooks so
+      // concurrent callbacks cannot exceed the plan. Remove a rejected account
+      // from the provider too, where each connection costs money.
+      if (
+        account.connected &&
+        saved.disconnectReason === DISCONNECT_REASONS.planLimit
+      ) {
+        await this.instagram.disconnectAccount(account.providerAccountId)
+      }
     }
 
     const reportedIds = new Set(

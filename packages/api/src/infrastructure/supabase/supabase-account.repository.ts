@@ -9,7 +9,7 @@ import type {
 import type { AccountRepository } from "../../modules/accounts/account.repository"
 import type { DataClients } from "./data-clients"
 import { completed, optional, required } from "./query"
-import { ConflictError } from "../../shared/errors"
+import { ConflictError, InternalError } from "../../shared/errors"
 
 type AccountRow = Database["public"]["Tables"]["instagram_accounts"]["Row"]
 
@@ -43,6 +43,21 @@ export class SupabaseAccountRepository implements AccountRepository {
     )
 
     return rows.map(toRecord)
+  }
+
+  async countConnected(workspaceId: string): Promise<number> {
+    const { count, error } = await this.db.scoped
+      .from("instagram_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("status", "connected")
+    completed({ error }, "count the connected Instagram accounts")
+    if (count === null) {
+      throw new InternalError(
+        "The database did not count the connected Instagram accounts."
+      )
+    }
+    return count
   }
 
   async findById(

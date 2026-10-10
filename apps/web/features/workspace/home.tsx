@@ -9,6 +9,7 @@ import { ErrorBanner, Page } from "@/components/interface"
 import { AutomationRows } from "@/features/automations/automation-list"
 import { count } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { isEntitled } from "@workspace/api/contract"
 
 export function Home() {
   const store = useWorkspaceStore()
@@ -17,6 +18,8 @@ export function Home() {
     void loadStats()
   }, [loadStats])
   const connected = store.accounts.some((item) => item.status === "connected")
+  const subscription = store.billing?.subscription
+  const hasPlan = subscription && isEntitled(subscription.status)
   function total(key: "dmsSent" | "linkClicks") {
     if (!store.stats) return "—"
     const values = store.automations.map(
@@ -48,13 +51,39 @@ export function Home() {
         <div className="flex items-center gap-3 bg-muted px-5 py-4">
           <Instagram size={20} />
           <p className="mr-auto text-sm font-medium">
-            Connect your Instagram account
+            {hasPlan
+              ? "Connect your Instagram account"
+              : "Choose a plan to connect Instagram"}
           </p>
           <Button disabled={store.busy} onClick={() => void store.connect()}>
-            Connect
+            {hasPlan ? "Connect" : "Choose plan"}
           </Button>
         </div>
       )}
+      <section className="flex flex-wrap items-center gap-4">
+        <div className="mr-auto grid gap-1">
+          <h2 className="text-sm font-semibold">
+            Run automations with your agent
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Connect through MCP or use the REST API in your own workflows.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/settings#mcp"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            Set up MCP
+          </Link>
+          <Link
+            href="/settings#api"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            API access
+          </Link>
+        </div>
+      </section>
       <div className="grid gap-6 sm:grid-cols-3">
         {stats.map((item) => (
           <div key={item.label} className="grid gap-1">

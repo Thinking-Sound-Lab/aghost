@@ -1,0 +1,501 @@
+import { Webhook } from "standardwebhooks"
+import { describe, expect, it, vi } from "vitest"
+import {
+  BILLING_INTERVALS,
+  BILLING_CURRENCIES,
+  PLAN_IDS,
+  PLANS,
+} from "../contract/billing"
+import { DodoWebhookGateway } from "../infrastructure/dodo/dodo-webhook.gateway"
+import type {
+  BillingRecord,
+  SubscriptionSnapshot,
+} from "../modules/billing/billing"
+import type { BillingProvider } from "../modules/billing/billing.provider"
+import type { BillingRepository } from "../modules/billing/billing.repository"
+import { BillingService } from "../modules/billing/billing.service"
+import { PlanEntitlements } from "../modules/billing/plan-entitlements"
+import type { WorkspaceRecord } from "../modules/workspaces/workspace"
+
+const workspace: WorkspaceRecord = {
+  id: "workspace",
+  ownerId: "owner",
+  name: "Studio",
+  providerProfileId: "profile",
+}
+
+function subscription(
+  overrides: Partial<SubscriptionSnapshot> = {}
+): SubscriptionSnapshot {
+  return {
+    providerSubscriptionId: "sub_1",
+    providerCustomerId: "cus_1",
+    plan: "pro",
+    interval: "monthly",
+    status: "active",
+    currency: "USD",
+    currentPeriodEnd: "2026-11-11T00:00:00Z",
+    cancelAtPeriodEnd: false,
+    createdAt: "2026-10-11T00:00:00Z",
+    ...overrides,
+  }
+}
+
+/** An in-memory store holding at most one workspace's billing. */
+function memoryRepository(initial: BillingRecord | null): BillingRepository & {
+  record: BillingRecord | null
+} {
+  const store = {
+    record: initial,
+    findByWorkspace: async (workspaceId: string) =>
+      store.record?.workspaceId === workspaceId ? store.record : null,
+    findWorkspaceIdByCustomer: async (customerId: string) =>
+      store.record?.providerCustomerId === customerId
+        ? store.record.workspaceId
+        : null,
+    saveCustomer: async (workspaceId: string, customerId: string) => {
+      store.record ??= {
+        workspaceId,
+        providerCustomerId: customerId,
+        subscription: null,
+      }
+      return store.record
+    },
+    saveSubscription: async (
+      _workspaceId: string,
+      snapshot: SubscriptionSnapshot
+    ) => {
+      if (!store.record) throw new Error("No customer")
+      store.record = { ...store.record, subscription: snapshot }
+    },
+  }
+  return store
+}
+
+function provider(overrides: Partial<BillingProvider> = {}): BillingProvider {
+  return {
+    createCustomer: vi.fn(async () => "cus_new"),
+    createCheckout: vi.fn(async () => "https://checkout.example/session"),
+    getSubscription: vi.fn(async () => null),
+    listSubscriptions: vi.fn(async () => []),
+    changePlan: vi.fn(async () => null),
+    createPortalSession: vi.fn(async () => "https://portal.example"),
+    ...overrides,
+  }
+}
+
+const pages = {
+  checkoutReturn: "http://localhost:3000/settings#billing",
+  checkoutCancel: "http://localhost:3000/settings#billing",
+  portalReturn: "http://localhost:3000/settings#billing",
+}
+
+function service(
+  repository: BillingRepository,
+  billingProvider: BillingProvider,
+  connected = 0
+) {
+  const pauseAll = vi.fn(async () => {})
+  return {
+    pauseAll,
+    billing: new BillingService(
+      repository,
+      billingProvider,
+      { countConnected: async () => connected },
+      { pauseAll },
+      pages
+    ),
+  }
+}
+
+describe("plan catalog", () => {
+  it("uses the agreed fixed prices and account counts", () => {
+    expect(
+      PLAN_IDS.map((id) => [
+        PLANS[id].prices.USD.monthly,
+        PLANS[id].prices.USD.yearly,
+        PLANS[id].instagramAccounts,
+      ])
+    ).toEqual([
+      [900, 10800, 1],
+      [1900, 22800, 2],
+      [4900, 58800, 5],
+    ])
+  })
+  it("offers only USD prices", () => {
+    expect(BILLING_CURRENCIES).toEqual(["USD"])
+    for (const plan of PLAN_IDS)
+      expect(Object.keys(PLANS[plan].prices)).toEqual(["USD"])
+  })
+
+  it("bills a year as twelve months on every plan and currency", () => {
+    for (const plan of PLAN_IDS)
+      for (const prices of Object.values(PLANS[plan].prices))
+        expect(prices.yearly).toBe(prices.monthly * 12)
+    expect(BILLING_INTERVALS).toEqual(["monthly", "yearly"])
+  })
+})
+
+describe("plan entitlements", () => {
+  function entitlements(
+    snapshot: SubscriptionSnapshot | null,
+    connected: number
+  ) {
+    return new PlanEntitlements(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: snapshot,
+      }),
+      { countConnected: async () => connected }
+    )
+  }
+
+  it("asks for a plan before an account can be connected", async () => {
+    await expect(
+      entitlements(null, 0).assertCanConnectAccount(workspace)
+    ).rejects.toMatchObject({ code: "plan_required" })
+  })
+
+  it("stops at the plan's account limit", async () => {
+    await expect(
+      entitlements(subscription(), 1).assertCanConnectAccount(workspace)
+    ).rejects.toMatchObject({
+      code: "plan_limit_reached",
+      message: "Pro includes 1 Instagram account. Upgrade to connect another.",
+    })
+    await expect(
+      entitlements(subscription({ plan: "growth" }), 1).assertCanConnectAccount(
+        workspace
+      )
+    ).resolves.toBeUndefined()
+  })
+
+  it("keeps the plan through the grace period and ends it on hold", async () => {
+    await expect(
+      entitlements(
+        subscription({ status: "past_due" }),
+        1
+      ).assertCanRunAutomations(workspace)
+    ).resolves.toBeUndefined()
+    await expect(
+      entitlements(
+        subscription({ status: "on_hold" }),
+        1
+      ).assertCanRunAutomations(workspace)
+    ).rejects.toMatchObject({ code: "plan_required" })
+  })
+
+  it("holds automations while more accounts are connected than the plan includes", async () => {
+    await expect(
+      entitlements(subscription(), 2).assertCanRunAutomations(workspace)
+    ).rejects.toMatchObject({ code: "plan_limit_reached" })
+  })
+})
+
+describe("billing", () => {
+  it("creates the customer once and leaves billing details to checkout", async () => {
+    const repository = memoryRepository(null)
+    const dodo = provider()
+    const { billing } = service(repository, dodo)
+    const payer = { email: "maya@example.com", name: "Maya" }
+
+    await billing.startCheckout(workspace, payer, {
+      plan: "growth",
+      interval: "yearly",
+    })
+    await billing.startCheckout(workspace, payer, {
+      plan: "pro",
+      interval: "monthly",
+    })
+
+    expect(dodo.createCustomer).toHaveBeenCalledOnce()
+    expect(dodo.createCheckout).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        providerCustomerId: "cus_new",
+        plan: "growth",
+        interval: "yearly",
+      })
+    )
+    expect(dodo.createCheckout).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        providerCustomerId: "cus_new",
+        plan: "pro",
+        interval: "monthly",
+      })
+    )
+    expect(vi.mocked(dodo.createCheckout).mock.calls[0]![0]).not.toHaveProperty(
+      "country"
+    )
+  })
+
+  it("refuses a second checkout while a plan is active", async () => {
+    const { billing } = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription(),
+      }),
+      provider()
+    )
+    await expect(
+      billing.startCheckout(
+        workspace,
+        { email: "maya@example.com", name: "Maya" },
+        { plan: "growth", interval: "monthly" }
+      )
+    ).rejects.toMatchObject({ code: "conflict" })
+  })
+
+  it("checks Dodo for a completed checkout whose webhook has not arrived", async () => {
+    const dodo = provider({ listSubscriptions: async () => [subscription()] })
+    const { billing } = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: null,
+      }),
+      dodo
+    )
+    await expect(
+      billing.startCheckout(
+        workspace,
+        { email: "maya@example.com", name: "Maya" },
+        { plan: "growth", interval: "monthly" }
+      )
+    ).rejects.toMatchObject({ code: "conflict" })
+    expect(dodo.createCheckout).not.toHaveBeenCalled()
+  })
+
+  it("asks customers with an unsettled payment to manage their subscription", async () => {
+    const dodo = provider()
+    const { billing } = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription({ status: "pending" }),
+      }),
+      dodo
+    )
+    await expect(
+      billing.startCheckout(
+        workspace,
+        { email: "maya@example.com", name: "Maya" },
+        { plan: "growth", interval: "monthly" }
+      )
+    ).rejects.toMatchObject({ code: "conflict" })
+    expect(dodo.createCheckout).not.toHaveBeenCalled()
+  })
+
+  it("returns the payment approval page without granting an unconfirmed plan change", async () => {
+    const dodo = provider({
+      changePlan: async () => "https://checkout.example/approve",
+      getSubscription: async () => subscription(),
+    })
+    const { billing } = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription(),
+      }),
+      dodo
+    )
+    expect(
+      await billing.changePlan(workspace, {
+        plan: "growth",
+        interval: "yearly",
+      })
+    ).toMatchObject({
+      state: { subscription: { plan: "pro", interval: "monthly" } },
+      paymentUrl: "https://checkout.example/approve",
+    })
+  })
+
+  it("pauses running automations when a portal downgrade exceeds the account limit", async () => {
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: subscription({ plan: "business" }),
+    })
+    const { billing, pauseAll } = service(
+      repository,
+      provider({ getSubscription: async () => subscription({ plan: "pro" }) }),
+      3
+    )
+    await billing.refreshSubscription("sub_1")
+    expect(pauseAll).toHaveBeenCalledExactlyOnceWith(workspace.id)
+  })
+
+  it("applies the subscription Dodo reports and pauses automations when the plan ends", async () => {
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: subscription(),
+    })
+    const onHold = subscription({ status: "on_hold" })
+    const { billing, pauseAll } = service(
+      repository,
+      provider({ getSubscription: async () => onHold })
+    )
+
+    await expect(billing.refreshSubscription("sub_1")).resolves.toBe(
+      "processed"
+    )
+    expect(repository.record?.subscription).toEqual(onHold)
+    expect(pauseAll).toHaveBeenCalledExactlyOnceWith(workspace.id)
+  })
+
+  it("ignores subscriptions of customers it does not know", async () => {
+    const { billing, pauseAll } = service(
+      memoryRepository(null),
+      provider({
+        getSubscription: async () =>
+          subscription({ providerCustomerId: "cus_other" }),
+      })
+    )
+    await expect(billing.refreshSubscription("sub_1")).resolves.toBe("ignored")
+    expect(pauseAll).not.toHaveBeenCalled()
+  })
+
+  it("keeps an active subscription when an older one of the customer expires", async () => {
+    const active = subscription({
+      providerSubscriptionId: "sub_new",
+      createdAt: "2026-10-11T00:00:00Z",
+    })
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: active,
+    })
+    const { billing, pauseAll } = service(
+      repository,
+      provider({
+        getSubscription: async () =>
+          subscription({
+            providerSubscriptionId: "sub_old",
+            status: "expired",
+            createdAt: "2026-01-01T00:00:00Z",
+          }),
+      })
+    )
+
+    await billing.refreshSubscription("sub_old")
+    expect(repository.record?.subscription).toEqual(active)
+    expect(pauseAll).not.toHaveBeenCalled()
+  })
+
+  it("syncs to the subscription that grants a plan, even when an ended one is newer", async () => {
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: null,
+    })
+    const current = subscription({ providerSubscriptionId: "sub_paid" })
+    const { billing } = service(
+      repository,
+      provider({
+        listSubscriptions: async () => [
+          subscription({
+            providerSubscriptionId: "sub_failed",
+            status: "failed",
+            createdAt: "2026-10-12T00:00:00Z",
+          }),
+          current,
+        ],
+      })
+    )
+
+    const state = await billing.sync(workspace)
+    expect(repository.record?.subscription).toEqual(current)
+    expect(state.subscription).toMatchObject({ plan: "pro", status: "active" })
+  })
+
+  it("refuses to move to a plan with fewer accounts than are connected", async () => {
+    const dodo = provider()
+    const { billing } = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription({ plan: "business" }),
+      }),
+      dodo,
+      3
+    )
+    await expect(
+      billing.changePlan(workspace, { plan: "growth", interval: "monthly" })
+    ).rejects.toMatchObject({ code: "plan_limit_reached" })
+    expect(dodo.changePlan).not.toHaveBeenCalled()
+  })
+
+  it("shows USD before and after subscribing", async () => {
+    const empty = service(memoryRepository(null), provider()).billing
+    expect((await empty.getState(workspace)).currency).toBe("USD")
+
+    const subscribed = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription({ currency: "USD" }),
+      }),
+      provider()
+    ).billing
+    expect((await subscribed.getState(workspace)).currency).toBe("USD")
+  })
+})
+
+describe("Dodo webhook events", () => {
+  const secret = `whsec_${Buffer.from("billing-test").toString("base64")}`
+  const gateway = new DodoWebhookGateway(secret)
+
+  function deliver(payload: unknown) {
+    const body = JSON.stringify(payload)
+    const now = new Date()
+    return gateway.verify(body, {
+      "webhook-id": "msg_1",
+      "webhook-timestamp": String(Math.floor(now.getTime() / 1000)),
+      "webhook-signature": new Webhook(secret).sign("msg_1", now, body),
+    })
+  }
+
+  it("names the subscription a subscription event is about", () => {
+    expect(
+      deliver({
+        type: "subscription.on_hold",
+        data: { subscription_id: "sub_1", status: "on_hold" },
+      })
+    ).toEqual({ kind: "subscription_changed", providerSubscriptionId: "sub_1" })
+  })
+
+  it("refreshes a subscription after its payment succeeds", () => {
+    expect(
+      deliver({
+        type: "payment.succeeded",
+        data: { payment_id: "pay_1", subscription_id: "sub_1" },
+      })
+    ).toEqual({ kind: "subscription_changed", providerSubscriptionId: "sub_1" })
+  })
+
+  it("rejects a forged signature and a stale delivery", () => {
+    const body = JSON.stringify({
+      type: "subscription.active",
+      data: { subscription_id: "sub_1" },
+    })
+    const now = new Date()
+    const headers = {
+      "webhook-id": "msg_1",
+      "webhook-timestamp": String(Math.floor(now.getTime() / 1000)),
+      "webhook-signature": "v1,forged",
+    }
+    expect(() => gateway.verify(body, headers)).toThrowError("webhook")
+    const stale = new Date(now.getTime() - 600_000)
+    expect(() =>
+      gateway.verify(body, {
+        ...headers,
+        "webhook-timestamp": String(Math.floor(stale.getTime() / 1000)),
+        "webhook-signature": new Webhook(secret).sign("msg_1", stale, body),
+      })
+    ).toThrowError("webhook")
+  })
+})

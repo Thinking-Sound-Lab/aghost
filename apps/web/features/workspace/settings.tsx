@@ -2,13 +2,18 @@
 
 import { useEffect, type FormEvent } from "react"
 import { create } from "zustand"
-import { CreditCard, RefreshCw } from "lucide-react"
-import { WORKSPACE_NAME_MAX_LENGTH } from "@workspace/api/contract"
+import { RefreshCw } from "lucide-react"
+import {
+  WORKSPACE_NAME_MAX_LENGTH,
+  isEntitled,
+  PLANS,
+} from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Instagram } from "@/components/instagram-icon"
-import { Avatar, ConfirmButton, EmptyState, Page } from "@/components/interface"
+import { Avatar, ConfirmButton, Page } from "@/components/interface"
+import { Billing } from "@/features/billing/billing"
 import { useAuthStore } from "@/stores/auth-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { ApiAccess } from "./api-access"
@@ -66,14 +71,12 @@ export function Settings() {
           </button>
         ))}
       </div>
-      <div role="tabpanel" className="max-w-2xl">
+      <div role="tabpanel" className={cn(tab !== "billing" && "max-w-2xl")}>
         {tab === "general" && <General />}
         {tab === "channels" && <Channels />}
         {tab === "api" && <ApiAccess />}
         {tab === "mcp" && <McpAccess />}
-        {tab === "billing" && (
-          <EmptyState icon={<CreditCard />} title="Billing isn't set up yet" />
-        )}
+        {tab === "billing" && <Billing />}
         {tab === "account" && <Account />}
       </div>
     </Page>
@@ -134,6 +137,12 @@ function General() {
 
 function Channels() {
   const store = useWorkspaceStore()
+  const subscription = store.billing?.subscription
+  const hasPlan = subscription && isEntitled(subscription.status)
+  const connected = store.accounts.filter(
+    (account) => account.status === "connected"
+  ).length
+  const limit = subscription ? PLANS[subscription.plan].instagramAccounts : 0
   return (
     <section className="grid gap-3">
       <div className="flex min-h-14 items-center gap-2.5">
@@ -153,15 +162,31 @@ function Channels() {
         <Button
           variant="secondary"
           size="sm"
-          disabled={store.busy || !store.integration?.instagramConfigured}
+          disabled={
+            store.busy ||
+            (Boolean(hasPlan) &&
+              (!store.integration?.instagramConfigured || connected >= limit))
+          }
           onClick={() => void store.connect()}
         >
-          Connect account
+          {hasPlan ? "Connect account" : "Choose plan"}
         </Button>
       </div>
+      {hasPlan && (
+        <p className="text-sm text-muted-foreground">
+          {connected} of {limit} accounts connected.{" "}
+          <button
+            type="button"
+            className="underline underline-offset-4"
+            onClick={() => select("billing")}
+          >
+            Manage plan
+          </button>
+        </p>
+      )}
       {!store.integration?.instagramConfigured && (
         <p className="text-sm text-muted-foreground">
-          Add ZERNIO_API_KEY to the server environment to connect Instagram.
+          Instagram connections are not available yet.
         </p>
       )}
       {store.accounts.length > 0 && (

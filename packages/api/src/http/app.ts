@@ -1,4 +1,5 @@
 import cookie from "@fastify/cookie"
+import type { User } from "@supabase/supabase-js"
 import Fastify, {
   LogController,
   type FastifyError,
@@ -17,12 +18,16 @@ import {
 import { contactPageQuerySchema } from "../contract/contact"
 import { sendMessageSchema } from "../contract/inbox"
 import { renameWorkspaceSchema } from "../contract/workspace"
+import { choosePlanSchema } from "../contract/billing"
 import type { ApiErrorBody } from "../contract/errors"
 import { createSessionClientFactory } from "../infrastructure/supabase/session-client"
 import type { WebhookService } from "../modules/webhooks/webhook.service"
+import type { BillingWebhookService } from "../modules/billing/billing-webhook"
+import type { Payer } from "../modules/billing/billing.service"
 import {
   AppError,
   BadRequestError,
+  BillingNotConfiguredError,
   IntegrationNotConfiguredError,
   UnauthenticatedError,
 } from "../shared/errors"
@@ -45,6 +50,8 @@ const statusByCode = {
   not_found: 404,
   conflict: 409,
   account_disconnected: 409,
+  plan_required: 402,
+  plan_limit_reached: 403,
   invalid_webhook_signature: 401,
   provider_rate_limited: 429,
   provider_error: 502,
@@ -52,7 +59,14 @@ const statusByCode = {
   integration_not_configured: 503,
 } as const
 
-const WEBHOOK_PATH = "/api/webhooks/zernio"
+const WEBHOOK_PATHS = new Set(["/api/webhooks/zernio", "/api/webhooks/dodo"])
+
+// Standard Webhooks headers that sign each Dodo Payments delivery.
+const DODO_SIGNATURE_HEADERS = [
+  "webhook-id",
+  "webhook-timestamp",
+  "webhook-signature",
+] as const
 
 const INTERNAL_ERROR_MESSAGE = "The request could not be completed. Try again."
 
@@ -64,6 +78,27 @@ const rejectionMessages: Record<string, string> = {
 }
 
 type IdParams = { Params: { id: string } }
+type RequestHeaders = FastifyRequest["headers"]
+
+function signatureHeaders(headers: RequestHeaders): Record<string, string> {
+  const picked: Record<string, string> = {}
+  for (const name of DODO_SIGNATURE_HEADERS) {
+    const value = headers[name]
+    if (typeof value === "string") picked[name] = value
+  }
+  return picked
+}
+
+/** The person paying, as Google identified them at sign-in. */
+function payerOf(user: User): Payer {
+  if (!user.email)
+    throw new BadRequestError("Your account has no email address to bill.")
+  const name: unknown = user.user_metadata.full_name
+  return {
+    email: user.email,
+    name: typeof name === "string" && name.trim() ? name : user.email,
+  }
+}
 type ThreadParams = { Params: { accountId: string; conversationId: string } }
 
 function errorBody(
@@ -126,11 +161,13 @@ export function createApp({
   authenticate,
   authenticateAgent,
   webhooks,
+  billingWebhooks,
   config,
 }: {
   authenticate: Authenticate
   authenticateAgent: AuthenticateAgent
   webhooks: WebhookService
+  billingWebhooks: BillingWebhookService
   config: ApiConfig
 }) {
   const appOrigin = new URL(config.appUrl).origin
@@ -140,7 +177,7 @@ export function createApp({
     // Each delivery and its status code, including rejected signatures.
     logController: new LogController({
       disableRequestLogging: (request) =>
-        request.routeOptions.url !== WEBHOOK_PATH,
+        !WEBHOOK_PATHS.has(request.routeOptions.url ?? ""),
     }),
     // Zernio's conversation ids are opaque and can exceed the default of 100.
     routerOptions: { maxParamLength: 1000 },
@@ -150,6 +187,7 @@ export function createApp({
   app.register(cookie)
   app.decorateRequest("session")
   app.decorateRequest("identity")
+  app.decorateRequest("user")
   app.decorateRequest("agentIdentity")
   app.setErrorHandler(sendError)
   app.setNotFoundHandler((_request, reply) =>
@@ -169,7 +207,7 @@ export function createApp({
     }
     if (
       !["GET", "HEAD", "OPTIONS"].includes(method) &&
-      request.routeOptions.url !== WEBHOOK_PATH
+      !WEBHOOK_PATHS.has(request.routeOptions.url ?? "")
     ) {
       if (!agent && request.headers.origin !== appOrigin)
         throw new BadRequestError("Request origin is not allowed.")
@@ -209,6 +247,15 @@ export function createApp({
             return { receipt }
           }
         )
+        hooks.post("/webhooks/dodo", async (request) => {
+          if (!config.dodo.webhookKey) throw new BillingNotConfiguredError()
+          const rawBody = typeof request.body === "string" ? request.body : ""
+          const outcome = await billingWebhooks.receive(
+            rawBody,
+            signatureHeaders(request.headers)
+          )
+          return { outcome }
+        })
       })
       api.register(
         async (auth) => {
@@ -228,6 +275,7 @@ export function createApp({
           if (!tokens.session) throw new UnauthenticatedError()
           request.identity = await authenticate(tokens.session.access_token)
           request.session = session
+          request.user = data.user
         })
         routes.get("/workspace", async (request) =>
           presentWorkspace(request.identity.workspace)
@@ -264,7 +312,37 @@ export function createApp({
         })
         routes.get("/integrations", async () => ({
           instagramConfigured: Boolean(config.zernio.apiKey),
+          billingConfigured: Boolean(config.dodo.apiKey),
         }))
+        routes.get("/billing", async (request) => {
+          const { services, workspace } = request.identity
+          return services.billing.getState(workspace)
+        })
+        routes.post("/billing/sync", async (request) => {
+          const { services, workspace } = request.identity
+          return services.billing.sync(workspace)
+        })
+        routes.post("/billing/checkout", async (request) => {
+          const { services, workspace } = request.identity
+          return {
+            url: await services.billing.startCheckout(
+              workspace,
+              payerOf(request.user),
+              validate(choosePlanSchema, request.body)
+            ),
+          }
+        })
+        routes.post("/billing/plan", async (request) => {
+          const { services, workspace } = request.identity
+          return services.billing.changePlan(
+            workspace,
+            validate(choosePlanSchema, request.body)
+          )
+        })
+        routes.post("/billing/portal", async (request) => {
+          const { services, workspace } = request.identity
+          return { url: await services.billing.openPortal(workspace) }
+        })
         routes.get("/accounts", async (request) => {
           const { services, workspace } = request.identity
           return (await services.accounts.list(workspace)).map(presentAccount)

@@ -7,7 +7,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
   title: { default: "aghost", template: "%s · aghost" },
-  description: "Turn Instagram comments into DMs.",
+  description:
+    "Agent-first Instagram automation with MCP and REST API access. Create, manage and monitor comment-to-DM automations from your AI agent or workflows.",
 }
 
 export default function RootLayout({

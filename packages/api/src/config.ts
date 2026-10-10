@@ -9,6 +9,11 @@ const environmentSchema = z.object({
   ZERNIO_API_URL: z.url(),
   ZERNIO_API_KEY: z.string(),
   ZERNIO_WEBHOOK_SECRET: z.string(),
+  DODO_PAYMENTS_ENVIRONMENT: z
+    .enum(["test_mode", "live_mode"])
+    .default("test_mode"),
+  DODO_PAYMENTS_API_KEY: z.string().default(""),
+  DODO_PAYMENTS_WEBHOOK_KEY: z.string().default(""),
 })
 
 export type ApiConfig = {
@@ -23,6 +28,13 @@ export type ApiConfig = {
     apiUrl: string
     apiKey: string
     webhookSecret: string
+  }
+  dodo: {
+    environment: "test_mode" | "live_mode"
+    /** Empty until billing is set up, which leaves plans unavailable. */
+    apiKey: string
+    /** Signing secret of the webhook endpoint registered with Dodo Payments. */
+    webhookKey: string
   }
 }
 
@@ -47,6 +59,11 @@ export function loadApiConfig(
       apiUrl: env.ZERNIO_API_URL,
       apiKey: env.ZERNIO_API_KEY,
       webhookSecret: env.ZERNIO_WEBHOOK_SECRET,
+    },
+    dodo: {
+      environment: env.DODO_PAYMENTS_ENVIRONMENT,
+      apiKey: env.DODO_PAYMENTS_API_KEY,
+      webhookKey: env.DODO_PAYMENTS_WEBHOOK_KEY,
     },
   }
 }

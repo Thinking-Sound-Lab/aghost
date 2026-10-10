@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { SupabaseClient, User } from "@supabase/supabase-js"
 import type { Database } from "@workspace/supabase/types"
 import type { Services } from "../container"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
@@ -15,6 +15,8 @@ declare module "fastify" {
     session: SupabaseClient<Database>
     /** The signed-in user's workspace and services, on protected routes. */
     identity: RequestIdentity
+    /** The signed-in user, on protected routes. */
+    user: User
     agentIdentity: AgentIdentity
   }
 

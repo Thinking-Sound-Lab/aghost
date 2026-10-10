@@ -14,6 +14,7 @@ import {
   fillRootEnv,
   readRootEnv,
   webEnvironment,
+  writeRootEnv,
 } from "./local-env.mjs"
 
 function workspace(t) {
@@ -56,6 +57,23 @@ test("setup keeps user-edited root values and fills empty database credentials",
   )
 })
 
+test("setup adds variables the template gained without touching existing ones", (t) => {
+  const directory = workspace(t)
+  writeFileSync(join(directory, ".env"), "ZERNIO_API_KEY=root-key\n")
+  const env = ensureRootEnv(directory)
+  assert.equal(env.ZERNIO_API_KEY, "root-key")
+  assert.equal(env.API_HOST, "0.0.0.0")
+  assert.equal(env.SUPABASE_SECRET_KEY, "")
+  assert.equal(statSync(join(directory, ".env")).mode & 0o777, 0o600)
+})
+
+test("a value written on purpose replaces the existing one", (t) => {
+  const directory = workspace(t)
+  writeFileSync(join(directory, ".env"), "ZERNIO_API_KEY=old\n")
+  writeRootEnv({ ZERNIO_API_KEY: "new" }, directory)
+  assert.equal(readRootEnv(directory).ZERNIO_API_KEY, "new")
+})
+
 test("values that need quoting survive a round trip", (t) => {
   const directory = workspace(t)
   ensureRootEnv(directory)
@@ -72,10 +90,12 @@ test("the web process receives API_URL without backend credentials", () => {
       API_URL: "http://127.0.0.1:4000",
       ZERNIO_API_KEY: "root-secret",
       SUPABASE_SECRET_KEY: "root-db-secret",
+      DODO_PAYMENTS_API_KEY: "root-billing-secret",
     },
     {
       PATH: "/usr/bin",
       ZERNIO_API_KEY: "inherited-secret",
+      DODO_PAYMENTS_WEBHOOK_KEY: "inherited-billing-secret",
       SUPABASE_SECRET_KEY: "inherited-db-secret",
       NEXT_PUBLIC_SUPABASE_URL: "forbidden",
     }

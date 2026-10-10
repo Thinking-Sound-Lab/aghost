@@ -18,6 +18,9 @@ services:
       ZERNIO_API_URL: ${ZERNIO_API_URL:?Set ZERNIO_API_URL in the root .env}
       ZERNIO_API_KEY: ${ZERNIO_API_KEY-}
       ZERNIO_WEBHOOK_SECRET: ${ZERNIO_WEBHOOK_SECRET-}
+      DODO_PAYMENTS_ENVIRONMENT: ${DODO_PAYMENTS_ENVIRONMENT:?Set DODO_PAYMENTS_ENVIRONMENT in the root .env}
+      DODO_PAYMENTS_API_KEY: ${DODO_PAYMENTS_API_KEY-}
+      DODO_PAYMENTS_WEBHOOK_KEY: ${DODO_PAYMENTS_WEBHOOK_KEY-}
     ports:
       - "127.0.0.1:${API_PORT}:${API_PORT}"
     volumes:
@@ -37,7 +40,8 @@ services:
       start_period: 10s
       retries: 6
 
-  # Public HTTPS address for Zernio webhooks. Started only by pnpm local:tunnel.
+  # Public HTTPS address for Zernio and Dodo Payments webhooks. Started only by
+  # pnpm local:tunnel.
   tunnel:
     image: cloudflare/cloudflared:2026.7.2
     profiles: ["tunnel"]
@@ -69,11 +73,11 @@ services:
       retries: 30
 
 configs:
-  # Only the webhook endpoint is public; every other path is answered with 404.
+  # Only the webhook endpoints are public; every other path is answered with 404.
   tunnel:
     content: |
       ingress:
-        - path: ^/api/webhooks/zernio$$
+        - path: ^/api/webhooks/(zernio|dodo)$$
           service: http://server:${API_PORT:?Set API_PORT in the root .env}
         - service: http_status:404
 

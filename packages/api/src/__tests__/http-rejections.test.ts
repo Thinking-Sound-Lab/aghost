@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto"
 import type { InjectOptions } from "fastify"
+import { Webhook } from "standardwebhooks"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createApi } from "../container"
 import { apiErrorBodySchema } from "../contract/errors"
+
+const DODO_WEBHOOK_KEY = `whsec_${Buffer.from("dodo-test-secret").toString("base64")}`
 
 // Nothing listens on the discard port, so no request here reaches a service.
 const app = createApi({
@@ -16,6 +19,11 @@ const app = createApi({
     apiUrl: "http://127.0.0.1:9",
     apiKey: "",
     webhookSecret: "secret",
+  },
+  dodo: {
+    environment: "test_mode",
+    apiKey: "",
+    webhookKey: DODO_WEBHOOK_KEY,
   },
 })
 
@@ -82,6 +90,56 @@ describe("requests the API rejects", () => {
     expect(await reject({ method: "GET", url: "/api/nope" })).toMatchObject({
       status: 404,
       error: { code: "not_found" },
+    })
+  })
+})
+
+describe("Dodo Payments webhooks", () => {
+  const body = JSON.stringify({
+    type: "payment.succeeded",
+    data: { payment_id: "pay_1" },
+  })
+
+  function signed(timestamp: Date) {
+    const id = `msg_${randomUUID()}`
+    return {
+      "content-type": "application/json",
+      "webhook-id": id,
+      "webhook-timestamp": String(Math.floor(timestamp.getTime() / 1000)),
+      "webhook-signature": new Webhook(DODO_WEBHOOK_KEY).sign(
+        id,
+        timestamp,
+        body
+      ),
+    }
+  }
+
+  it("accepts a signed delivery without a browser origin", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/webhooks/dodo",
+      headers: signed(new Date()),
+      payload: body,
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual({ outcome: "ignored" })
+  })
+
+  it.each([
+    ["is unsigned", { "content-type": "application/json" }],
+    ["was signed for another body", { ...signed(new Date()) }, `${body} `],
+    ["is too old to be fresh", signed(new Date(Date.now() - 60 * 60 * 1000))],
+  ])("refuses a delivery that %s", async (_case, headers, payload = body) => {
+    expect(
+      await reject({
+        method: "POST",
+        url: "/api/webhooks/dodo",
+        headers,
+        payload,
+      })
+    ).toMatchObject({
+      status: 401,
+      error: { code: "invalid_webhook_signature" },
     })
   })
 })
