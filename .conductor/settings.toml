@@ -1,0 +1,15 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+# Copied from the main checkout into every new workspace. It is gitignored.
+file_include_globs = ".env"
+
+[scripts]
+setup = "pnpm install"
+# The Docker stack uses fixed ports, so one workspace runs at a time.
+run_mode = "nonconcurrent"
+
+[scripts.run.dev]
+available_in = ["local"]
+command = "pnpm dev"
+default = true
+icon = "play"
