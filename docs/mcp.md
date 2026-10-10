@@ -2,7 +2,7 @@
 
 Open **Settings → MCP** (`/settings#mcp`) for your endpoint and client configuration. Create and save a key in **Settings → API** first. [API keys and permissions](api.md) control the tools an agent can use; expired or revoked keys stop working on the next exchange.
 
-Use **Copy skill** or **Download SKILL.md** to give your agent setup instructions. The file includes the configured app URL and guidance for Claude Code, Codex, Cursor, and agents using REST. It uses environment references for credentials. The agent needs an existing workspace API key or asks the user to create one; it does not generate credentials itself.
+Use **Copy skill** to give your agent setup instructions. The copied text includes the configured app URL and guidance for Claude Code, Codex, Cursor, and agents using REST. It uses environment references for credentials. The agent needs an existing workspace API key or asks the user to create one; it does not generate credentials itself.
 
 `GET /api/mcp/skill.md` is a public Markdown download containing setup instructions only. It includes no workspace data or secrets. The maintained source is `packages/api/src/mcp/skills/aghost/SKILL.md`; the backend substitutes the configured app URL when serving it.
 

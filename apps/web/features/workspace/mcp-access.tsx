@@ -84,13 +84,6 @@ export function McpAccess() {
             label={skill.status === "loading" ? "Loading skill…" : "Copy skill"}
             disabled={skill.status !== "ready"}
           />
-          <a
-            href="/api/mcp/skill.md"
-            download="SKILL.md"
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
-          >
-            Download SKILL.md
-          </a>
           {skill.status === "error" && (
             <Button variant="secondary" size="sm" onClick={() => void load()}>
               Retry
