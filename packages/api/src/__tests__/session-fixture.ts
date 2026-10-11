@@ -41,6 +41,18 @@ export async function signInDisposableUser(
   return data.session
 }
 
+/** The user's workspace, which the API keeps behind the paywall until it has a plan. */
+export async function workspaceIdOf(config: ApiConfig, userId: string) {
+  const admin = createAdminSupabaseClient(config.supabase)
+  const { data, error } = await admin
+    .from("workspaces")
+    .select("id")
+    .eq("owner_id", userId)
+    .single()
+  if (error) throw new Error(`Could not find the workspace: ${error.message}`)
+  return data.id
+}
+
 /**
  * Gives the workspace an active plan, as a completed checkout would. Each
  * workspace gets its own made-up Dodo ids.

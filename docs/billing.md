@@ -2,6 +2,8 @@
 
 Every plan includes MCP and REST API access, the dashboard, and the current Instagram automation features, with unlimited automations, contacts and DMs within Instagram's limits and fair use. Plans differ by connected Instagram accounts, never by contacts or messages. There is no free plan or trial in the billing catalog.
 
+A workspace needs an active plan to use the product. Without one, a signed-in owner sees only the paywall, where they choose a plan, and the workspace's API keys are refused over REST and MCP. See [the paywall](#the-paywall).
+
 | Plan     | Accounts | Monthly | Yearly |
 | -------- | -------- | ------- | ------ |
 | Pro      | 1        | $9      | $108   |
@@ -15,7 +17,7 @@ All countries, including India, pay in US dollars. Prices include tax. Yearly bi
 1. Set `DODO_PAYMENTS_ENVIRONMENT=test_mode` and `DODO_PAYMENTS_API_KEY` in the root `.env`.
 2. Run `pnpm billing:setup`. It creates or updates six recurring SaaS products, tagged by plan and interval. Each product has a USD base price, tax-inclusive pricing, no trial and no automatic country discounts. Reruns reuse the tagged products and archive all country and currency overrides. Duplicate product tags are refused. Disable Charm Pricing under Dodo's Settings → Business so checkout uses the exact advertised amounts. This is a business-wide setting that also affects other products in that business; the setup script does not change it.
 3. Run `pnpm local:tunnel`. It registers a Dodo test-mode endpoint, stores its signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`, and recreates the Docker API with it. The tunnel exposes only `/api/webhooks/zernio` and `/api/webhooks/dodo`.
-4. Run `pnpm dev`, sign in, and open Settings → Plan and Billing. Choose a plan to open hosted checkout. Use Dodo's [test payment methods](https://docs.dodopayments.com/features/payment-methods/india#testing).
+4. Run `pnpm dev` and sign in. The paywall lists the plans; choose one to open hosted checkout. Use Dodo's [test payment methods](https://docs.dodopayments.com/features/payment-methods/india#testing).
 
 For production, create the catalog in `live_mode` with that mode's API key. Explicit exported settings override the root `.env` in both billing commands. Register `https://<ApiUrl>/api/webhooks/dodo` in Dodo and subscribe to subscription events plus `payment.succeeded`, `payment.failed`, `payment.cancelled`, and `payment.processing`. Add all three Dodo values to the existing `aghost/prod/api` Secrets Manager JSON **before deploying the changed ECS task definition**. Use empty key/secret strings if billing is intentionally unavailable. Apply `20261011090000_workspace_billing.sql` and `20261011100000_billing_coordination.sql` before releasing the API.
 
@@ -25,11 +27,20 @@ Checkout requests USD and disables currency selection, so every country pays in 
 
 See [Adaptive Currency](https://docs.dodopayments.com/features/adaptive-currency), [tax-inclusive pricing](https://docs.dodopayments.com/features/tax-inclusive-pricing), and [India payment methods](https://docs.dodopayments.com/features/payment-methods/india). UPI requires INR billing and is unavailable with this USD-only catalog. Updating the catalog applies to new subscriptions; it does not change the price of existing subscriptions.
 
+## The paywall
+
+- The plan is checked on the server before every dashboard and agent request. Only billing (`/api/billing/*`) and the integration status (`/api/integrations`) answer without one, so that a workspace can subscribe; routes are behind the paywall unless they are marked `withoutPlan`. Everything else returns 402 `plan_required`, including a workspace's own accounts, automations, contacts, inbox and API key management.
+- A plan grants access while its subscription is `active` or `past_due`. A new workspace, a checkout whose payment is still `pending`, and a subscription that is `on_hold`, `paused`, `cancelled`, `failed` or `expired` are all locked out.
+- API keys follow their workspace. A valid key is answered with 402 on every REST path, the OpenAPI document and the MCP endpoint until the owner subscribes again; the key itself is not revoked and works again afterwards.
+- The dashboard shows the paywall in place of every page and loads no workspace data until the plan is confirmed. If the plan ends while the dashboard is open, the next request is refused and the paywall replaces it.
+- A locked workspace keeps its accounts, automations, contacts and history. They are not readable or changeable until it has a plan again. At the paywall any plan can be chosen, including one with fewer accounts than are connected, because accounts cannot be disconnected there; automations then stay off until the owner disconnects accounts or upgrades.
+- Without Dodo credentials nobody can subscribe, so the app stops at the paywall. Configure Dodo's test mode to use the dashboard locally.
+
 ## Subscription lifecycle
 
 - Only the authenticated workspace owner can start checkout, change plans, or open the billing portal. API keys and MCP do not expose billing mutations. Payer details come from the authenticated identity, and the backend fixes all return URLs.
 - Each workspace has one durable checkout reservation. Retries resume its unpaid session for the same plan and interval, including one left at the payment form (`requires_payment_method`). Choosing a different plan or interval replaces an unpaid session with a new one, as does a failed or cancelled payment or expiry of Dodo's [24-hour, single-use checkout](https://docs.dodopayments.com/features/checkout). Dodo has no API to revoke a session, so a replaced link stays payable until it expires; a customer who pays two links holds two subscriptions, and the newer paid one becomes the workspace's plan. A session whose payment is processing is never replaced, even past link expiry. Checkout creation is reserved before the provider write and automatic SDK retries are disabled. A lost response or failed local save keeps the reservation for reconciliation, rather than issuing a second payable link.
-- Checkout return and Manage billing return open Settings → Plan and Billing. The UI reconciles with Dodo; it does not trust redirect query parameters. Customers can also refresh billing manually.
+- Checkout return and Manage billing return open Settings → Plan and Billing, or the paywall while the workspace has no plan. The UI reconciles with Dodo; it does not trust redirect query parameters. Customers can also refresh billing manually.
 - Pricing cards preserve the plan and monthly/yearly selection through Google sign-in and initialize billing with that choice. These parameters select the UI only; they do not authorize payment or access.
 - Webhooks verify the raw body with Standard Webhooks, including timestamp freshness. Subscription and payment events cause a read of Dodo's current subscription and payment records. Redeliveries and delayed events converge to the current state.
 - Database ownership serializes checkout, subscription reads and saves, plan changes, account sync/removal, and automation writes per workspace across API instances. Billing and account webhooks locate the workspace first, then apply their changes under ownership. A plan shutdown waits for an in-flight activation, then pauses its result; an activation after shutdown fails its plan check.
@@ -38,7 +49,7 @@ See [Adaptive Currency](https://docs.dodopayments.com/features/adaptive-currency
 - Plan changes charge prorated amounts immediately and use `prevent_change` on payment failure. A returned payment approval URL is forwarded to the browser. Access reflects the provider's actual product after payment, not the requested product.
 - The application blocks a downgrade while too many accounts are connected. A downgrade performed in Dodo's portal is still reconciled; automations are paused if it exceeds the new limit. They must be turned on again after the owner disconnects accounts or upgrades.
 - Account callbacks hold the same workspace ownership as billing across provider reads, database saves and rejected-account cleanup. The database trigger also checks new connections against the current plan. A downgrade sees completed callbacks before counting accounts; an upgrade and reconnection wait for old provider cleanup. A connection exceeding the plan is stored as disconnected and removed from Zernio. A failed provider disconnect is retried when the webhook is redelivered, even if the database event was already committed; the rejection is rechecked under ownership so a duplicate cannot remove an account that has since been allowed.
-- When the plan ends, the backend fetches every automation page, including older rows beyond Supabase's 1,000-row response limit, and pauses running automations at Zernio before marking them paused locally. Failed pauses fail the webhook request so Dodo can retry. The subscription is kept for payment recovery; accounts, drafts, contacts and history remain visible.
+- When the plan ends, the backend fetches every automation page, including older rows beyond Supabase's 1,000-row response limit, and pauses running automations at Zernio before marking them paused locally. Failed pauses fail the webhook request so Dodo can retry. The subscription is kept for payment recovery, and the workspace is locked behind the paywall. After the owner pays again, the automations are still paused and must be turned on again.
 
 ## Recovery after interrupted provider operations
 
@@ -48,4 +59,4 @@ If `workspace_billing.checkout_plan` is set but `checkout_session_id` is null, a
 
 ## Verification
 
-`pnpm setup:test` starts this project's local Supabase and applies pending migrations without resetting data. `pnpm verify` runs typecheck, lint, tests, and the production build. Billing tests use the installed Dodo SDK with an in-process fixture transport, plus real local Postgres/Auth for the HTTP lifecycle, tenancy, checkout deduplication, stale subscription reads, activation/shutdown ordering, legacy reconciliation and concurrent account limits. They never call a live payment provider. A configured hosted checkout and actual sandbox payment must still be verified with Dodo credentials.
+`pnpm setup:test` starts this project's local Supabase and applies pending migrations without resetting data. `pnpm verify` runs typecheck, lint, tests, and the production build. Billing tests use the installed Dodo SDK with an in-process fixture transport, plus real local Postgres/Auth for the HTTP lifecycle, the paywall for sessions and API keys, tenancy, checkout deduplication, stale subscription reads, activation/shutdown ordering, legacy reconciliation and concurrent account limits. They never call a live payment provider. A configured hosted checkout and actual sandbox payment must still be verified with Dodo credentials.

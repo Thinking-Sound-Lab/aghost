@@ -22,8 +22,9 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { Brand } from "@/components/brand"
 import { Avatar, ErrorBanner, Loading } from "@/components/interface"
+import { Paywall } from "@/features/billing/paywall"
 import { useAuthStore } from "@/stores/auth-store"
-import { useWorkspaceStore } from "@/stores/workspace-store"
+import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
 
 const HELP_URL = "https://github.com/Abhishekucs/aghost#readme"
@@ -78,6 +79,19 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       </div>
     )
   if (auth.status !== "signed_in") return <Loading className="h-dvh" />
+  // Nothing of the dashboard shows until the workspace is known to have a plan.
+  if (!hasPlan(workspace.billing)) {
+    if (workspace.status === "ready") return <Paywall />
+    if (workspace.status !== "error") return <Loading className="h-dvh" />
+    return (
+      <div className="grid h-dvh place-items-center p-6">
+        <ErrorBanner
+          message={workspace.error}
+          retry={() => void workspace.load()}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-dvh">

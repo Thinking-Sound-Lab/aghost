@@ -19,6 +19,11 @@ export class PlanEntitlements {
     private readonly accounts: ConnectedAccounts
   ) {}
 
+  /** The paywall: without a plan, a workspace can only reach billing. */
+  async assertCanUseWorkspace(workspace: WorkspaceRecord): Promise<void> {
+    await this.currentPlan(workspace, "use this workspace")
+  }
+
   async assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void> {
     const plan = await this.currentPlan(workspace, "connect Instagram")
     const connected = await this.accounts.countConnected(workspace.id)

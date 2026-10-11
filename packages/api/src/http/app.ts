@@ -61,6 +61,9 @@ const statusByCode = {
 
 const WEBHOOK_PATHS = new Set(["/api/webhooks/zernio", "/api/webhooks/dodo"])
 
+// Billing, where a signed-in workspace without a plan chooses one.
+const withoutPlan = { config: { withoutPlan: true } }
+
 // Standard Webhooks headers that sign each Dodo Payments delivery.
 const DODO_SIGNATURE_HEADERS = [
   "webhook-id",
@@ -276,6 +279,11 @@ export function createApp({
           request.identity = await authenticate(tokens.session.access_token)
           request.session = session
           request.user = data.user
+          // The paywall: every other route is the product a plan pays for.
+          if (!request.routeOptions.config.withoutPlan)
+            await request.identity.services.plans.assertCanUseWorkspace(
+              request.identity.workspace
+            )
         })
         routes.get("/workspace", async (request) =>
           presentWorkspace(request.identity.workspace)
@@ -310,19 +318,19 @@ export function createApp({
             await services.workspaces.rename(workspace, input.name)
           )
         })
-        routes.get("/integrations", async () => ({
+        routes.get("/integrations", withoutPlan, async () => ({
           instagramConfigured: Boolean(config.zernio.apiKey),
           billingConfigured: Boolean(config.dodo.apiKey),
         }))
-        routes.get("/billing", async (request) => {
+        routes.get("/billing", withoutPlan, async (request) => {
           const { services, workspace } = request.identity
           return services.billing.getState(workspace)
         })
-        routes.post("/billing/sync", async (request) => {
+        routes.post("/billing/sync", withoutPlan, async (request) => {
           const { services, workspace } = request.identity
           return services.billing.sync(workspace)
         })
-        routes.post("/billing/checkout", async (request) => {
+        routes.post("/billing/checkout", withoutPlan, async (request) => {
           const { services, workspace } = request.identity
           return {
             url: await services.billing.startCheckout(
@@ -332,14 +340,14 @@ export function createApp({
             ),
           }
         })
-        routes.post("/billing/plan", async (request) => {
+        routes.post("/billing/plan", withoutPlan, async (request) => {
           const { services, workspace } = request.identity
           return services.billing.changePlan(
             workspace,
             validate(choosePlanSchema, request.body)
           )
         })
-        routes.post("/billing/portal", async (request) => {
+        routes.post("/billing/portal", withoutPlan, async (request) => {
           const { services, workspace } = request.identity
           return { url: await services.billing.openPortal(workspace) }
         })

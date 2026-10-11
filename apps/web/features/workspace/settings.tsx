@@ -5,7 +5,6 @@ import { create } from "zustand"
 import { RefreshCw } from "lucide-react"
 import {
   WORKSPACE_NAME_MAX_LENGTH,
-  isEntitled,
   PLANS,
   type ChoosePlanInput,
 } from "@workspace/api/contract"
@@ -149,7 +148,6 @@ function General() {
 function Channels() {
   const store = useWorkspaceStore()
   const subscription = store.billing?.subscription
-  const hasPlan = subscription && isEntitled(subscription.status)
   const connected = store.accounts.filter(
     (account) => account.status === "connected"
   ).length
@@ -175,26 +173,24 @@ function Channels() {
           size="sm"
           disabled={
             store.busy ||
-            (Boolean(hasPlan) &&
-              (!store.integration?.instagramConfigured || connected >= limit))
+            !store.integration?.instagramConfigured ||
+            connected >= limit
           }
           onClick={() => void store.connect()}
         >
-          {hasPlan ? "Connect account" : "Choose plan"}
+          Connect account
         </Button>
       </div>
-      {hasPlan && (
-        <p className="text-sm text-muted-foreground">
-          {connected} of {limit} accounts connected.{" "}
-          <button
-            type="button"
-            className="underline underline-offset-4"
-            onClick={() => select("billing")}
-          >
-            Manage plan
-          </button>
-        </p>
-      )}
+      <p className="text-sm text-muted-foreground">
+        {connected} of {limit} accounts connected.{" "}
+        <button
+          type="button"
+          className="underline underline-offset-4"
+          onClick={() => select("billing")}
+        >
+          Manage plan
+        </button>
+      </p>
       {!store.integration?.instagramConfigured && (
         <p className="text-sm text-muted-foreground">
           Instagram connections are not available yet.

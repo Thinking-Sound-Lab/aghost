@@ -22,7 +22,11 @@ import type { Automation } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
 import type { ApiApp } from "../http/app"
 import { hashApiKey } from "../modules/api-keys/api-key.service"
-import { grantPlan, signInDisposableUser } from "./session-fixture"
+import {
+  grantPlan,
+  signInDisposableUser,
+  workspaceIdOf,
+} from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 
 const config = loadApiConfig(
@@ -160,19 +164,18 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
       const cookie = [...cookies]
         .map(([name, value]) => `${name}=${value}`)
         .join("; ")
-      const workspace = (
-        await session("/workspace", "GET", undefined, cookie)
-      ).json()
+      const id = await workspaceIdOf(config, data.user.id)
       if (index === 0) {
         ownerCookie = cookie
-        workspaceId = workspace.id
+        workspaceId = id
         ownerAccessToken = signedIn.access_token
       } else {
         otherCookie = cookie
-        otherWorkspaceId = workspace.id
+        otherWorkspaceId = id
       }
     }
     await grantPlan(config, workspaceId, "growth")
+    await grantPlan(config, otherWorkspaceId, "pro")
     expect((await session("/accounts/connect", "POST", {})).statusCode).toBe(
       200
     )
@@ -746,6 +749,73 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     expect(
       (await app.inject({ method: "GET", url: "/api/mcp", headers })).statusCode
     ).toBe(405)
+  })
+
+  it("turns a valid key away over REST and MCP while its workspace has no plan", async () => {
+    const created = await key(API_KEY_SCOPES)
+    const client = await mcp(created.token)
+    const before = fixture.requests.length
+    expect(
+      (
+        await admin
+          .from("workspace_billing")
+          .update({ status: "cancelled" })
+          .eq("workspace_id", workspaceId)
+      ).error
+    ).toBeNull()
+    try {
+      const refused = await rest(created.token, "/workspace")
+      expect(refused.statusCode).toBe(402)
+      expect(refused.json()).toEqual({
+        error: {
+          code: "plan_required",
+          message: "Choose a plan to use this workspace.",
+        },
+      })
+      expect(refused.headers["www-authenticate"]).toBeUndefined()
+      for (const [path, method, body] of [
+        ["/openapi.json", "GET", undefined],
+        ["/automations", "POST", input()],
+        [
+          `/inbox/${account.id}/${encodeURIComponent(fixture.conversationId)}`,
+          "POST",
+          { text: "Not allowed" },
+        ],
+      ] as const) {
+        expect((await rest(created.token, path, method, body)).statusCode).toBe(
+          402
+        )
+      }
+      expect(
+        (
+          await app.inject({
+            method: "POST",
+            url: "/api/mcp",
+            headers: {
+              authorization: `Bearer ${created.token}`,
+              "content-type": "application/json",
+            },
+            payload: {
+              jsonrpc: "2.0",
+              id: 1,
+              method: "tools/list",
+              params: {},
+            },
+          })
+        ).statusCode
+      ).toBe(402)
+      await expect(
+        client.callTool({ name: "get_workspace", arguments: {} })
+      ).rejects.toThrow()
+      expect((await session("/api-keys", "POST", {})).statusCode).toBe(402)
+      expect(fixture.requests.length).toBe(before)
+    } finally {
+      await grantPlan(config, workspaceId, "growth")
+    }
+    expect((await rest(created.token, "/workspace")).statusCode).toBe(200)
+    expect(
+      (await client.callTool({ name: "get_workspace", arguments: {} })).isError
+    ).not.toBe(true)
   })
 
   it("expires keys and revokes access on the next REST and MCP request", async () => {

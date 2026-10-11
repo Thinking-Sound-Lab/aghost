@@ -7,7 +7,7 @@ import {
   type ChoosePlanInput,
 } from "@workspace/api/contract"
 import { api } from "@/lib/api"
-import { errorMessage, useWorkspaceStore } from "./workspace-store"
+import { errorMessage, hasPlan, useWorkspaceStore } from "./workspace-store"
 
 type BillingStore = {
   state: BillingState | null
@@ -51,7 +51,11 @@ export const useBillingStore = create<BillingStore>((set, get) => ({
             interval: state.subscription?.interval ?? "monthly",
           }),
       })
-      useWorkspaceStore.setState({ billing: state })
+      const workspace = useWorkspaceStore.getState()
+      if (hasPlan(state) === hasPlan(workspace.billing))
+        useWorkspaceStore.setState({ billing: state })
+      // Crossing the paywall changes what the workspace can load.
+      else void workspace.load()
     } catch (error) {
       set({ error: errorMessage(error) })
     } finally {

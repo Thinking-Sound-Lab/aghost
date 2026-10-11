@@ -130,6 +130,14 @@ export function Billing() {
                   your subscription, then turn your automations back on.
                 </p>
               )}
+            {subscription &&
+              ["cancelled", "failed", "expired"].includes(
+                subscription.status
+              ) && (
+                <p className="text-sm text-muted-foreground">
+                  Your plan has ended. Choose a plan to continue.
+                </p>
+              )}
             {store.notice && (
               <p role="status" className="text-sm">
                 {store.notice}
@@ -153,7 +161,9 @@ export function Billing() {
                   active &&
                   subscription.plan === plan.id &&
                   subscription.interval === store.interval
+                // Only a plan change: nothing can be disconnected at the paywall.
                 const tooSmall =
+                  active &&
                   store.state!.connectedAccounts > plan.instagramAccounts
                 if (current)
                   return (
