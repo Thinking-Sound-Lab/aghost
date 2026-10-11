@@ -21,13 +21,18 @@ export function price(amount: number, currency: BillingCurrency): string {
 export function BillingIntervalToggle({
   value,
   onChange,
+  className,
 }: {
   value: BillingInterval
   onChange: (interval: BillingInterval) => void
+  className?: string
 }) {
   return (
     <div
-      className="inline-flex justify-self-start rounded-lg border p-1"
+      className={cn(
+        "inline-flex justify-self-start rounded-lg border p-1",
+        className
+      )}
       role="group"
       aria-label="Billing interval"
     >
@@ -59,13 +64,15 @@ export function PlanCards({
   currency,
   interval,
   action,
+  className,
 }: {
   currency: BillingCurrency
   interval: BillingInterval
   action: (plan: Plan) => ReactNode
+  className?: string
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className={cn("grid gap-4 md:grid-cols-3", className)}>
       {PLAN_IDS.map((id) => {
         const plan = PLANS[id]
         return (

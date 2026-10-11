@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { faqs, features } from "@/features/marketing/content"
+import { contactEmail } from "@/features/marketing/contact"
 import { Landing } from "@/features/marketing/landing"
 import { openGraph, site } from "@/lib/site"
 
@@ -20,6 +21,7 @@ const structuredData = {
       name: site.name,
       url: site.url,
       logo: `${site.url}/mascot.png`,
+      email: contactEmail,
     },
     {
       "@type": "WebSite",

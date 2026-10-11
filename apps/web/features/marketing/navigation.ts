@@ -1,0 +1,73 @@
+export const marketingLinks = [
+  { href: "/features", label: "Features" },
+  { href: "/agents", label: "AI agents" },
+  { href: "/about", label: "About" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/#faq", label: "FAQ" },
+]
+
+export const agentLinks = [
+  { href: "/agents#claude-code", label: "Claude Code" },
+  { href: "/agents#codex", label: "Codex" },
+  { href: "/agents#cursor", label: "Cursor" },
+  { href: "/agents#connection", label: "Any HTTP MCP client" },
+]
+
+export const resourceLinks = [
+  { href: "/instagram-dm-automation", label: "Instagram DM guide" },
+  { href: "/agents#connection", label: "MCP setup" },
+  { href: "/agents#rest-api", label: "REST API" },
+  { href: "/api/mcp/skill.md", label: "Agent setup skill" },
+]
+
+export const legalLinks = [
+  { href: "/terms-of-service", label: "Terms of Service" },
+  { href: "/privacy-policy", label: "Privacy Policy" },
+  { href: "/data-deletion", label: "Data deletion" },
+]
+
+export const publicPages = [
+  {
+    href: "/",
+    label: "Home",
+    description: "Instagram comment-to-DM automation",
+  },
+  {
+    href: "/features",
+    label: "Features",
+    description:
+      "Keyword triggers, follower rules, inbox, and automation stats",
+  },
+  {
+    href: "/instagram-dm-automation",
+    label: "Instagram DM automation guide",
+    description:
+      "How comment-to-DM automation fits into your social media workflow",
+  },
+  {
+    href: "/agents",
+    label: "AI agents",
+    description: "Connect Claude Code, Codex, Cursor, or another agent",
+  },
+  {
+    href: "/about",
+    label: "About",
+    description: "Why we built aghost and who it is for",
+  },
+  {
+    href: "/pricing",
+    label: "Pricing",
+    description: "USD monthly and yearly plans, with MCP and REST API access",
+  },
+  {
+    href: "/contact",
+    label: "Contact",
+    description: "Support and privacy requests",
+  },
+  ...legalLinks.map((link) => ({ ...link, description: link.label })),
+  {
+    href: "/login",
+    label: "Log in or sign up",
+    description: "Continue with Google",
+  },
+]

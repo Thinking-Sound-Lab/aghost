@@ -3,6 +3,9 @@ import { AUTOMATION_LIMITS } from "@workspace/api/contract"
 // One copy of the marketing text: the landing page, its structured data, and
 // llms.txt all read it, so what crawlers are told matches what visitors see.
 
+export const productSummary =
+  "aghost is Instagram comment-to-DM automation for creators and brands. It sends a private message in response to a comment on a post or reel, using keyword triggers or an any-comment rule. You can manage it from the dashboard or an AI agent over MCP or REST."
+
 /** The agents the setup skill names. Any MCP client over HTTP works. */
 export const agentClients = ["Claude Code", "Codex", "Cursor"]
 
@@ -79,8 +82,7 @@ export const features = [
 export const faqs = [
   {
     question: "What is aghost?",
-    answer:
-      "aghost is agentic DM automation for Instagram. It watches the comments on your posts and reels. When a comment contains a keyword you chose, aghost replies in public and sends the commenter a DM with your link. You can run it from the dashboard or hand it to an AI agent.",
+    answer: productSummary,
   },
   {
     question: "What does agentic mean?",

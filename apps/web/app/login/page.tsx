@@ -5,7 +5,7 @@ import { billingChoice } from "@workspace/api/contract"
 export const metadata: Metadata = {
   title: "Log in or sign up",
   description:
-    "Log in or sign up to aghost with Google, and turn Instagram comments into DMs.",
+    "Sign in to aghost with Google and let your AI agent manage Instagram DM automations, inbox conversations, and activity.",
   alternates: { canonical: "/login" },
 }
 

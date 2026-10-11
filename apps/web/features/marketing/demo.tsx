@@ -118,35 +118,38 @@ export function Demo({ cta }: { cta: React.ReactNode }) {
   return (
     <section
       aria-labelledby="demo-heading"
-      className="group relative isolate overflow-hidden bg-brand bg-[linear-gradient(to_right,rgb(255_255_255/0.22)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.22)_1px,transparent_1px)] bg-size-[120px_120px] px-6 py-20"
+      id="demo"
+      className="group notebook-demo"
     >
-      <div className="mx-auto grid max-w-5xl items-center justify-center gap-14 md:grid-cols-[minmax(0,26rem)_auto] md:gap-20">
-        <div className="rounded-[2rem] bg-white p-6 shadow-2xl shadow-black/15 sm:p-8">
+      <div className="notebook-section notebook-demo-layout">
+        <div>
+          <p className="notebook-hand notebook-section-kicker">
+            Don’t take our word for it.
+          </p>
           <h2
             id="demo-heading"
-            className="text-4xl font-extrabold tracking-[-0.04em]"
+            className="notebook-title notebook-section-heading"
           >
-            See it in action.
+            Try it out.
           </h2>
-          <fieldset className="mt-6">
+          <fieldset>
             <legend className="sr-only">Choose an example</legend>
-            <ul className="grid gap-1">
+            <ul className="notebook-demo-options">
               {examples.map((example, index) => (
                 <li key={example.id}>
                   <input
                     type="radio"
                     name="demo"
                     id={example.id}
-                    defaultChecked={index === 0}
+                    defaultChecked={index === 2}
                     className="peer sr-only"
                   />
-                  <label
-                    htmlFor={example.id}
-                    className="grid cursor-pointer gap-0.5 rounded-2xl px-4 py-3 transition-colors peer-checked:bg-brand/15 peer-focus-visible:outline-2 peer-focus-visible:outline-black hover:bg-black/5 peer-checked:hover:bg-brand/15"
-                  >
-                    <span className="font-semibold">{example.title}</span>
-                    <span className="text-sm text-brand-gray">
-                      {example.text}
+                  <label htmlFor={example.id} className="notebook-demo-option">
+                    <span>
+                      <strong>{example.title}</strong>
+                      <span className="mt-1 block text-xs text-black/60">
+                        {example.text}
+                      </span>
                     </span>
                   </label>
                 </li>
@@ -155,9 +158,12 @@ export function Demo({ cta }: { cta: React.ReactNode }) {
           </fieldset>
           <div className="mt-6">{cta}</div>
         </div>
-        <div className="mx-auto max-[389px]:[zoom:0.85]">
+        <div className="notebook-demo-stage">
           {examples.map((example) => (
-            <div key={example.id} className={cn("hidden", example.show)}>
+            <div
+              key={example.id}
+              className={cn("notebook-demo-preview hidden", example.show)}
+            >
               {example.preview ? (
                 <InstagramPreview account={account} {...example.preview} />
               ) : (
@@ -165,6 +171,7 @@ export function Demo({ cta }: { cta: React.ReactNode }) {
               )}
             </div>
           ))}
+          <p className="notebook-hand">A tiny demo. No real messages sent.</p>
         </div>
       </div>
     </section>
