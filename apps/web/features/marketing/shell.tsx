@@ -108,11 +108,25 @@ export function MarketingFooter() {
   )
 }
 
-export function MarketingPage({ children }: { children: ReactNode }) {
+export function NotebookCanvas({
+  children,
+  className = "",
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <div
-      className={`marketing-notebook ${display.variable} ${handwriting.variable}`}
+      className={`marketing-notebook ${display.variable} ${handwriting.variable} ${className}`}
     >
+      {children}
+    </div>
+  )
+}
+
+export function MarketingPage({ children }: { children: ReactNode }) {
+  return (
+    <NotebookCanvas>
       <a href="#main-content" className="notebook-skip">
         Skip to content
       </a>
@@ -121,7 +135,7 @@ export function MarketingPage({ children }: { children: ReactNode }) {
         <main id="main-content">{children}</main>
         <MarketingFooter />
       </div>
-    </div>
+    </NotebookCanvas>
   )
 }
 
