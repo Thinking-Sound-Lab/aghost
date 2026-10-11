@@ -15,7 +15,7 @@ All countries, including India, pay in US dollars. Prices include tax. Yearly bi
 ## Dodo setup
 
 1. Set `DODO_PAYMENTS_ENVIRONMENT=test_mode` and `DODO_PAYMENTS_API_KEY` in the root `.env`.
-2. Run `pnpm billing:setup`. It creates or updates six recurring SaaS products, tagged by plan and interval. Each product has a USD base price, tax-inclusive pricing, no trial and no automatic country discounts. Reruns reuse the tagged products and archive all country and currency overrides. Duplicate product tags are refused. Disable Charm Pricing under Dodo's Settings → Business so checkout uses the exact advertised amounts. This is a business-wide setting that also affects other products in that business; the setup script does not change it.
+2. Run `pnpm billing:setup`. It creates or updates six recurring SaaS products, tagged by plan and interval. Each product has a USD base price, tax-inclusive pricing, no trial, a card required even at $0, and no automatic country discounts. Reruns reuse the tagged products and archive all country and currency overrides. Duplicate product tags are refused. Disable Charm Pricing under Dodo's Settings → Business so checkout uses the exact advertised amounts. This is a business-wide setting that also affects other products in that business; the setup script does not change it.
 3. Run `pnpm local:tunnel`. It registers a Dodo test-mode endpoint, stores its signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`, and recreates the Docker API with it. The tunnel exposes only `/api/webhooks/zernio` and `/api/webhooks/dodo`.
 4. Run `pnpm dev` and sign in. The paywall lists the plans; choose one to open hosted checkout. Use Dodo's [test payment methods](https://docs.dodopayments.com/features/payment-methods/india#testing).
 
@@ -29,7 +29,7 @@ See [Adaptive Currency](https://docs.dodopayments.com/features/adaptive-currency
 
 ## Free periods
 
-To give someone free time, create a discount code in Dodo with **Type** Percentage, **Amount** 100, **Subscription Cycle Limit** 1, and a **Usage Limit** of 1. Restrict it to the product with the interval you mean to give: one cycle of a yearly product is a free year, not a free month. The customer enters it at checkout and pays $0. Their card is still collected, because the products keep `zero_amount_payment_method_optional` off, and Dodo charges the full price at the next renewal. If that charge fails, the subscription goes on hold and the workspace is locked like any other.
+To give someone free time, create a discount code in Dodo with **Type** Percentage, **Amount** 100, **Subscription Cycle Limit** 1, and a **Usage Limit** of 1. Restrict it to the product with the interval you mean to give: one cycle of a yearly product is a free year, not a free month. The customer enters it at checkout and pays $0. Their card is still collected, and Dodo charges the full price at the next renewal. The products keep Dodo's **Card-optional at $0 Price** off (`zero_amount_payment_method_optional`): `pnpm billing:setup` turns it off, and checkout is refused while any product has it on. If that charge fails, the subscription goes on hold and the workspace is locked like any other.
 
 Only a 100% percentage code unlocks a $0 checkout. A flat-amount code that brings the total to $0 leaves the workspace pending; give free time with a percentage code.
 

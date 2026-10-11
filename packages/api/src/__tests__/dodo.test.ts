@@ -173,6 +173,17 @@ describe("Dodo SDK billing integration", () => {
     )
   })
 
+  it("blocks checkout when a $0 checkout would skip the card", async () => {
+    const fixture = dodoFixture()
+    fixture.products.get("pdt_pro_monthly")!.price_detail = {
+      ...(fixture.products.get("pdt_pro_monthly")!.price_detail as object),
+      zero_amount_payment_method_optional: true,
+    }
+    await expect(loadCatalog(fixture.client)).rejects.toThrow(
+      "a $0 checkout skips the card"
+    )
+  })
+
   it("refuses checkout when account-wide rounding changes the advertised price", async () => {
     const fixture = dodoFixture()
     fixture.state.quotedTotal = 899

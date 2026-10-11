@@ -184,7 +184,11 @@ export function dodoFixture(withProducts = true) {
     if (checkout) return respond(checkouts.get(checkout[1]!))
     if (url.pathname === "/subscriptions")
       return respond(items(state.subscription ? [state.subscription] : []))
-    if (url.pathname === "/payments") return respond(items(state.payments))
+    // Dodo lists payments without their discounts.
+    if (url.pathname === "/payments")
+      return respond(
+        items(state.payments.map(({ discounts: _discounts, ...rest }) => rest))
+      )
     const paymentDetail = url.pathname.match(/^\/payments\/([^/]+)$/)
     if (paymentDetail) {
       const found = state.payments.find(
