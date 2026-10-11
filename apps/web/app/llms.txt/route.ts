@@ -2,18 +2,33 @@ import {
   agentAbilities,
   faqs,
   features,
+  productSummary,
   steps,
 } from "@/features/marketing/content"
 import { site } from "@/lib/site"
+import { publicPages } from "@/features/marketing/navigation"
 
 export const dynamic = "force-static"
 
 // A plain-text summary for AI assistants, in the llmstxt.org layout: a title,
 // a one-paragraph summary, details without headings, then lists of links.
-// Agents come first: this file is where one looks for how to connect.
+// This is a convenience for readers, not an indexing or citation guarantee.
 const body = `# ${site.name}
 
 > ${site.description}
+
+${productSummary}
+
+aghost handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. It requires an Instagram Business or Creator account and an active plan. MCP and REST API access are included on every plan.
+
+## Product information
+
+- [Instagram DM automation guide](${site.url}/instagram-dm-automation): What comment-to-DM automation is, how to set it up, and how it fits into social media management
+- [Features](${site.url}/features): Supported triggers, messages, inbox, and analytics
+- [Pricing](${site.url}/pricing): Current monthly and yearly plans in USD
+- [Contact](${site.url}/contact): Support and privacy requests
+
+## Agent access
 
 For AI agents:
 
@@ -41,9 +56,7 @@ ${faqs.map((faq) => `- ${faq.question} ${faq.answer}`).join("\n")}
 
 ## Pages
 
-- [Home](${site.url}/): What ${site.name} does, how it works, and answers to common questions
-- [Pricing](${site.url}/pricing): USD monthly and yearly plans, with MCP and REST API access on every plan
-- [Log in or sign up](${site.url}/login): Continue with Google to open the dashboard
+${publicPages.map((page) => `- [${page.label}](${new URL(page.href, site.url).href}): ${page.description}`).join("\n")}
 `
 
 export function GET() {
