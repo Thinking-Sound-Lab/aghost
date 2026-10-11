@@ -1,7 +1,8 @@
-import { Check, Heart, Lock, Search } from "lucide-react"
+import { Check, Heart, KeyRound, Lock, Search } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Mascot } from "@/components/brand"
 import { Instagram } from "@/components/instagram-icon"
+import { agentClients } from "./content"
 
 // Small, static pictures of the product for the marketing page. They are
 // decorative: every claim they illustrate is also written in the text beside
@@ -87,6 +88,35 @@ function Comment({
   )
 }
 
+/** What you type to your agent. */
+function Asked({ text, dark = false }: { text: string; dark?: boolean }) {
+  return (
+    <p
+      className={cn(
+        "ml-auto w-fit max-w-[85%] rounded-2xl px-3 py-2 text-[13px]",
+        dark ? "bg-white/10 text-white" : "bg-black text-white"
+      )}
+    >
+      {text}
+    </p>
+  )
+}
+
+/** One call the agent makes to aghost's MCP server. */
+function ToolCall({ name, dark = false }: { name: string; dark?: boolean }) {
+  return (
+    <p
+      className={cn(
+        "flex w-fit items-center gap-2 font-mono text-xs",
+        dark ? "text-white/70" : "text-black/70"
+      )}
+    >
+      <Check className="size-3.5 text-brand" strokeWidth={3} />
+      aghost · {name}
+    </p>
+  )
+}
+
 /** The frame every card picture sits in. */
 export function Scene({
   className,
@@ -125,40 +155,33 @@ export const stepScenes = [
     </p>
   </>,
   <>
+    <p className="mx-auto flex w-fit items-center gap-2 rounded-full bg-white px-3 py-1.5 font-mono text-xs ring-1 ring-black/10">
+      <KeyRound className="size-3.5" />
+      agh_••••••••••••
+    </p>
     <div className="mx-auto flex flex-wrap justify-center gap-2">
-      {["GUIDE", "LINK", "PRICE"].map((keyword) => (
+      {agentClients.map((client) => (
         <span
-          key={keyword}
+          key={client}
           className="rounded-full bg-black px-3 py-1 text-[13px] font-semibold text-white"
         >
-          {keyword}
+          {client}
         </span>
       ))}
     </div>
-    <p className="mx-auto flex w-fit rounded-full bg-white p-1 text-xs font-medium ring-1 ring-black/10">
-      {["Contains", "Whole word", "Exact"].map((mode) => (
-        <span
-          key={mode}
-          className={cn(
-            "rounded-full px-2.5 py-1",
-            mode === "Whole word" ? "bg-brand" : "text-black/50"
-          )}
-        >
-          {mode}
-        </span>
-      ))}
-    </p>
   </>,
   <>
-    <Received text="Here's your guide, Alex ✨" buttons={["Download"]} />
-    <p className="ml-9 flex w-fit items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-medium text-white">
-      <Check className="size-3.5 text-brand" strokeWidth={3} />
-      Sent automatically
-    </p>
+    <Asked text="DM the guide to everyone who comments GUIDE" />
+    <ToolCall name="create_automation" />
   </>,
 ]
 
 export const featureScenes = [
+  <div className="grid gap-2 rounded-2xl bg-black p-4">
+    <ToolCall name="create_automation" dark />
+    <ToolCall name="get_automation_stats" dark />
+    <ToolCall name="send_message" dark />
+  </div>,
   <>
     <Comment name="alex" text="GUIDE 🙌" face="bg-brand-orange" />
     <Comment name="sam.k" text="guide please!" face="bg-brand-cyan" />
@@ -185,25 +208,97 @@ export const featureScenes = [
     />
     <Sent text="I'm following" />
   </>,
-  <div className="grid gap-1.5 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-black/10">
-    {[
-      {
-        name: "sarah",
-        text: "link please 🙏",
-        face: "bg-brand-red text-white",
-      },
-      { name: "devon", text: "got it, thank you!", face: "bg-brand-cyan" },
-    ].map((row) => (
-      <div key={row.name} className="flex items-center gap-2 px-1 text-[13px]">
-        <Face name={row.name} className={row.face} />
-        <span className="min-w-0 flex-1 truncate">
-          <b>{row.name}</b> {row.text}
-        </span>
-        <span className="text-xs text-black/40">2m</span>
-      </div>
-    ))}
-  </div>,
 ]
+
+/** An agent building an automation, sized to stand in the demo's phone slot. */
+export function AgentSession() {
+  const fields = [
+    ["Post", "Latest reel"],
+    ["Keyword", "GUIDE"],
+    ["DM", "Here's your guide ✨"],
+    ["Status", "Paused"],
+  ]
+  return (
+    <div
+      role="img"
+      aria-label="An AI agent creating an aghost automation and switching it on"
+      className="flex h-[620px] w-[300px] flex-col gap-3 rounded-[2rem] bg-neutral-950 p-4 text-[13px] text-white shadow-2xl ring-1 ring-black/10"
+    >
+      <p className="flex items-center gap-1.5 pb-1 text-xs text-white/50">
+        <span className="size-2.5 rounded-full bg-brand-red" />
+        <span className="size-2.5 rounded-full bg-brand-orange" />
+        <span className="size-2.5 rounded-full bg-brand" />
+        <span className="ml-2">your agent</span>
+      </p>
+      <Asked
+        dark
+        text="DM the setup guide to everyone who comments GUIDE on my latest reel."
+      />
+      <div className="grid gap-1.5">
+        <ToolCall dark name="list_accounts" />
+        <ToolCall dark name="list_account_posts" />
+        <ToolCall dark name="create_automation" />
+      </div>
+      <div className="grid gap-1.5 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+        <p className="font-semibold">Send the guide</p>
+        {fields.map(([label, value]) => (
+          <p key={label} className="flex gap-2 text-xs">
+            <span className="w-16 shrink-0 text-white/50">{label}</span>
+            <span className="min-w-0 truncate">{value}</span>
+          </p>
+        ))}
+      </div>
+      <p className="text-white/90">
+        “Send the guide” is ready and paused. Should I switch it on?
+      </p>
+      <Asked dark text="Yes, switch it on." />
+      <ToolCall dark name="set_automation_status" />
+      <p className="text-white/90">
+        It's live. Every GUIDE comment now gets the DM.
+      </p>
+      <p className="mt-auto rounded-full px-4 py-2.5 text-white/40 ring-1 ring-white/15">
+        Ask your agent…
+      </p>
+    </div>
+  )
+}
+
+/** The MCP entry an agent's config needs, and who can use it. */
+export function AgentScene({ endpoint }: { endpoint: string }) {
+  const config = `{
+  "mcpServers": {
+    "aghost": {
+      "type": "http",
+      "url": "${endpoint}",
+      "headers": {
+        "Authorization": "Bearer \${AGHOST_API_KEY}"
+      }
+    }
+  }
+}`
+  return (
+    <div aria-hidden className="rounded-[2rem] bg-black p-5 sm:p-8">
+      <div className="overflow-hidden rounded-2xl bg-neutral-900 ring-1 ring-white/10">
+        <p className="border-b border-white/10 px-4 py-2.5 font-mono text-xs text-white/50">
+          .mcp.json
+        </p>
+        <pre className="overflow-hidden p-4 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-white/90 sm:text-xs">
+          {config}
+        </pre>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {[...agentClients, "Any MCP client"].map((client) => (
+          <span
+            key={client}
+            className="rounded-full bg-brand px-3 py-1 text-[13px] font-semibold text-black"
+          >
+            {client}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 /** The activity page of one automation, as the dashboard shows it. */
 export function StatsScene() {

@@ -2,9 +2,11 @@ import Link from "next/link"
 import { ArrowRight, Check, Plus } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Brand, Mascot } from "@/components/brand"
-import { faqs, facts, features, steps } from "./content"
+import { site } from "@/lib/site"
+import { agentAbilities, faqs, facts, features, steps } from "./content"
 import { Demo } from "./demo"
 import {
+  AgentScene,
   featureScenes,
   InboxScene,
   SafetyScene,
@@ -17,6 +19,7 @@ const PILL =
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
 const PRIMARY = cn(PILL, "bg-brand text-black hover:bg-brand/80")
 const DARK = cn(PILL, "bg-black text-white hover:bg-black/80")
+const QUIET = cn(PILL, "text-black ring-1 ring-black/15 hover:bg-black/5")
 
 const SECTION = "mx-auto max-w-6xl scroll-mt-6 px-6"
 const EYEBROW =
@@ -39,6 +42,7 @@ const TINTS = [
 ]
 
 const sections = [
+  { href: "#agents", label: "Agents" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "#faq", label: "FAQ" },
@@ -106,22 +110,26 @@ export function Landing() {
       <main>
         <section className="mx-auto grid max-w-5xl justify-items-center gap-6 px-6 pt-14 pb-20 text-center sm:pt-20">
           <Mascot size={96} eager className="drop-shadow-xl" />
-          <p className={EYEBROW}>Instagram DM automation</p>
+          <p className={EYEBROW}>Built for AI agents, and for you</p>
           <Headline
             as="h1"
-            lead="Turn Instagram comments"
-            accent="into DMs, automatically."
+            lead="Agentic DM automation"
+            accent="for Instagram."
             className="sm:text-7xl"
           />
           <p className={cn(LEAD, "max-w-2xl sm:text-xl")}>
-            aghost replies to every comment that has your keyword and sends the
-            commenter your link by DM. Set it up once, and it runs while you
-            sleep.
+            aghost turns Instagram comments into DMs, and your AI agent runs it.
+            Connect Claude Code, Codex, or Cursor over MCP to build automations,
+            read the stats, and answer the inbox.
           </p>
-          <GetStarted />
+          <div className="flex flex-wrap justify-center gap-3">
+            <GetStarted />
+            <a href="#agents" className={cn(QUIET, "h-12 px-7")}>
+              Connect your agent
+            </a>
+          </div>
           <p className="text-sm text-brand-gray">
-            Instagram professional account required · You never share your
-            password
+            Works with any MCP client · Instagram professional account required
           </p>
         </section>
 
@@ -142,6 +150,21 @@ export function Landing() {
             ))}
           </dl>
         </section>
+
+        <Story
+          id="agents"
+          eyebrow="Agentic"
+          lead="Your AI agent"
+          accent="runs the DMs."
+          text="Give Claude Code, Codex, Cursor, or any MCP client an API key, and it works in aghost the way you would. There is a REST API with an OpenAPI document too."
+          points={agentAbilities}
+          scene={<AgentScene endpoint={`${site.url}/api/mcp`} />}
+        >
+          <a href="/api/mcp/skill.md" className={cn(DARK, "h-11 w-fit px-6")}>
+            Read the setup skill
+            <ArrowRight className="size-4" />
+          </a>
+        </Story>
 
         <section id="how-it-works" className={cn(SECTION, "py-24")}>
           <div className="grid justify-items-center gap-5 text-center">
@@ -187,7 +210,7 @@ export function Landing() {
               />
               <p className={cn(LEAD, "max-w-xl")}>
                 From the first comment to the link click: automated, tracked,
-                and in one dashboard.
+                and open to your agent.
               </p>
             </div>
             <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -273,23 +296,23 @@ export function Landing() {
         <section className={cn(SECTION, "pb-16")}>
           <div className="relative isolate overflow-hidden rounded-[2.5rem] bg-black px-8 py-16 text-white sm:px-14">
             <h2 className="text-[2.6rem] leading-[1.05] font-extrabold tracking-[-0.045em] sm:text-6xl">
+              Hand the DMs to your agent. <br />
               Reply to every comment. <br />
-              Send every link. <br />
               <span className="text-brand">Even while you sleep.</span>
             </h2>
             <p className="mt-6 max-w-md text-lg text-white/70">
-              Set up your first automation in three steps.
+              Connect Instagram, connect your agent, and say what you want.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <GetStarted />
               <a
-                href="#how-it-works"
+                href="#agents"
                 className={cn(
                   PILL,
                   "h-12 px-7 text-white ring-1 ring-white/30 hover:bg-white/10"
                 )}
               >
-                How it works
+                Connect your agent
               </a>
             </div>
             <Mascot
@@ -304,7 +327,7 @@ export function Landing() {
         <div className="grid content-start gap-3">
           <Brand />
           <p className="max-w-xs text-brand-gray">
-            Instagram comment-to-DM automation.
+            Agentic DM automation for Instagram.
           </p>
         </div>
         <FooterLinks title="Product" links={sections} />
@@ -319,6 +342,7 @@ export function Landing() {
 
 /** A feature told at length: text on one side, its picture on the other. */
 function Story({
+  id,
   eyebrow,
   lead,
   accent,
@@ -326,7 +350,9 @@ function Story({
   points,
   scene,
   flip = false,
+  children,
 }: {
+  id?: string
   eyebrow: string
   lead: string
   accent: string
@@ -334,9 +360,11 @@ function Story({
   points: string[]
   scene: React.ReactNode
   flip?: boolean
+  children?: React.ReactNode
 }) {
   return (
     <section
+      id={id}
       className={cn(
         SECTION,
         "grid grid-cols-[minmax(0,1fr)] items-center gap-12 py-20 md:grid-cols-2 md:gap-16"
@@ -356,6 +384,7 @@ function Story({
             </li>
           ))}
         </ul>
+        {children}
       </div>
       {scene}
     </section>

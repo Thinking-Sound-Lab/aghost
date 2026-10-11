@@ -4,9 +4,9 @@
 
 # aghost
 
-**Turn Instagram comments into DMs, automatically.**
+**Agentic DM automation for Instagram.**
 
-Comment-to-DM automation built with Next.js, Fastify, Supabase, and Zernio.
+Turns Instagram comments into DMs, from the dashboard or from an AI agent over MCP. Built with Next.js, Fastify, Supabase, and Zernio.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
@@ -178,10 +178,11 @@ The colours are Tailwind tokens in [`globals.css`](packages/ui/src/styles/global
 The landing page is built to be read by search engines and by AI assistants such as ChatGPT, Claude, Perplexity, and Google's AI Overviews. Google's guidance is that both need the same things: crawlable, server-rendered pages that say something specific.
 
 - **One copy of the text.** [`content.ts`](apps/web/features/marketing/content.ts) holds the facts, steps, features, and questions. The page, its structured data, and `/llms.txt` all read it, so crawlers are told what visitors see.
+- **Agentic first.** The headline is "Agentic DM automation for Instagram", and the agent story, the demo, and the steps lead with running aghost from Claude Code, Codex, Cursor, or another MCP client.
 - **Answers first.** The page opens by saying what aghost is, and each question is a heading with a direct answer under it.
 - **Structured data.** The page describes itself as an `Organization`, `WebSite`, `WebApplication`, and `FAQPage` in JSON-LD. It claims no price, rating, or review, because the product has none to show yet.
-- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits every crawler, including the ones that feed AI search, and keeps them out of `/api`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages answer with `noindex`.
-- **`/llms.txt`.** A plain-text summary for assistants that choose to read one. Google has said it does not use the file, so treat it as a courtesy and not as a ranking factor.
+- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits every crawler, including the ones that feed AI search, and keeps them out of `/api`, except the public setup skill at `/api/mcp/skill.md`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages answer with `noindex`.
+- **`/llms.txt`.** A plain-text summary for assistants that choose to read one. It opens with how an agent connects: the MCP endpoint, the REST API, and the setup skill. Google has said it does not use the file, so treat it as a courtesy and not as a ranking factor.
 
 Canonical links, the sitemap, and the structured data use the site's public origin: `APP_URL` locally, and the project's production domain on Vercel.
 

@@ -11,9 +11,9 @@ function origin(): string {
 export const site = {
   name: "aghost",
   url: origin(),
-  title: "Instagram DM automation: auto-reply to comments · aghost",
+  title: "Agentic DM automation for Instagram · aghost",
   description:
-    "aghost is an Instagram DM automation tool. When someone comments your keyword on a post or reel, it replies in public and sends them your link by DM.",
+    "aghost is agentic DM automation for Instagram. It turns comments into DMs, and AI agents like Claude Code, Codex, and Cursor run it over MCP or a REST API.",
 }
 
 /** A page that sets `openGraph` replaces the layout's, so both start here. */

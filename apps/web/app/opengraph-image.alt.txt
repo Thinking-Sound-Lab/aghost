@@ -1,1 +1,1 @@
-aghost: Instagram DM automation that turns comments into DMs
+aghost: agentic DM automation for Instagram

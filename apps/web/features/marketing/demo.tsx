@@ -1,21 +1,30 @@
 import type { ComponentProps } from "react"
 import { cn } from "@workspace/ui/lib/utils"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
+import { AgentSession } from "./illustrations"
 
 type Preview = Omit<ComponentProps<typeof InstagramPreview>, "account">
 
 const account = { username: "aghost", picture: "/mascot.png" }
 
-// Each example is a radio button, and CSS shows the phone for the checked one,
-// so the section needs no client JavaScript. The `show` classes are written
-// out in full because Tailwind only generates classes it finds in the source.
+// Each example is a radio button, and CSS shows the picture for the checked
+// one, so the section needs no client JavaScript. The `show` classes are
+// written out in full because Tailwind only generates classes it finds in the
+// source. An example without a phone preview shows the agent at work.
 const examples: {
   id: string
   show: string
   title: string
   text: string
-  preview: Preview
+  preview: Preview | null
 }[] = [
+  {
+    id: "demo-agent",
+    show: "group-has-[#demo-agent:checked]:block",
+    title: "Ask your agent",
+    text: "Say what you want. Your AI agent builds it.",
+    preview: null,
+  },
   {
     id: "demo-reply",
     show: "group-has-[#demo-reply:checked]:block",
@@ -104,7 +113,7 @@ const examples: {
   },
 ]
 
-/** "See it in action": pick an example, see the phone it produces. */
+/** "See it in action": pick an example, see what it produces. */
 export function Demo({ cta }: { cta: React.ReactNode }) {
   return (
     <section
@@ -149,7 +158,11 @@ export function Demo({ cta }: { cta: React.ReactNode }) {
         <div className="mx-auto max-[389px]:[zoom:0.85]">
           {examples.map((example) => (
             <div key={example.id} className={cn("hidden", example.show)}>
-              <InstagramPreview account={account} {...example.preview} />
+              {example.preview ? (
+                <InstagramPreview account={account} {...example.preview} />
+              ) : (
+                <AgentSession />
+              )}
             </div>
           ))}
         </div>
