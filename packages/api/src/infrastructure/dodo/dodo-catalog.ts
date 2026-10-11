@@ -79,6 +79,9 @@ export function productSpec(plan: PlanId, interval: BillingInterval) {
       subscription_period_interval: "Year" as const,
       tax_inclusive: true,
       trial_period_days: 0,
+      // A free period from a 100% discount code still collects a card, so
+      // the subscription renews at full price.
+      zero_amount_payment_method_optional: false,
       purchasing_power_parity: false,
     },
   }
@@ -115,6 +118,8 @@ function priceDifference(product: Product, entry: CatalogEntry): string | null {
   if (product.pricing_mode !== spec.pricing_mode)
     return "it has localized pricing enabled"
   if (price.trial_period_days !== 0) return "it has an unexpected trial"
+  if (price.zero_amount_payment_method_optional)
+    return "a $0 checkout skips the card"
   if (price.purchasing_power_parity) return "it has automatic country discounts"
   return null
 }

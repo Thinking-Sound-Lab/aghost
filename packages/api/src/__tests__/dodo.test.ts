@@ -77,11 +77,41 @@ describe("Dodo SDK billing integration", () => {
     })
   })
 
+  it("grants a subscription whose first period a 100% discount code made free", async () => {
+    const fixture = dodoFixture()
+    fixture.state.subscription = fixture.subscription()
+    fixture.state.payments = [
+      fixture.payment({
+        payment_id: "pay_free",
+        total_amount: 0,
+        discounts: [
+          { type: "percentage", amount: 10_000, subscription_cycles: 1 },
+        ],
+      }),
+    ]
+    expect(
+      await new DodoBillingProvider(() => fixture.client).getSubscription(
+        "sub_1"
+      )
+    ).toMatchObject({ status: "active", plan: "pro" })
+  })
+
   it("does not treat a zero authorization or another customer's payment as payment for this plan", async () => {
     const fixture = dodoFixture()
     fixture.state.subscription = fixture.subscription()
     fixture.state.payments = [
-      fixture.payment({ total_amount: 0 }),
+      fixture.payment({ payment_id: "pay_authorization", total_amount: 0 }),
+      fixture.payment({
+        payment_id: "pay_partly_discounted",
+        total_amount: 0,
+        discounts: [{ type: "percentage", amount: 5_000 }],
+      }),
+      fixture.payment({
+        payment_id: "pay_other_customer",
+        total_amount: 0,
+        customer: { customer_id: "cus_other" },
+        discounts: [{ type: "percentage", amount: 10_000 }],
+      }),
       fixture.payment({ customer: { customer_id: "cus_other" } }),
       fixture.payment({
         subscription_id: "sub_other",
@@ -140,6 +170,17 @@ describe("Dodo SDK billing integration", () => {
     }
     await expect(loadCatalog(fixture.client)).rejects.toThrow(
       "does not match the plan"
+    )
+  })
+
+  it("blocks checkout when a $0 checkout would skip the card", async () => {
+    const fixture = dodoFixture()
+    fixture.products.get("pdt_pro_monthly")!.price_detail = {
+      ...(fixture.products.get("pdt_pro_monthly")!.price_detail as object),
+      zero_amount_payment_method_optional: true,
+    }
+    await expect(loadCatalog(fixture.client)).rejects.toThrow(
+      "a $0 checkout skips the card"
     )
   })
 
