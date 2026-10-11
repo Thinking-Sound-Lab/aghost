@@ -6,7 +6,6 @@ import {
   isEntitled,
   PLANS,
   type SubscriptionStatus,
-  type ChoosePlanInput,
 } from "@workspace/api/contract"
 import { Button } from "@workspace/ui/components/button"
 import { ConfirmButton, ErrorBanner, Loading } from "@/components/interface"
@@ -25,19 +24,12 @@ const statusLabels: Record<SubscriptionStatus, string> = {
   expired: "Expired",
 }
 
-export function Billing({ choice }: { choice: ChoosePlanInput | null }) {
+export function Billing() {
   const store = useBillingStore()
   const configured = useWorkspaceStore(
     (state) => state.integration?.billingConfigured ?? false
   )
   const load = store.load
-  const select = store.select
-  const selectedPlan = choice?.plan
-  const selectedInterval = choice?.interval
-  useEffect(() => {
-    if (selectedPlan && selectedInterval)
-      select({ plan: selectedPlan, interval: selectedInterval })
-  }, [select, selectedPlan, selectedInterval])
   useEffect(() => {
     void load(configured)
   }, [configured, load])

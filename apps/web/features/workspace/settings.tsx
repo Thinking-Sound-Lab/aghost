@@ -17,6 +17,7 @@ import { Avatar, ConfirmButton, Page } from "@/components/interface"
 import { Billing } from "@/features/billing/billing"
 import { useAuthStore } from "@/stores/auth-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useBillingStore } from "@/stores/billing-store"
 import { ApiAccess } from "./api-access"
 import { McpAccess } from "./mcp-access"
 
@@ -44,6 +45,15 @@ function select(tab: Tab) {
 
 export function Settings({ choice }: { choice: ChoosePlanInput | null }) {
   const { tab } = useSettings()
+  const selectPlan = useBillingStore((state) => state.select)
+  const selectedPlan = choice?.plan
+  const selectedInterval = choice?.interval
+  useEffect(() => {
+    // Settings stays mounted when Billing is hidden by another tab. Apply
+    // the URL choice here so returning to Billing keeps the user's edits.
+    if (selectedPlan && selectedInterval)
+      selectPlan({ plan: selectedPlan, interval: selectedInterval })
+  }, [selectPlan, selectedPlan, selectedInterval])
   useEffect(() => {
     function follow() {
       const linked = tabs.find((item) => `#${item.id}` === location.hash)
@@ -77,7 +87,7 @@ export function Settings({ choice }: { choice: ChoosePlanInput | null }) {
         {tab === "channels" && <Channels />}
         {tab === "api" && <ApiAccess />}
         {tab === "mcp" && <McpAccess />}
-        {tab === "billing" && <Billing choice={choice} />}
+        {tab === "billing" && <Billing />}
         {tab === "account" && <Account />}
       </div>
     </Page>

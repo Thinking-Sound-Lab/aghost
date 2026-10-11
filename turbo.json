@@ -30,6 +30,6 @@
       "outputs": []
     }
   },
-  "globalEnv": ["API_URL"],
+  "globalEnv": ["API_URL", "APP_URL", "VERCEL_PROJECT_PRODUCTION_URL"],
   "globalDependencies": [".env", "scripts/web.mjs", "scripts/local-env.mjs"]
 }

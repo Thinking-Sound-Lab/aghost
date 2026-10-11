@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Pricing",
   description:
     "Flat pricing for agent-first Instagram automation. MCP and REST API access on every plan, with unlimited contacts and DMs.",
+  alternates: { canonical: "/pricing" },
 }
 
 export default function Page() {

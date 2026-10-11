@@ -111,9 +111,10 @@ test("values that need quoting survive a round trip", (t) => {
   )
 })
 
-test("the web process receives API_URL without backend credentials", () => {
+test("the web process receives its addresses without backend credentials", () => {
   const env = webEnvironment(
     {
+      APP_URL: "http://localhost:3000",
       API_URL: "http://127.0.0.1:4000",
       ZERNIO_API_KEY: "root-secret",
       SUPABASE_SECRET_KEY: "root-db-secret",
@@ -127,9 +128,12 @@ test("the web process receives API_URL without backend credentials", () => {
       NEXT_PUBLIC_SUPABASE_URL: "forbidden",
     }
   )
-  assert.deepEqual(env, { PATH: "/usr/bin", API_URL: "http://127.0.0.1:4000" })
-  assert.equal(
-    webEnvironment({}, { API_URL: "http://api:4000" }).API_URL,
-    "http://api:4000"
-  )
+  assert.deepEqual(env, {
+    PATH: "/usr/bin",
+    APP_URL: "http://localhost:3000",
+    API_URL: "http://127.0.0.1:4000",
+  })
+  assert.deepEqual(webEnvironment({}, { API_URL: "http://api:4000" }), {
+    API_URL: "http://api:4000",
+  })
 })

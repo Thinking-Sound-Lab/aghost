@@ -1,14 +1,18 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { openGraph, site } from "@/lib/site"
 
 import "@workspace/ui/globals.css"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
-  title: { default: "aghost", template: "%s · aghost" },
-  description:
-    "Agent-first Instagram automation with MCP and REST API access. Create, manage and monitor comment-to-DM automations from your AI agent or workflows.",
+  metadataBase: new URL(site.url),
+  title: { default: site.title, template: `%s · ${site.name}` },
+  description: site.description,
+  applicationName: site.name,
+  openGraph,
+  twitter: { card: "summary_large_image" },
 }
 
 export default function RootLayout({
