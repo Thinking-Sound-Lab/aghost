@@ -104,7 +104,8 @@ function createServices(
     workspaces,
     automations,
     pages.connectRedirectUrl,
-    plans
+    plans,
+    operations
   )
   const billing = new BillingService(
     billingRepository,
@@ -216,7 +217,11 @@ export function createApi(
 
   const webhooks = new WebhookService(
     new ZernioWebhookGateway(config.zernio.webhookSecret),
-    new SupabaseWebhookProcessor(admin, providers.instagram)
+    new SupabaseWebhookProcessor(
+      admin,
+      providers.instagram,
+      new SupabaseWorkspaceOperations(admin)
+    )
   )
   // Billing webhooks act for whichever workspace the subscription belongs to.
   const backend = createServices(

@@ -13,6 +13,10 @@ import { SupabaseAutomationRepository } from "../infrastructure/supabase/supabas
 import { SupabaseBillingRepository } from "../infrastructure/supabase/supabase-billing.repository"
 import { SupabaseBillingReconciliation } from "../infrastructure/supabase/supabase-billing-reconciliation"
 import { SupabaseWorkspaceOperations } from "../infrastructure/supabase/supabase-workspace-operations"
+import { SupabaseWebhookProcessor } from "../infrastructure/supabase/supabase-webhook.processor"
+import { AccountService } from "../modules/accounts/account.service"
+import type { ProviderAccount } from "../modules/accounts/account"
+import type { InstagramProvider } from "../modules/accounts/instagram.provider"
 import type { AutomationProvider } from "../modules/automations/automation.provider"
 import { AutomationService } from "../modules/automations/automation.service"
 import type { SubscriptionSnapshot } from "../modules/billing/billing"
@@ -20,6 +24,8 @@ import type { BillingProvider } from "../modules/billing/billing.provider"
 import { BillingService } from "../modules/billing/billing.service"
 import { PlanEntitlements } from "../modules/billing/plan-entitlements"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
+import type { WorkspaceOperations } from "../modules/workspaces/workspace-operations"
+import type { InboundEvent } from "../modules/webhooks/inbound-event"
 import { signInDisposableUser } from "./session-fixture"
 
 const config = loadApiConfig(
@@ -111,15 +117,26 @@ async function context() {
   }
   const automations = new SupabaseAutomationRepository(db)
   const accounts = new SupabaseAccountRepository(db)
-  function services() {
+  const reported = new Map<string, ProviderAccount>()
+  const instagram: InstagramProvider = {
+    getConnectUrl: async () => "https://instagram.example/connect",
+    listAccounts: async () => structuredClone([...reported.values()]),
+    listRecentPosts: async () => [],
+    disconnectAccount: async (id) => {
+      reported.delete(id)
+    },
+  }
+  function services(
+    operations: WorkspaceOperations = new SupabaseWorkspaceOperations(admin)
+  ) {
     // Separate instances model independent requests/replicas, sharing only PostgreSQL.
-    const operations = new SupabaseWorkspaceOperations(admin)
+    const plans = new PlanEntitlements(repository, accounts)
     const automation = new AutomationService(
       automations,
       provider,
       accounts,
-      { listRecentPosts: async () => [] },
-      new PlanEntitlements(repository, accounts),
+      instagram,
+      plans,
       operations
     )
     const billing = new BillingService(
@@ -134,7 +151,17 @@ async function context() {
       },
       operations
     )
-    return { automation, billing, operations }
+    const account = new AccountService(
+      accounts,
+      instagram,
+      { ensureProviderProfile: async () => `profile_${ownerId}` },
+      automation,
+      "https://app.example/accounts/callback",
+      plans,
+      operations
+    )
+    const webhooks = new SupabaseWebhookProcessor(admin, instagram, operations)
+    return { automation, billing, account, webhooks, operations }
   }
   async function paidAccount() {
     await repository.saveCustomer(workspace.id, snapshot.providerCustomerId)
@@ -150,6 +177,13 @@ async function context() {
       .select("id")
       .single()
     if (row.error) throw row.error
+    reported.set(`account_${workspace.id}`, {
+      providerAccountId: `account_${workspace.id}`,
+      username: "race_creator",
+      displayName: null,
+      profilePictureUrl: null,
+      connected: true,
+    })
     const input: CreateAutomationInput = {
       instagramAccountId: row.data.id,
       name: "Race automation",
@@ -174,6 +208,9 @@ async function context() {
     provider,
     dodo,
     automations,
+    accounts,
+    reported,
+    instagram,
     services,
     paidAccount,
   }
@@ -344,6 +381,248 @@ describe("billing coordination in PostgreSQL", () => {
     ).toBe("paused")
     await maintenance.run(() => {})
   })
+
+  it("pauses older active automations beyond 1,000 newer paused rows and retries failures", async () => {
+    const test = await context()
+    const input = await test.paidAccount()
+    const rows = Array.from({ length: 1_005 }, (_, index) => {
+      const active = index < 5
+      const providerId = `paged_${test.workspace.id}_${index}`
+      test.remote.set(providerId, active ? "active" : "paused")
+      return {
+        workspace_id: test.workspace.id,
+        instagram_account_id: input.instagramAccountId,
+        zernio_automation_id: providerId,
+        name: `Paged automation ${index}`,
+        status: active ? "active" : "paused",
+        post_scope: "any_post",
+        match_mode: "word",
+        dm_message: "Guide",
+        // The newest 1,000 rows are all paused; the running rows are older.
+        created_at: active ? "2020-01-01T00:00:00Z" : "2026-01-01T00:00:00Z",
+      }
+    })
+    for (let offset = 0; offset < rows.length; offset += 500) {
+      expect(
+        (
+          await admin
+            .from("automations")
+            .insert(rows.slice(offset, offset + 500))
+        ).error
+      ).toBeNull()
+    }
+    const all = await test.automations.listByWorkspace(test.workspace.id)
+    expect(all).toHaveLength(1_005)
+    expect(new Set(all.map((item) => item.id)).size).toBe(1_005)
+    expect(
+      await test.automations.listByAccount(
+        test.workspace.id,
+        input.instagramAccountId
+      )
+    ).toHaveLength(1_005)
+
+    test.dodo.getSubscription = async () => ({
+      ...test.snapshot,
+      status: "on_hold",
+    })
+    const original = test.provider.setStatus
+    const setStatus = vi.fn(original)
+    setStatus.mockRejectedValueOnce(new Error("Provider unavailable"))
+    test.provider.setStatus = setStatus
+    const billing = test.services().billing
+    await expect(
+      billing.refreshSubscription(test.snapshot.providerSubscriptionId)
+    ).rejects.toThrow("Provider unavailable")
+    await billing.refreshSubscription(test.snapshot.providerSubscriptionId)
+    expect(setStatus).toHaveBeenCalledTimes(6)
+    expect(
+      [...test.remote.values()].every((status) => status === "paused")
+    ).toBe(true)
+    expect(
+      (await test.automations.listByWorkspace(test.workspace.id)).every(
+        (item) => item.status === "paused"
+      )
+    ).toBe(true)
+  })
+
+  it.each(["sync", "webhook"] as const)(
+    "coordinates an in-flight account %s with a portal downgrade",
+    async (source) => {
+      const test = await context()
+      test.snapshot.plan = "growth"
+      const input = await test.paidAccount()
+      await test.services().automation.create(test.workspace, input)
+      const extra: ProviderAccount = {
+        providerAccountId: `extra_${test.workspace.id}`,
+        username: "extra_creator",
+        displayName: null,
+        profilePictureUrl: null,
+        connected: true,
+      }
+      test.reported.set(extra.providerAccountId, extra)
+      const entered = latch(),
+        finish = latch()
+      const base = new SupabaseWorkspaceOperations(admin)
+      const operations: WorkspaceOperations = {
+        run<T>(id: string, work: () => Promise<T>) {
+          return base.run(id, async () => {
+            if (source === "webhook") {
+              entered.release()
+              await finish.wait
+            }
+            return work()
+          })
+        },
+      }
+      if (source === "sync") {
+        const save = test.accounts.save.bind(test.accounts)
+        test.accounts.save = async (workspaceId, snapshot) => {
+          if (snapshot.providerAccountId === extra.providerAccountId) {
+            entered.release()
+            await finish.wait
+          }
+          return save(workspaceId, snapshot)
+        }
+      }
+      const first = test.services(operations),
+        second = test.services()
+      const event: InboundEvent = {
+        id: randomUUID(),
+        type: "account.connected",
+        kind: "account_connected",
+        payload: {},
+        account: {
+          ...extra,
+          platform: "instagram",
+          providerProfileId: test.workspace.providerProfileId!,
+        },
+      }
+      const callback =
+        source === "sync"
+          ? first.account.sync(test.workspace)
+          : first.webhooks.process(event)
+      let downgrade: Promise<unknown> = Promise.resolve()
+      try {
+        await entered.wait
+        expect(
+          (
+            await admin
+              .from("workspace_operations")
+              .select("owner")
+              .eq("workspace_id", test.workspace.id)
+              .single()
+          ).data?.owner
+        ).toEqual(expect.any(String))
+        const read = latch()
+        test.dodo.getSubscription = async () => {
+          read.release()
+          return { ...test.snapshot, plan: "pro" }
+        }
+        downgrade = second.billing.refreshSubscription(
+          test.snapshot.providerSubscriptionId
+        )
+        await read.wait
+        expect(
+          (await test.repository.findByWorkspace(test.workspace.id))
+            ?.subscription?.plan
+        ).toBe("growth")
+      } finally {
+        finish.release()
+        await Promise.all([callback, downgrade])
+      }
+      expect(await test.accounts.countConnected(test.workspace.id)).toBe(2)
+      expect(
+        (await test.repository.findByWorkspace(test.workspace.id))?.subscription
+          ?.plan
+      ).toBe("pro")
+      expect([...test.remote.values()]).toEqual(["paused"])
+      expect(
+        (await test.automations.listByWorkspace(test.workspace.id))[0]?.status
+      ).toBe("paused")
+    }
+  )
+
+  it.each(["sync", "webhook"] as const)(
+    "finishes rejected-account %s cleanup before an upgrade and reconnection",
+    async (source) => {
+      const test = await context()
+      await test.paidAccount()
+      const extra: ProviderAccount = {
+        providerAccountId: `rejected_${test.workspace.id}`,
+        username: "rejected_creator",
+        displayName: null,
+        profilePictureUrl: null,
+        connected: true,
+      }
+      test.reported.set(extra.providerAccountId, extra)
+      const entered = latch(),
+        finish = latch()
+      const disconnect = vi.fn(async (id: string) => {
+        entered.release()
+        await finish.wait
+        test.reported.delete(id)
+      })
+      test.instagram.disconnectAccount = disconnect
+      const first = test.services(),
+        second = test.services()
+      const event: InboundEvent = {
+        id: randomUUID(),
+        type: "account.connected",
+        kind: "account_connected",
+        payload: {},
+        account: {
+          ...extra,
+          platform: "instagram",
+          providerProfileId: test.workspace.providerProfileId!,
+        },
+      }
+      const callback =
+        source === "sync"
+          ? first.account.sync(test.workspace)
+          : first.webhooks.process(event)
+      let upgrade: Promise<unknown> = Promise.resolve()
+      try {
+        await entered.wait
+        expect(
+          (
+            await admin
+              .from("workspace_operations")
+              .select("owner")
+              .eq("workspace_id", test.workspace.id)
+              .single()
+          ).data?.owner
+        ).toEqual(expect.any(String))
+        const read = latch()
+        test.dodo.getSubscription = async () => {
+          read.release()
+          return { ...test.snapshot, plan: "growth" }
+        }
+        upgrade = second.billing.refreshSubscription(
+          test.snapshot.providerSubscriptionId
+        )
+        await read.wait
+        expect(
+          (await test.repository.findByWorkspace(test.workspace.id))
+            ?.subscription?.plan
+        ).toBe("pro")
+        expect(await test.accounts.countConnected(test.workspace.id)).toBe(1)
+      } finally {
+        finish.release()
+        await Promise.all([callback, upgrade])
+      }
+      // A fresh connection after the upgrade is allowed. A delayed duplicate
+      // delivery must not disconnect it based on the old limit rejection.
+      test.reported.set(extra.providerAccountId, extra)
+      await second.account.sync(test.workspace)
+      if (source === "webhook")
+        expect(await second.webhooks.process(event)).toBe("duplicate")
+      expect(await test.accounts.countConnected(test.workspace.id)).toBe(2)
+      expect(test.reported.has(extra.providerAccountId)).toBe(true)
+      expect(disconnect).toHaveBeenCalledExactlyOnceWith(
+        extra.providerAccountId
+      )
+    }
+  )
 
   it("keeps old claims owned, rejects another owner's release and denies browser RPC access", async () => {
     const test = await context()
