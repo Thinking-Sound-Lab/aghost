@@ -335,6 +335,28 @@ describe("billing", () => {
     })
   })
 
+  it("keeps the previous checkout resumable when its replacement cannot be priced", async () => {
+    const repository = memoryRepository(null)
+    const dodo = provider()
+    const { billing } = service(repository, dodo)
+    const payer = { email: "maya@example.com", name: "Maya" }
+    const original = { plan: "pro", interval: "monthly" } as const
+    const url = await billing.startCheckout(workspace, payer, original)
+    vi.mocked(dodo.prepareCheckout).mockRejectedValueOnce(
+      new Error("Price mismatch")
+    )
+    await expect(
+      billing.startCheckout(workspace, payer, {
+        plan: "business",
+        interval: "yearly",
+      })
+    ).rejects.toThrow("Price mismatch")
+    await expect(
+      billing.startCheckout(workspace, payer, original)
+    ).resolves.toBe(url)
+    expect(dodo.createCheckout).toHaveBeenCalledOnce()
+  })
+
   it("refuses another plan while the previous checkout's payment is processing", async () => {
     const repository = memoryRepository(null)
     const dodo = provider({

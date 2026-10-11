@@ -132,16 +132,17 @@ export class BillingService {
         checkout.interval === choice.interval
       )
         return checkout.session.url
-      // The customer chose another plan, or the link can no longer be paid.
-      // Dodo cannot revoke a link, so an unpaid one replaced here stays
-      // payable until it expires.
-      await this.billing.clearCheckout(workspace.id)
     }
 
     const providerProductId = await this.provider.prepareCheckout(
       choice.plan,
       choice.interval
     )
+    // The customer chose another plan, or the link can no longer be paid.
+    // Dodo cannot revoke a link, so an unpaid one replaced here stays
+    // payable until it expires. It is kept until its replacement is priced,
+    // so a refused replacement leaves it resumable.
+    if (checkout) await this.billing.clearCheckout(workspace.id)
     // Persist intent before the provider call. Never create again when a
     // previous request or database save has an uncertain outcome.
     await this.billing.reserveCheckout(workspace.id, choice)
