@@ -260,6 +260,8 @@ A push to `main` releases the backend in one job, so a release needs one approva
 
 The marketing site and dashboard are one Next.js app. Vercel's Git integration builds it: a preview for every pull request, and production on every push to `main`. No Vercel credentials are stored in GitHub.
 
+Production is served at `https://aghost.app`; `www.aghost.app` redirects to it.
+
 > [!NOTE]
 > Vercel and the Release job start from the same push and finish independently, usually Vercel first. Keep an API change compatible with the web app that is already live, or merge the API change first.
 
@@ -294,7 +296,7 @@ infra
 
 ```sh
 export STAGE=prod AWS_ACCOUNT_ID=123456789012 AWS_REGION=ap-south-1 \
-  APP_URL=https://aghost.vercel.app SUPABASE_URL=https://your-project.supabase.co
+  APP_URL=https://aghost.app SUPABASE_URL=https://your-project.supabase.co
 
 pnpm --filter infra exec cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
 
@@ -328,7 +330,7 @@ The deployment prints `DeployRoleArn` for step 3 and `ApiUrl`, the API's address
 | `AWS_ACCOUNT_ID`        | Variable | The 12-digit account ID                          |
 | `AWS_REGION`            | Variable | For example `ap-south-1`                         |
 | `AWS_DEPLOY_ROLE_ARN`   | Variable | `DeployRoleArn` from step 1                      |
-| `APP_URL`               | Variable | The web origin, for example `https://aghost.com` |
+| `APP_URL`               | Variable | The web origin, for example `https://aghost.app` |
 | `SUPABASE_URL`          | Variable | `https://<project>.supabase.co`                  |
 | `SUPABASE_PROJECT_ID`   | Variable | The Supabase project's reference ID              |
 | `SUPABASE_POOLER_URL`   | Variable | The project's session pooler address             |
@@ -345,6 +347,17 @@ GitHub's runners have no IPv6, and the database's direct address is IPv6-only, s
 
 > [!NOTE]
 > Google sign-in returns to `APP_URL`, and the API accepts writes only from its origin. Previews show the site and dashboard, but signing in from a preview does not work.
+
+### Changing the domain
+
+Moving the site to another domain takes four steps, in this order. Sign-in keeps working at the old address until step 3 moves it to the new one.
+
+1. **Vercel.** Add the domain to the project under **Settings → Domains**, then redeploy production. The build reads the address for canonical links, the sitemap, and `/llms.txt`.
+2. **Supabase.** Under **Authentication → URL Configuration**, set the site URL to the new origin and add `<new origin>/api/auth/callback` to the redirect URLs.
+3. **GitHub.** Set `APP_URL` in the `prod` environment and run the Deploy workflow. The API then returns sign-ins, checkouts, and Instagram connections to the new origin, and accepts dashboard writes only from it.
+4. **The old address.** Redirect its pages to the new origin with a routing rule on the Vercel project that leaves `/api` in place: host `<old address>`, pattern `^/(?!api/)(.*)$`, destination `<new origin>/$1`, status 308. Agents and webhooks configured with the old address keep working, because API keys and webhook signatures are not tied to an origin. Anchor the pattern; without `^` it also matches inside `/api` paths.
+
+Then add the new origin to the PostHog project's authorized URLs, and submit its sitemap to the search consoles.
 
 ### Reviewing infrastructure changes
 
