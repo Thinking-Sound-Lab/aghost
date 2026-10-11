@@ -1,9 +1,15 @@
 import type { FastifyPluginAsync } from "fastify"
 import type { ApiConfig } from "../config"
+import {
+  billingChoice,
+  billingLoginPath,
+  billingPath,
+} from "../contract/billing"
 import { BadRequestError, UnauthenticatedError } from "../shared/errors"
 import { presentUser } from "./presenters"
 
 const SIGN_IN_FAILED_PATH = "/login?error=google"
+const RETURN_COOKIE = "aghost-auth-return"
 
 export function authRoutes(config: ApiConfig): FastifyPluginAsync {
   const appUrl = (path: string) => new URL(path, config.appUrl).toString()
@@ -15,7 +21,23 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
     })
     // The browser navigates here. Google signs the person in and Supabase
     // sends them back to /callback; a first sign-in creates their account.
-    router.get("/google", async (request, reply) => {
+    router.get<{
+      Querystring: { next?: string; plan?: string; interval?: string }
+    }>("/google", async (request, reply) => {
+      const billing = request.query.next === "billing"
+      const choice = billing ? billingChoice(request.query) : null
+      const returnTo = billing
+        ? choice
+          ? `billing:${choice.plan}:${choice.interval}`
+          : "billing"
+        : "home"
+      reply.setCookie(RETURN_COOKIE, returnTo, {
+        path: "/api/auth",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: new URL(config.appUrl).protocol === "https:",
+        maxAge: 600,
+      })
       const { data, error } = await request.session.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -40,7 +62,13 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       } catch (cause) {
         // The browser navigated here, so the login page reports the failure.
         request.log.error(cause, "Could not start Google sign-in")
-        return reply.redirect(appUrl(SIGN_IN_FAILED_PATH))
+        return reply.redirect(
+          appUrl(
+            billing
+              ? `${billingLoginPath(choice)}&error=google`
+              : SIGN_IN_FAILED_PATH
+          )
+        )
       }
     })
     router.post("/sign-out", async (request, reply) => {
@@ -52,11 +80,21 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
       "/callback",
       async (request, reply) => {
         const { code } = request.query
+        const [next, plan, interval] = (
+          request.cookies[RETURN_COOKIE] ?? ""
+        ).split(":")
+        const choice = billingChoice({ plan, interval })
+        const destination = next === "billing" ? billingPath(choice) : "/home"
+        const failure =
+          next === "billing"
+            ? `${billingLoginPath(choice)}&error=google`
+            : SIGN_IN_FAILED_PATH
+        reply.clearCookie(RETURN_COOKIE, { path: "/api/auth" })
         // Without a code, the sign-in was cancelled or refused.
-        if (!code) return reply.redirect(appUrl(SIGN_IN_FAILED_PATH))
+        if (!code) return reply.redirect(appUrl(failure))
         const { error } =
           await request.session.auth.exchangeCodeForSession(code)
-        return reply.redirect(appUrl(error ? SIGN_IN_FAILED_PATH : "/home"))
+        return reply.redirect(appUrl(error ? failure : destination))
       }
     )
   }

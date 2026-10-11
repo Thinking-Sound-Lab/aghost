@@ -6,12 +6,21 @@ import {
 import type { ApiConfig } from "./config"
 import { createApp, type ApiApp } from "./http/app"
 import type { Authenticate, AuthenticateAgent } from "./http/context"
+import { DodoBillingProvider } from "./infrastructure/dodo/dodo-billing.provider"
+import {
+  createDodoClient,
+  type DodoClient,
+} from "./infrastructure/dodo/dodo-client"
+import { DodoWebhookGateway } from "./infrastructure/dodo/dodo-webhook.gateway"
 import type { DataClients } from "./infrastructure/supabase/data-clients"
 import { SupabaseAccountRepository } from "./infrastructure/supabase/supabase-account.repository"
 import { SupabaseApiKeyRepository } from "./infrastructure/supabase/supabase-api-key.repository"
 import { SupabaseAutomationRepository } from "./infrastructure/supabase/supabase-automation.repository"
+import { SupabaseBillingRepository } from "./infrastructure/supabase/supabase-billing.repository"
 import { SupabaseWebhookProcessor } from "./infrastructure/supabase/supabase-webhook.processor"
 import { SupabaseWorkspaceRepository } from "./infrastructure/supabase/supabase-workspace.repository"
+import { SupabaseWorkspaceOperations } from "./infrastructure/supabase/supabase-workspace-operations"
+import { SupabaseBillingReconciliation } from "./infrastructure/supabase/supabase-billing-reconciliation"
 import { ZernioAutomationProvider } from "./infrastructure/zernio/zernio-automation.provider"
 import { createZernioClient } from "./infrastructure/zernio/zernio-client"
 import { ZernioContactProvider } from "./infrastructure/zernio/zernio-contact.provider"
@@ -24,6 +33,13 @@ import { ApiKeyService } from "./modules/api-keys/api-key.service"
 import type { InstagramProvider } from "./modules/accounts/instagram.provider"
 import type { AutomationProvider } from "./modules/automations/automation.provider"
 import { AutomationService } from "./modules/automations/automation.service"
+import { BillingWebhookService } from "./modules/billing/billing-webhook"
+import type { BillingProvider } from "./modules/billing/billing.provider"
+import {
+  BillingService,
+  type BillingPages,
+} from "./modules/billing/billing.service"
+import { PlanEntitlements } from "./modules/billing/plan-entitlements"
 import type { ContactProvider } from "./modules/contacts/contact.provider"
 import { ContactService } from "./modules/contacts/contact.service"
 import type { InboxProvider } from "./modules/inbox/inbox.provider"
@@ -35,6 +51,8 @@ import { InvalidApiKeyError, UnauthenticatedError } from "./shared/errors"
 
 // Path of the page in the web app that finishes the Instagram connection.
 const CONNECT_CALLBACK_PATH = "/accounts/callback"
+// Where checkout and the billing portal send the browser back to.
+const BILLING_PATH = "/settings#billing"
 
 export type Services = {
   apiKeys: ApiKeyService
@@ -43,6 +61,7 @@ export type Services = {
   automations: AutomationService
   inbox: InboxService
   contacts: ContactService
+  billing: BillingService
 }
 
 type Providers = {
@@ -51,14 +70,21 @@ type Providers = {
   automations: AutomationProvider
   inbox: InboxProvider
   contacts: ContactProvider
+  billing: BillingProvider
 }
+
+/** Addresses in the web app that providers send the browser back to. */
+type ReturnPages = { connectRedirectUrl: string; billing: BillingPages }
 
 function createServices(
   db: DataClients,
   providers: Providers,
-  connectRedirectUrl: string
+  pages: ReturnPages
 ): Services {
   const accountRepository = new SupabaseAccountRepository(db)
+  const billingRepository = new SupabaseBillingRepository(db)
+  const operations = new SupabaseWorkspaceOperations(db.privileged)
+  const plans = new PlanEntitlements(billingRepository, accountRepository)
 
   const workspaces = new WorkspaceService(
     new SupabaseWorkspaceRepository(db),
@@ -68,25 +94,44 @@ function createServices(
     new SupabaseAutomationRepository(db),
     providers.automations,
     accountRepository,
-    providers.instagram
+    providers.instagram,
+    plans,
+    operations
   )
   const accounts = new AccountService(
     accountRepository,
     providers.instagram,
     workspaces,
     automations,
-    connectRedirectUrl
+    pages.connectRedirectUrl,
+    plans,
+    operations
+  )
+  const billing = new BillingService(
+    billingRepository,
+    providers.billing,
+    accountRepository,
+    automations,
+    pages.billing,
+    operations
   )
 
   const inbox = new InboxService(providers.inbox, accountRepository)
   const contacts = new ContactService(providers.contacts)
   const apiKeys = new ApiKeyService(new SupabaseApiKeyRepository(db.privileged))
 
-  return { apiKeys, workspaces, accounts, automations, inbox, contacts }
+  return {
+    apiKeys,
+    workspaces,
+    accounts,
+    automations,
+    inbox,
+    contacts,
+    billing,
+  }
 }
 
-/** Composition root: builds the API from its configuration. */
-export function createApi(config: ApiConfig): ApiApp {
+function runtime(config: ApiConfig, options: { dodo?: DodoClient } = {}) {
   const zernio = () => createZernioClient(config.zernio)
   const providers: Providers = {
     profiles: new ZernioProfileProvider(zernio),
@@ -94,12 +139,43 @@ export function createApi(config: ApiConfig): ApiApp {
     automations: new ZernioAutomationProvider(zernio),
     inbox: new ZernioInboxProvider(zernio),
     contacts: new ZernioContactProvider(zernio),
+    billing: new DodoBillingProvider(
+      () => options.dodo ?? createDodoClient(config.dodo)
+    ),
   }
-  const connectRedirectUrl = new URL(
-    CONNECT_CALLBACK_PATH,
-    config.appUrl
-  ).toString()
+  const appPage = (path: string) => new URL(path, config.appUrl).toString()
+  const pages: ReturnPages = {
+    connectRedirectUrl: appPage(CONNECT_CALLBACK_PATH),
+    billing: {
+      checkoutReturn: appPage(BILLING_PATH),
+      checkoutCancel: appPage(BILLING_PATH),
+      portalReturn: appPage(BILLING_PATH),
+    },
+  }
   const admin = createAdminSupabaseClient(config.supabase)
+  return { providers, pages, admin }
+}
+
+/** A backend-only rollout command; it uses the API's provider and plan policy. */
+export function createBillingMaintenance(
+  config: ApiConfig,
+  options: { dodo?: DodoClient } = {}
+) {
+  const { admin, providers, pages } = runtime(config, options)
+  const services = createServices(
+    { scoped: admin, privileged: admin },
+    providers,
+    pages
+  )
+  return new SupabaseBillingReconciliation(admin, services.billing)
+}
+
+/** Composition root: builds the API from its configuration. */
+export function createApi(
+  config: ApiConfig,
+  options: { dodo?: DodoClient } = {}
+): ApiApp {
+  const { admin, providers, pages } = runtime(config, options)
 
   // Each request gets services whose reads run as the signed-in user.
   const authenticate: Authenticate = async (accessToken) => {
@@ -113,7 +189,7 @@ export function createApi(config: ApiConfig): ApiApp {
     const services = createServices(
       { scoped, privileged: admin },
       providers,
-      connectRedirectUrl
+      pages
     )
 
     return {
@@ -135,14 +211,34 @@ export function createApi(config: ApiConfig): ApiApp {
       workspace,
       // Key requests have no Supabase user JWT. Every exposed repository
       // operation filters by this verified workspace before any provider call.
-      services: createServices(db, providers, connectRedirectUrl),
+      services: createServices(db, providers, pages),
     }
   }
 
   const webhooks = new WebhookService(
     new ZernioWebhookGateway(config.zernio.webhookSecret),
-    new SupabaseWebhookProcessor(admin)
+    new SupabaseWebhookProcessor(
+      admin,
+      providers.instagram,
+      new SupabaseWorkspaceOperations(admin)
+    )
+  )
+  // Billing webhooks act for whichever workspace the subscription belongs to.
+  const backend = createServices(
+    { scoped: admin, privileged: admin },
+    providers,
+    pages
+  )
+  const billingWebhooks = new BillingWebhookService(
+    new DodoWebhookGateway(config.dodo.webhookKey),
+    backend.billing
   )
 
-  return createApp({ authenticate, authenticateAgent, webhooks, config })
+  return createApp({
+    authenticate,
+    authenticateAgent,
+    webhooks,
+    billingWebhooks,
+    config,
+  })
 }

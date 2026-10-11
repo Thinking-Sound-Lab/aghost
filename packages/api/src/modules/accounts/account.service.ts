@@ -1,6 +1,7 @@
 import type { InstagramPost } from "../../contract/account"
 import { AccountDisconnectedError, NotFoundError } from "../../shared/errors"
 import type { WorkspaceRecord } from "../workspaces/workspace"
+import type { WorkspaceOperations } from "../workspaces/workspace-operations"
 import { DISCONNECT_REASONS, type AccountRecord } from "./account"
 import type { AccountRepository } from "./account.repository"
 import type { InstagramProvider } from "./instagram.provider"
@@ -15,6 +16,11 @@ export interface AccountAutomations {
   deleteAllForAccount(workspaceId: string, accountId: string): Promise<void>
 }
 
+/** Checks that the workspace's plan has room for another account. */
+export interface AccountPlan {
+  assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void>
+}
+
 export class AccountService {
   constructor(
     private readonly accounts: AccountRepository,
@@ -22,7 +28,9 @@ export class AccountService {
     private readonly profiles: ProviderProfiles,
     private readonly automations: AccountAutomations,
     /** Where the provider sends the browser once the user has authorized. */
-    private readonly connectRedirectUrl: string
+    private readonly connectRedirectUrl: string,
+    private readonly plan: AccountPlan,
+    private readonly operations: WorkspaceOperations
   ) {}
 
   list(workspace: WorkspaceRecord): Promise<AccountRecord[]> {
@@ -30,13 +38,16 @@ export class AccountService {
   }
 
   async startConnection(workspace: WorkspaceRecord): Promise<string> {
-    const providerProfileId =
-      await this.profiles.ensureProviderProfile(workspace)
+    return this.operations.run(workspace.id, async () => {
+      await this.plan.assertCanConnectAccount(workspace)
+      const providerProfileId =
+        await this.profiles.ensureProviderProfile(workspace)
 
-    return this.instagram.getConnectUrl(
-      providerProfileId,
-      this.connectRedirectUrl
-    )
+      return this.instagram.getConnectUrl(
+        providerProfileId,
+        this.connectRedirectUrl
+      )
+    })
   }
 
   /**
@@ -45,6 +56,12 @@ export class AccountService {
    * the connection flow is trusted.
    */
   async sync(workspace: WorkspaceRecord): Promise<AccountRecord[]> {
+    return this.operations.run(workspace.id, () => this.syncOwned(workspace))
+  }
+
+  private async syncOwned(
+    workspace: WorkspaceRecord
+  ): Promise<AccountRecord[]> {
     if (!workspace.providerProfileId) {
       return this.accounts.listByWorkspace(workspace.id)
     }
@@ -55,7 +72,7 @@ export class AccountService {
     ])
 
     for (const account of reported) {
-      await this.accounts.save(workspace.id, {
+      const saved = await this.accounts.save(workspace.id, {
         providerAccountId: account.providerAccountId,
         username: account.username,
         displayName: account.displayName,
@@ -65,6 +82,15 @@ export class AccountService {
           ? null
           : DISCONNECT_REASONS.accessExpired,
       })
+      // Keep provider reads, the database decision and rejected-account cleanup
+      // under the same ownership as billing. An upgrade or downgrade cannot
+      // pass an uncommitted connection or reconnect it during old cleanup.
+      if (
+        account.connected &&
+        saved.disconnectReason === DISCONNECT_REASONS.planLimit
+      ) {
+        await this.instagram.disconnectAccount(account.providerAccountId)
+      }
     }
 
     const reportedIds = new Set(
@@ -101,11 +127,13 @@ export class AccountService {
 
   /** Disconnects the account and deletes the automations that ran on it. */
   async remove(workspace: WorkspaceRecord, accountId: string): Promise<void> {
-    const account = await this.get(workspace, accountId)
+    return this.operations.run(workspace.id, async () => {
+      const account = await this.get(workspace, accountId)
 
-    await this.automations.deleteAllForAccount(workspace.id, account.id)
-    await this.instagram.disconnectAccount(account.providerAccountId)
-    await this.accounts.delete(workspace.id, account.id)
+      await this.automations.deleteAllForAccount(workspace.id, account.id)
+      await this.instagram.disconnectAccount(account.providerAccountId)
+      await this.accounts.delete(workspace.id, account.id)
+    })
   }
 
   private async get(

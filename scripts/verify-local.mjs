@@ -24,6 +24,7 @@ assert.equal(
 for (const path of [
   "/",
   "/login",
+  "/pricing",
   "/home",
   "/contacts",
   "/automations",

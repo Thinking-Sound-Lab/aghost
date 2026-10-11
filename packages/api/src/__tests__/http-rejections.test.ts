@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto"
 import type { InjectOptions } from "fastify"
+import { Webhook } from "standardwebhooks"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createApi } from "../container"
 import { apiErrorBodySchema } from "../contract/errors"
+
+const DODO_WEBHOOK_KEY = `whsec_${Buffer.from("dodo-test-secret").toString("base64")}`
 
 // Nothing listens on the discard port, so no request here reaches a service.
 const app = createApi({
@@ -16,6 +19,11 @@ const app = createApi({
     apiUrl: "http://127.0.0.1:9",
     apiKey: "",
     webhookSecret: "secret",
+  },
+  dodo: {
+    environment: "test_mode",
+    apiKey: "",
+    webhookKey: DODO_WEBHOOK_KEY,
   },
 })
 
@@ -86,6 +94,56 @@ describe("requests the API rejects", () => {
   })
 })
 
+describe("Dodo Payments webhooks", () => {
+  const body = JSON.stringify({
+    type: "payment.succeeded",
+    data: { payment_id: "pay_1" },
+  })
+
+  function signed(timestamp: Date) {
+    const id = `msg_${randomUUID()}`
+    return {
+      "content-type": "application/json",
+      "webhook-id": id,
+      "webhook-timestamp": String(Math.floor(timestamp.getTime() / 1000)),
+      "webhook-signature": new Webhook(DODO_WEBHOOK_KEY).sign(
+        id,
+        timestamp,
+        body
+      ),
+    }
+  }
+
+  it("accepts a signed delivery without a browser origin", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/webhooks/dodo",
+      headers: signed(new Date()),
+      payload: body,
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual({ outcome: "ignored" })
+  })
+
+  it.each([
+    ["is unsigned", { "content-type": "application/json" }],
+    ["was signed for another body", { ...signed(new Date()) }, `${body} `],
+    ["is too old to be fresh", signed(new Date(Date.now() - 60 * 60 * 1000))],
+  ])("refuses a delivery that %s", async (_case, headers, payload = body) => {
+    expect(
+      await reject({
+        method: "POST",
+        url: "/api/webhooks/dodo",
+        headers,
+        payload,
+      })
+    ).toMatchObject({
+      status: 401,
+      error: { code: "invalid_webhook_signature" },
+    })
+  })
+})
+
 describe("Google sign-in", () => {
   afterEach(() => vi.unstubAllGlobals())
 
@@ -149,6 +207,76 @@ describe("Google sign-in", () => {
     })
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toBe(
+      "http://localhost:3000/login?error=google"
+    )
+  })
+
+  it("carries yearly Business pricing through OAuth and back to billing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input)
+        )
+        if (url.pathname.endsWith("/authorize"))
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: "https://accounts.google.com/o/oauth2/v2/auth",
+            },
+          })
+        if (url.pathname.endsWith("/token"))
+          return Response.json({
+            access_token: "fixture-token",
+            refresh_token: "fixture-refresh",
+            token_type: "bearer",
+            expires_in: 3600,
+            user: {
+              id: randomUUID(),
+              aud: "authenticated",
+              role: "authenticated",
+              email: "maya@example.com",
+              app_metadata: {},
+              user_metadata: {},
+              created_at: new Date().toISOString(),
+            },
+          })
+        throw new Error(`Unexpected auth request ${url.pathname}`)
+      })
+    )
+    const start = await app.inject({
+      method: "GET",
+      url: "/api/auth/google?next=billing&plan=business&interval=yearly",
+    })
+    const cookie = [start.headers["set-cookie"] ?? []]
+      .flat()
+      .map((value) => String(value).split(";")[0])
+      .join("; ")
+    const finish = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback?code=fixture-code",
+      headers: { cookie },
+    })
+    expect(finish.headers.location).toBe(
+      "http://localhost:3000/settings?plan=business&interval=yearly#billing"
+    )
+  })
+
+  it("preserves the pricing choice after cancelled sign-in and ignores forged redirect destinations", async () => {
+    const cancelled = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: "aghost-auth-return=billing%3Abusiness%3Ayearly" },
+    })
+    expect(cancelled.headers.location).toBe(
+      "http://localhost:3000/login?next=billing&plan=business&interval=yearly&error=google"
+    )
+    const forged = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: "aghost-auth-return=https%3A%2F%2Fexample.com" },
+    })
+    expect(forged.headers.location).toBe(
       "http://localhost:3000/login?error=google"
     )
   })

@@ -36,4 +36,6 @@ export type ProviderAccount = {
 export const DISCONNECT_REASONS = {
   accessExpired: "Instagram access expired or was revoked.",
   removed: "This account is no longer connected.",
+  planLimit:
+    "Your plan has no room for another Instagram account. Upgrade to reconnect it.",
 } as const

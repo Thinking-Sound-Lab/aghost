@@ -33,14 +33,44 @@ function setValue(contents, name, value) {
   return `${contents}${contents.endsWith("\n") ? "" : "\n"}${line}\n`
 }
 
-/** Creates the root .env from the template once; existing values are kept. */
+/**
+ * Creates the root .env from the template once. Existing values are kept;
+ * variables the template gained since are added with the template's value.
+ */
 export function ensureRootEnv(directory = root) {
   const file = join(directory, ".env")
   if (!existsSync(file)) {
     copyFileSync(join(directory, ".env.example"), file)
     chmodSync(file, 0o600)
+    return readRootEnv(directory)
   }
-  return readRootEnv(directory)
+  const template = parseEnv(
+    readFileSync(join(directory, ".env.example"), "utf8")
+  )
+  let contents = readFileSync(file, "utf8")
+  const current = parseEnv(contents)
+  for (const [key, value] of Object.entries(template)) {
+    if (!(key in current)) contents = setValue(contents, key, value)
+  }
+  writeFileSync(file, contents, { mode: 0o600 })
+  chmodSync(file, 0o600)
+  return parseEnv(contents)
+}
+
+/** Explicit deployment/CLI variables override local defaults, including empty keys. */
+export function backendEnvironment(directory = root, inherited = process.env) {
+  return { ...ensureRootEnv(directory), ...inherited }
+}
+
+/** Sets values even when the root .env already has them. */
+export function writeRootEnv(values, directory = root) {
+  const file = join(directory, ".env")
+  let contents = readFileSync(file, "utf8")
+  for (const [key, value] of Object.entries(values))
+    contents = setValue(contents, key, value)
+  writeFileSync(file, contents, { mode: 0o600 })
+  chmodSync(file, 0o600)
+  return parseEnv(contents)
 }
 
 /** Fills only empty values, so user-edited settings are never replaced. */
@@ -60,7 +90,7 @@ export function fillRootEnv(values, directory = root) {
 export function webEnvironment(values, inherited = process.env) {
   const environment = { ...inherited }
   for (const name of Object.keys(environment)) {
-    if (/^(?:SUPABASE_|ZERNIO_|NEXT_PUBLIC_SUPABASE_)/.test(name))
+    if (/^(?:SUPABASE_|ZERNIO_|DODO_|NEXT_PUBLIC_SUPABASE_)/.test(name))
       delete environment[name]
   }
   const apiUrl = values.API_URL ?? inherited.API_URL

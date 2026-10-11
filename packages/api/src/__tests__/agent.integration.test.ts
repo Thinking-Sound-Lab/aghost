@@ -22,7 +22,7 @@ import type { Automation } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
 import type { ApiApp } from "../http/app"
 import { hashApiKey } from "../modules/api-keys/api-key.service"
-import { signInDisposableUser } from "./session-fixture"
+import { grantPlan, signInDisposableUser } from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 
 const config = loadApiConfig(
@@ -172,6 +172,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
         otherWorkspaceId = workspace.id
       }
     }
+    await grantPlan(config, workspaceId, "growth")
     expect((await session("/accounts/connect", "POST", {})).statusCode).toBe(
       200
     )

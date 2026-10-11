@@ -45,6 +45,7 @@ const sections = [
   { href: "#agents", label: "Agents" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#features", label: "Features" },
+  { href: "/pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ]
 
@@ -88,9 +89,9 @@ export function Landing() {
           className="hidden gap-8 text-[15px] font-medium text-brand-gray md:flex"
         >
           {sections.map((item) => (
-            <a key={item.href} href={item.href} className="hover:text-black">
+            <Link key={item.href} href={item.href} className="hover:text-black">
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="flex items-center justify-end gap-5">
@@ -119,8 +120,8 @@ export function Landing() {
           />
           <p className={cn(LEAD, "max-w-2xl sm:text-xl")}>
             aghost turns Instagram comments into DMs, and your AI agent runs it.
-            Connect Claude Code, Codex, or Cursor over MCP to build automations,
-            read the stats, and answer the inbox.
+            Connect Claude Code, Codex, or Cursor over MCP or the REST API to
+            build automations, read the stats, and answer the inbox.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <GetStarted />
@@ -128,6 +129,12 @@ export function Landing() {
               Connect your agent
             </a>
           </div>
+          <p className="text-sm text-brand-gray">
+            MCP + REST API on every plan ·{" "}
+            <Link href="/pricing" className="underline underline-offset-4">
+              View pricing
+            </Link>
+          </p>
           <p className="text-sm text-brand-gray">
             Works with any MCP client · Instagram professional account required
           </p>

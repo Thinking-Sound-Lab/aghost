@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import { parseEnv } from "node:util"
 import type { InjectOptions, LightMyRequestResponse } from "fastify"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { Webhook } from "standardwebhooks"
 import { createClient } from "@supabase/supabase-js"
 import {
   createAdminSupabaseClient,
@@ -14,8 +15,9 @@ import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
-import { signInDisposableUser } from "./session-fixture"
+import { grantPlan, signInDisposableUser } from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
+import { dodoFixture } from "./dodo-fixture"
 
 const config = loadApiConfig(
   parseEnv(readFileSync(new URL("../../../../.env", import.meta.url), "utf8"))
@@ -80,6 +82,8 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   let workspaceId: string
   let otherWorkspaceId: string
   let profileId: string
+  const dodo = dodoFixture()
+  const dodoSecret = `whsec_${Buffer.from("fixture-billing-secret").toString("base64")}`
 
   const automationInput = (): CreateAutomationInput => ({
     instagramAccountId: account.id,
@@ -129,14 +133,22 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
 
   beforeAll(async () => {
     fixture = await startZernioFixture()
-    app = createApi({
-      ...config,
-      zernio: {
-        apiUrl: fixture.apiUrl,
-        apiKey: "fixture-api-key",
-        webhookSecret: "fixture-webhook-secret",
+    app = createApi(
+      {
+        ...config,
+        zernio: {
+          apiUrl: fixture.apiUrl,
+          apiKey: "fixture-api-key",
+          webhookSecret: "fixture-webhook-secret",
+        },
+        dodo: {
+          environment: "test_mode",
+          apiKey: "fixture-dodo-key",
+          webhookKey: dodoSecret,
+        },
       },
-    })
+      { dodo: dodo.client }
+    )
     owner = new ApiSession(app)
     other = new ApiSession(app)
     for (const [index, session] of [owner, other].entries()) {
@@ -154,6 +166,10 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       if (index === 0) workspaceId = workspace.id
       else otherWorkspaceId = workspace.id
     }
+    const unpaid = await owner.request("/accounts/connect", "POST", {})
+    expect(unpaid.statusCode).toBe(402)
+    expect((await unpaid.json()).error.code).toBe("plan_required")
+    await grantPlan(config, workspaceId, "growth")
     expect(
       (await owner.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(200)
@@ -677,6 +693,17 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       "42501"
     )
     expect(
+      (await user.from("workspace_billing").select("workspace_id")).data
+    ).toEqual([{ workspace_id: workspaceId }])
+    expect(
+      (
+        await user
+          .from("workspace_billing")
+          .update({ plan: "business" })
+          .eq("workspace_id", workspaceId)
+      ).error?.code
+    ).toBe("42501")
+    expect(
       (
         await user.rpc("process_account_webhook", {
           p_id: "forged",
@@ -687,6 +714,200 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         })
       ).error?.code
     ).toBe("42501")
+  })
+
+  it("prices plans in USD even for Indian visitors and reports the workspace's plan", async () => {
+    const india = await other.request("/billing", "GET", undefined, {
+      "x-visitor-country": "IN",
+    })
+    expect(await india.json()).toEqual({
+      currency: "USD",
+      subscription: null,
+      connectedAccounts: 0,
+    })
+    expect((await (await other.request("/billing")).json()).currency).toBe(
+      "USD"
+    )
+    expect(await (await owner.request("/billing")).json()).toMatchObject({
+      currency: "USD",
+      subscription: { plan: "growth", interval: "monthly", status: "active" },
+      connectedAccounts: 1,
+    })
+  })
+
+  it("fulfills a confirmed Dodo payment, limits concurrent connections, and pauses automations when billing ends", async () => {
+    const email = `aghost-billing-${runId}@example.com`
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    })
+    if (error || !data.user)
+      throw new Error("Could not create the disposable billing user")
+    userIds.push(data.user.id)
+    const customer = new ApiSession(app)
+    await signInDisposableUser(config, email, customer.cookies)
+    const workspace = (await (await customer.request("/workspace")).json()) as {
+      id: string
+    }
+    const checkout = await customer.request(
+      "/billing/checkout",
+      "POST",
+      { plan: "pro", interval: "monthly" },
+      { "x-visitor-country": "IN" }
+    )
+    expect(checkout.statusCode).toBe(200)
+    expect(await checkout.json()).toEqual({
+      url: "https://checkout.example/session",
+    })
+    expect(
+      dodo.requests.find((request) => request.path === "/customers")!.body
+    ).toMatchObject({ email, metadata: { aghost_workspace_id: workspace.id } })
+    dodo.state.subscription = dodo.subscription()
+
+    async function billingEvent(type: string, signature?: string) {
+      const body = JSON.stringify({
+        type,
+        data: { subscription_id: "sub_1", status: "active" },
+      })
+      const now = new Date()
+      return app.inject({
+        method: "POST",
+        url: "/api/webhooks/dodo",
+        headers: {
+          "webhook-id": "billing_fixture",
+          "webhook-timestamp": String(Math.floor(now.getTime() / 1000)),
+          "webhook-signature":
+            signature ??
+            new Webhook(dodoSecret).sign("billing_fixture", now, body),
+        },
+        payload: body,
+      })
+    }
+
+    expect(
+      (await billingEvent("subscription.active", "v1,forged")).statusCode
+    ).toBe(401)
+    expect((await billingEvent("subscription.active")).statusCode).toBe(200)
+    expect(
+      (await (await customer.request("/billing")).json()).subscription.status
+    ).toBe("pending")
+    expect(
+      (await customer.request("/accounts/connect", "POST", {})).statusCode
+    ).toBe(402)
+    dodo.state.payments = [dodo.payment()]
+    expect((await billingEvent("payment.succeeded")).statusCode).toBe(200)
+    expect(
+      (await (await customer.request("/billing")).json()).subscription.status
+    ).toBe("active")
+    expect(
+      (
+        await customer.request("/billing/checkout", "POST", {
+          plan: "growth",
+          interval: "monthly",
+        })
+      ).statusCode
+    ).toBe(409)
+
+    dodo.state.paymentLink = "https://checkout.example/approval"
+    const approval = await customer.request("/billing/plan", "POST", {
+      plan: "growth",
+      interval: "monthly",
+    })
+    expect(approval.statusCode).toBe(200)
+    expect(await approval.json()).toMatchObject({
+      paymentUrl: dodo.state.paymentLink,
+      state: { subscription: { plan: "pro" } },
+    })
+    dodo.state.subscription = dodo.subscription({
+      product_id: "pdt_growth_monthly",
+    })
+    dodo.state.payments = [dodo.payment({ total_amount: 1900 })]
+    expect((await billingEvent("subscription.plan_changed")).statusCode).toBe(
+      200
+    )
+    expect(
+      (await customer.request("/accounts/connect", "POST", {})).statusCode
+    ).toBe(200)
+    const profile = (
+      await admin
+        .from("workspaces")
+        .select("zernio_profile_id")
+        .eq("id", workspace.id)
+        .single()
+    ).data!.zernio_profile_id!
+
+    const connected = await Promise.all(
+      Array.from({ length: 3 }, (_, index) =>
+        deliver({
+          id: newEventId(),
+          event: "account.connected",
+          account: {
+            accountId: `billing-account-${runId}-${index}`,
+            profileId: profile,
+            platform: "instagram",
+            username: `billing_${index}`,
+          },
+        })
+      )
+    )
+    expect(connected.every((response) => response.statusCode === 200)).toBe(
+      true
+    )
+    const accounts = (await (
+      await customer.request("/accounts")
+    ).json()) as InstagramAccount[]
+    expect(
+      accounts.filter((account) => account.status === "connected")
+    ).toHaveLength(2)
+    expect(
+      accounts.filter((account) => account.status === "disconnected")
+    ).toHaveLength(1)
+    expect(
+      (await customer.request("/accounts/connect", "POST", {})).statusCode
+    ).toBe(403)
+    expect(
+      (
+        await customer.request("/billing/plan", "POST", {
+          plan: "pro",
+          interval: "monthly",
+        })
+      ).statusCode
+    ).toBe(403)
+    const automation = await customer.request("/automations", "POST", {
+      ...automationInput(),
+      instagramAccountId: accounts.find(
+        (account) => account.status === "connected"
+      )!.id,
+      trigger: { postScope: "any_post" },
+    })
+    expect(automation.statusCode).toBe(201)
+    const created = (await automation.json()) as Automation
+
+    dodo.state.subscription = dodo.subscription({
+      product_id: "pdt_growth_monthly",
+      status: "on_hold",
+    })
+    expect((await billingEvent("subscription.on_hold")).statusCode).toBe(200)
+    expect(
+      (await (await customer.request(`/automations/${created.id}`)).json())
+        .status
+    ).toBe("paused")
+    expect(
+      (
+        await customer.request(`/automations/${created.id}/status`, "PATCH", {
+          status: "active",
+        })
+      ).statusCode
+    ).toBe(402)
+    // A delayed old "active" delivery reads the provider's current on-hold state.
+    expect((await billingEvent("subscription.active")).statusCode).toBe(200)
+    expect(
+      (await (await customer.request("/billing")).json()).subscription.status
+    ).toBe("on_hold")
+    expect(
+      (await customer.request("/billing/portal", "POST", {})).statusCode
+    ).toBe(200)
+    await customer.request(`/automations/${created.id}`, "DELETE")
   })
 
   it("commits concurrent duplicate webhook deliveries once", async () => {
@@ -900,12 +1121,20 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       createApi({
         ...config,
         zernio: { ...config.zernio, apiKey: "", webhookSecret: "" },
+        dodo: { ...config.dodo, apiKey: "", webhookKey: "" },
       })
     )
     for (const [name, value] of owner.cookies) disabled.cookies.set(name, value)
     expect(await (await disabled.request("/integrations")).json()).toEqual({
       instagramConfigured: false,
+      billingConfigured: false,
     })
+    expect(
+      (await disabled.request("/billing/portal", "POST", {})).statusCode
+    ).toBe(503)
+    expect(
+      (await disabled.request("/webhooks/dodo", "POST", {})).statusCode
+    ).toBe(503)
     expect(
       (await disabled.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(503)

@@ -6,7 +6,9 @@ import type {
   InstagramAccount,
   IntegrationStatus,
   Workspace,
+  BillingState,
 } from "@workspace/api/contract"
+import { isEntitled } from "@workspace/api/contract"
 import { api } from "@/lib/api"
 import { useAuthStore } from "./auth-store"
 
@@ -24,6 +26,7 @@ type WorkspaceState = {
   automations: Automation[]
   stats: AutomationStatsById | null
   integration: IntegrationStatus | null
+  billing: BillingState | null
   status: "idle" | "loading" | "ready" | "error"
   error: string | null
   statsError: string | null
@@ -48,6 +51,7 @@ const initial = {
   automations: [],
   stats: null,
   integration: null,
+  billing: null,
   status: "idle" as const,
   error: null,
   statsError: null,
@@ -63,15 +67,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (get().status === "loading") return
     set({ status: "loading", error: null })
     try {
-      const [workspace, accounts, automations, integration] = await Promise.all(
-        [
+      const [workspace, accounts, automations, integration, billing] =
+        await Promise.all([
           api.workspace.get(),
           api.accounts.list(),
           api.automations.list(),
           api.integrations(),
-        ]
-      )
-      set({ workspace, accounts, automations, integration, status: "ready" })
+          api.billing.get(),
+        ])
+      set({
+        workspace,
+        accounts,
+        automations,
+        integration,
+        billing,
+        status: "ready",
+      })
     } catch (error) {
       set({ error: errorMessage(error), status: "error" })
     }
@@ -98,6 +109,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
   connect: async () => {
     if (get().busy) return
+    const subscription = get().billing?.subscription
+    if (!subscription || !isEntitled(subscription.status)) {
+      window.location.assign("/settings#billing")
+      return
+    }
     set({ busy: true, error: null })
     try {
       const { authUrl } = await api.accounts.connect()

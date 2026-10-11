@@ -42,6 +42,7 @@ ${faqs.map((faq) => `- ${faq.question} ${faq.answer}`).join("\n")}
 ## Pages
 
 - [Home](${site.url}/): What ${site.name} does, how it works, and answers to common questions
+- [Pricing](${site.url}/pricing): USD monthly and yearly plans, with MCP and REST API access on every plan
 - [Log in or sign up](${site.url}/login): Continue with Google to open the dashboard
 `
 

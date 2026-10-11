@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { SignIn } from "@/features/auth/sign-in"
+import { billingChoice } from "@workspace/api/contract"
 
 export const metadata: Metadata = {
   title: "Log in or sign up",
@@ -11,11 +12,19 @@ export const metadata: Metadata = {
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{
+    error?: string
+    next?: string
+    plan?: string
+    interval?: string
+  }>
 }) {
-  const { error } = await searchParams
+  const query = await searchParams
+  const { error, next } = query
   return (
     <SignIn
+      billing={next === "billing"}
+      choice={next === "billing" ? billingChoice(query) : null}
       error={
         error === "google" ? "Google sign-in did not finish. Try again." : null
       }

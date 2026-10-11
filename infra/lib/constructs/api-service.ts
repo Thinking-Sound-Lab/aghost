@@ -17,6 +17,9 @@ export const SECRET_KEYS = [
   "SUPABASE_SECRET_KEY",
   "ZERNIO_API_KEY",
   "ZERNIO_WEBHOOK_SECRET",
+  "DODO_PAYMENTS_ENVIRONMENT",
+  "DODO_PAYMENTS_API_KEY",
+  "DODO_PAYMENTS_WEBHOOK_KEY",
 ] as const
 
 export type ApiServiceProps = Pick<

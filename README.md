@@ -6,7 +6,7 @@
 
 **Agentic DM automation for Instagram.**
 
-Turns Instagram comments into DMs, from the dashboard or from an AI agent over MCP. Built with Next.js, Fastify, Supabase, and Zernio.
+Create, manage and monitor comment-to-DM automations through MCP, the REST API, or the dashboard. MCP and API access are included on every plan.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
@@ -100,7 +100,7 @@ Google is the only way to sign in, and a first sign-in creates the account. Supa
 
 Supabase reads both values when it starts. After changing them, or after switching from a branch with different sign-in settings, run `pnpm local:stop` and then `pnpm dev`.
 
-### Zernio webhooks locally
+### Provider webhooks locally
 
 Zernio notifies the API when an Instagram account connects or disconnects. To receive those events on your machine, run:
 
@@ -108,13 +108,13 @@ Zernio notifies the API when an Instagram account connects or disconnects. To re
 pnpm local:tunnel
 ```
 
-This starts a [Cloudflare quick tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) in Docker, which needs no Cloudflare account. Only `/api/webhooks/zernio` is public; Cloudflare answers 404 for every other path. The command then:
+This starts a [Cloudflare quick tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) in Docker, which needs no Cloudflare account. Only `/api/webhooks/zernio` and `/api/webhooks/dodo` are public; Cloudflare answers 404 for every other path. With Zernio configured, the command:
 
 1. Generates `ZERNIO_WEBHOOK_SECRET` in the root `.env` if it is empty.
 2. Creates or updates a Zernio webhook named `aghost local tunnel` that points to the tunnel and subscribes to `account.connected` and `account.disconnected`.
 3. Asks Zernio to send a test event through the tunnel, and fails if it is not delivered.
 
-`ZERNIO_API_KEY` is required. Deliveries and their status codes appear in `pnpm local:logs`; a 401 means the signature did not match the secret.
+Set `ZERNIO_API_KEY` or a Dodo test-mode API key. With Dodo configured, the command also registers its local subscription/payment webhook, stores the signing secret in the root `.env`, and recreates the API container. Deliveries and their status codes appear in `pnpm local:logs`; a 401 means the signature did not match the secret.
 
 The trycloudflare.com address changes each time the tunnel starts, so run `pnpm local:tunnel` again after `pnpm local:stop` or a Docker restart. While the tunnel is stopped, deliveries to the old address fail; you can resend them from Zernio's webhook logs. Connecting an account does not depend on the tunnel: after authorization, `/accounts/callback` reads the account list from Zernio directly.
 
@@ -136,10 +136,13 @@ The trycloudflare.com address changes each time the tunnel starts, so run `pnpm 
 | `ZERNIO_API_URL`                          | API      | The Zernio API                                                   |
 | `ZERNIO_API_KEY`                          | API      | Enables Instagram features; empty leaves them unavailable        |
 | `ZERNIO_WEBHOOK_SECRET`                   | API      | Verifies webhook signatures; `pnpm local:tunnel` generates one   |
+| `DODO_PAYMENTS_ENVIRONMENT`               | API      | `test_mode` locally; `live_mode` for production billing          |
+| `DODO_PAYMENTS_API_KEY`                   | API      | Enables checkout, plan changes, and the billing portal           |
+| `DODO_PAYMENTS_WEBHOOK_KEY`               | API      | Verifies Dodo subscription and payment webhook signatures        |
 
-To connect Instagram, set `ZERNIO_API_KEY` and run `pnpm local:start`. Without it, sign-in and workspaces work and Instagram connections are explicitly unavailable; the app never substitutes sample accounts or analytics.
+To connect Instagram, set `ZERNIO_API_KEY`, configure Dodo, and subscribe to a plan. Pro, Growth and Business cost $9 / $19 / $49 per month, billed in US dollars in every country with taxes included. Yearly billing costs twelve monthly payments, paid upfront. See [pricing and billing setup](docs/billing.md). Without provider credentials, sign-in and workspaces work and the corresponding provider features are unavailable; the app never substitutes sample accounts or analytics.
 
-- Only `APP_URL` and `API_URL` reach Next.js. Supabase and Zernio credentials go to the API container only, and the Google client to Supabase only. Env files are ignored by Git and excluded from Docker images.
+- Only `APP_URL` and `API_URL` reach Next.js. Supabase, Zernio and Dodo credentials go to the API container only, and the Google client to Supabase only. Env files are ignored by Git and excluded from Docker images.
 - Compose gives the API container `http://supabase_kong_aghost:8000` as `SUPABASE_URL`, so it talks to Supabase over the Docker network.
 - For a public or tunneled setup, update `APP_URL` and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`.
 - Deployed environments inject these variables directly; no env file is needed.
@@ -286,7 +289,10 @@ aws secretsmanager create-secret --name aghost/prod/api --secret-string '{
   "SUPABASE_PUBLISHABLE_KEY": "…",
   "SUPABASE_SECRET_KEY": "…",
   "ZERNIO_API_KEY": "…",
-  "ZERNIO_WEBHOOK_SECRET": "…"
+  "ZERNIO_WEBHOOK_SECRET": "…",
+  "DODO_PAYMENTS_ENVIRONMENT": "live_mode",
+  "DODO_PAYMENTS_API_KEY": "…",
+  "DODO_PAYMENTS_WEBHOOK_KEY": "…"
 }'
 
 pnpm --filter infra exec cdk deploy --all

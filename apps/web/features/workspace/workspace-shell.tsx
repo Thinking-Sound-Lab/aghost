@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { billingChoice, billingLoginPath } from "@workspace/api/contract"
 import {
   CircleHelp,
   House,
@@ -23,6 +24,7 @@ import { Brand } from "@/components/brand"
 import { Avatar, ErrorBanner, Loading } from "@/components/interface"
 import { useAuthStore } from "@/stores/auth-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useBillingStore } from "@/stores/billing-store"
 
 const HELP_URL = "https://github.com/Abhishekucs/aghost#readme"
 const ITEM =
@@ -47,11 +49,27 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (auth.status === "signed_out") {
       workspace.clear()
-      router.replace("/login")
+      useBillingStore.getState().clear()
+      router.replace(
+        pathname === "/settings" && window.location.hash === "#billing"
+          ? billingLoginPath(
+              billingChoice(
+                Object.fromEntries(new URLSearchParams(window.location.search))
+              )
+            )
+          : "/login"
+      )
     }
     if (auth.status === "signed_in" && workspace.status === "idle")
       void workspace.load()
-  }, [auth.status, workspace.status, workspace.load, workspace.clear, router])
+  }, [
+    auth.status,
+    workspace.status,
+    workspace.load,
+    workspace.clear,
+    router,
+    pathname,
+  ])
 
   if (auth.status === "error")
     return (

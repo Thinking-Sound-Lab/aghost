@@ -40,3 +40,29 @@ export async function signInDisposableUser(
     throw new Error("Could not sign the disposable user in")
   return data.session
 }
+
+/**
+ * Gives the workspace an active plan, as a completed checkout would. Each
+ * workspace gets its own made-up Dodo ids.
+ */
+export async function grantPlan(
+  config: ApiConfig,
+  workspaceId: string,
+  plan: "pro" | "growth" | "business"
+) {
+  const admin = createAdminSupabaseClient(config.supabase)
+  const now = new Date()
+  const { error } = await admin.from("workspace_billing").upsert({
+    workspace_id: workspaceId,
+    dodo_customer_id: `cus_fixture_${workspaceId}`,
+    dodo_subscription_id: `sub_fixture_${workspaceId}`,
+    plan,
+    billing_interval: "monthly",
+    status: "active",
+    currency: "USD",
+    current_period_end: new Date(now.getTime() + 30 * 86_400_000).toISOString(),
+    cancel_at_period_end: false,
+    subscription_created_at: now.toISOString(),
+  })
+  if (error) throw new Error(`Could not grant the plan: ${error.message}`)
+}

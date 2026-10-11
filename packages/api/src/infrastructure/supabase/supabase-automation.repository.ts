@@ -126,32 +126,40 @@ export class SupabaseAutomationRepository implements AutomationRepository {
   constructor(private readonly db: DataClients) {}
 
   async listByWorkspace(workspaceId: string): Promise<AutomationRecord[]> {
-    const rows = required(
-      await this.db.scoped
-        .from("automations")
-        .select()
-        .eq("workspace_id", workspaceId)
-        .order("created_at", { ascending: false }),
-      "list automations"
-    )
-
-    return rows.map(toRecord)
+    return this.list(workspaceId)
   }
 
   async listByAccount(
     workspaceId: string,
     accountId: string
   ): Promise<AutomationRecord[]> {
-    const rows = required(
-      await this.db.scoped
+    return this.list(workspaceId, accountId)
+  }
+
+  private async list(
+    workspaceId: string,
+    accountId?: string
+  ): Promise<AutomationRecord[]> {
+    const automations: AutomationRecord[] = []
+    // Supabase limits a response to 1,000 rows. Collect all pages before a
+    // caller pauses or deletes anything, with an ID tie-breaker for rows
+    // created together. Mutating callers hold workspace ownership throughout.
+    const pageSize = 1_000
+    for (let offset = 0; ; offset += pageSize) {
+      let query = this.db.scoped
         .from("automations")
         .select()
         .eq("workspace_id", workspaceId)
-        .eq("instagram_account_id", accountId),
-      "list the account's automations"
-    )
-
-    return rows.map(toRecord)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+      if (accountId) query = query.eq("instagram_account_id", accountId)
+      const rows = required(
+        await query.range(offset, offset + pageSize - 1),
+        "list automations"
+      )
+      automations.push(...rows.map(toRecord))
+      if (rows.length < pageSize) return automations
+    }
   }
 
   async findById(

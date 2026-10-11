@@ -49,7 +49,9 @@ describe("automation creation compensation", () => {
           createdAt: "2026-10-09T10:00:00Z",
         }),
       },
-      { listRecentPosts: async () => [] }
+      { listRecentPosts: async () => [] },
+      { assertCanRunAutomations: async () => {} },
+      { run: (_workspaceId, work) => work() }
     )
     await expect(
       service.create(
