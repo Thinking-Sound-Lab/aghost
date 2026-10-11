@@ -25,6 +25,7 @@ const app = createApi({
     apiKey: "",
     webhookKey: DODO_WEBHOOK_KEY,
   },
+  posthog: null,
 })
 
 const json = {

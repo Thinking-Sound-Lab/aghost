@@ -320,6 +320,14 @@ export const privacySections: PolicySection[] = [
             correspondence, and technical records needed to operate and secure
             the service.
           </li>
+          <li>
+            <strong>Product usage:</strong> pages viewed, clicks and other
+            interactions, device and browser details, approximate location
+            derived from your IP address, performance and error records,
+            recordings of how pages are used, and actions taken in your
+            workspace through the dashboard, API, or MCP. Recordings mask typed
+            input and leave out Instagram users’ messages, names, and contacts.
+          </li>
         </ul>
         <p>
           We do not receive your Google or Instagram password. Some information
@@ -385,6 +393,10 @@ export const privacySections: PolicySection[] = [
             payment processing, and the billing portal.
           </li>
           <li>
+            <strong>PostHog:</strong> product analytics, session recordings, and
+            error tracking, stored in the United States.
+          </li>
+          <li>
             <strong>
               Hosting and infrastructure providers, including Vercel and Amazon
               Web Services:
@@ -442,6 +454,11 @@ export const privacySections: PolicySection[] = [
           are handled by the backend and are not readable by browser JavaScript.
           Third-party sign-in and checkout pages may use their own cookies under
           their own policies.
+        </p>
+        <p>
+          We use PostHog to understand how the website and dashboard are used.
+          It keeps an identifier in a cookie and in your browser’s local storage
+          so that visits before and after you sign in are counted as yours.
         </p>
         <p>
           Hosting and API infrastructure may process IP addresses, request

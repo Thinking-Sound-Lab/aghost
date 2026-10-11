@@ -57,7 +57,7 @@ export function Contacts() {
         )
       ) : (
         <>
-          <div className="divide-y">
+          <div className="ph-no-capture divide-y">
             <div className="-mx-3 flex items-center gap-4 px-3 pb-2 text-xs text-muted-foreground">
               <span className="flex-1">Name</span>
               <span className="hidden w-48 md:block">Tags</span>

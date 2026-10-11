@@ -12,6 +12,7 @@ import {
   type DodoClient,
 } from "./infrastructure/dodo/dodo-client"
 import { DodoWebhookGateway } from "./infrastructure/dodo/dodo-webhook.gateway"
+import { PostHogAnalytics } from "./infrastructure/posthog/posthog-analytics"
 import type { DataClients } from "./infrastructure/supabase/data-clients"
 import { SupabaseAccountRepository } from "./infrastructure/supabase/supabase-account.repository"
 import { SupabaseApiKeyRepository } from "./infrastructure/supabase/supabase-api-key.repository"
@@ -29,6 +30,11 @@ import { ZernioInstagramProvider } from "./infrastructure/zernio/zernio-instagra
 import { ZernioProfileProvider } from "./infrastructure/zernio/zernio-profile.provider"
 import { ZernioWebhookGateway } from "./infrastructure/zernio/zernio-webhook.gateway"
 import { AccountService } from "./modules/accounts/account.service"
+import {
+  DISABLED_ANALYTICS,
+  type Analytics,
+  type ProductAnalytics,
+} from "./modules/analytics/analytics"
 import { ApiKeyService } from "./modules/api-keys/api-key.service"
 import type { InstagramProvider } from "./modules/accounts/instagram.provider"
 import type { AutomationProvider } from "./modules/automations/automation.provider"
@@ -63,6 +69,8 @@ export type Services = {
   contacts: ContactService
   billing: BillingService
   plans: PlanEntitlements
+  /** Records events with the source of the request these services serve. */
+  analytics: ProductAnalytics
 }
 
 type Providers = {
@@ -80,7 +88,8 @@ type ReturnPages = { connectRedirectUrl: string; billing: BillingPages }
 function createServices(
   db: DataClients,
   providers: Providers,
-  pages: ReturnPages
+  pages: ReturnPages,
+  analytics: ProductAnalytics
 ): Services {
   const accountRepository = new SupabaseAccountRepository(db)
   const billingRepository = new SupabaseBillingRepository(db)
@@ -89,7 +98,8 @@ function createServices(
 
   const workspaces = new WorkspaceService(
     new SupabaseWorkspaceRepository(db),
-    providers.profiles
+    providers.profiles,
+    analytics
   )
   const automations = new AutomationService(
     new SupabaseAutomationRepository(db),
@@ -97,7 +107,8 @@ function createServices(
     accountRepository,
     providers.instagram,
     plans,
-    operations
+    operations,
+    analytics
   )
   const accounts = new AccountService(
     accountRepository,
@@ -106,7 +117,8 @@ function createServices(
     automations,
     pages.connectRedirectUrl,
     plans,
-    operations
+    operations,
+    analytics
   )
   const billing = new BillingService(
     billingRepository,
@@ -114,12 +126,16 @@ function createServices(
     accountRepository,
     automations,
     pages.billing,
-    operations
+    operations,
+    analytics
   )
 
-  const inbox = new InboxService(providers.inbox, accountRepository)
+  const inbox = new InboxService(providers.inbox, accountRepository, analytics)
   const contacts = new ContactService(providers.contacts)
-  const apiKeys = new ApiKeyService(new SupabaseApiKeyRepository(db.privileged))
+  const apiKeys = new ApiKeyService(
+    new SupabaseApiKeyRepository(db.privileged),
+    analytics
+  )
 
   return {
     apiKeys,
@@ -130,10 +146,13 @@ function createServices(
     contacts,
     billing,
     plans,
+    analytics,
   }
 }
 
-function runtime(config: ApiConfig, options: { dodo?: DodoClient } = {}) {
+type RuntimeOptions = { dodo?: DodoClient; analytics?: Analytics }
+
+function runtime(config: ApiConfig, options: RuntimeOptions = {}) {
   const zernio = () => createZernioClient(config.zernio)
   const providers: Providers = {
     profiles: new ZernioProfileProvider(zernio),
@@ -155,29 +174,46 @@ function runtime(config: ApiConfig, options: { dodo?: DodoClient } = {}) {
     },
   }
   const admin = createAdminSupabaseClient(config.supabase)
-  return { providers, pages, admin }
+  const analytics =
+    options.analytics ??
+    (config.posthog ? new PostHogAnalytics(config.posthog) : DISABLED_ANALYTICS)
+  return { providers, pages, admin, analytics }
 }
 
 /** A backend-only rollout command; it uses the API's provider and plan policy. */
 export function createBillingMaintenance(
   config: ApiConfig,
-  options: { dodo?: DodoClient } = {}
+  options: RuntimeOptions = {}
 ) {
-  const { admin, providers, pages } = runtime(config, options)
+  const { admin, providers, pages, analytics } = runtime(config, options)
   const services = createServices(
     { scoped: admin, privileged: admin },
     providers,
-    pages
+    pages,
+    analytics.from("maintenance")
   )
-  return new SupabaseBillingReconciliation(admin, services.billing)
+  const reconciliation = new SupabaseBillingReconciliation(
+    admin,
+    services.billing
+  )
+  return {
+    /** Reconciles the workspaces, then sends the events it recorded. */
+    run: async (log: (message: string) => void) => {
+      try {
+        return await reconciliation.run(log)
+      } finally {
+        await analytics.shutdown()
+      }
+    },
+  }
 }
 
 /** Composition root: builds the API from its configuration. */
 export function createApi(
   config: ApiConfig,
-  options: { dodo?: DodoClient } = {}
+  options: RuntimeOptions = {}
 ): ApiApp {
-  const { admin, providers, pages } = runtime(config, options)
+  const { admin, providers, pages, analytics } = runtime(config, options)
 
   // Each request gets services whose reads run as the signed-in user.
   const authenticate: Authenticate = async (accessToken) => {
@@ -191,7 +227,8 @@ export function createApi(
     const services = createServices(
       { scoped, privileged: admin },
       providers,
-      pages
+      pages,
+      analytics.from("dashboard")
     )
 
     return {
@@ -200,8 +237,11 @@ export function createApi(
     }
   }
 
-  const apiKeys = new ApiKeyService(new SupabaseApiKeyRepository(admin))
-  const authenticateAgent: AuthenticateAgent = async (token) => {
+  const apiKeys = new ApiKeyService(
+    new SupabaseApiKeyRepository(admin),
+    analytics.from("api")
+  )
+  const authenticateAgent: AuthenticateAgent = async (token, source) => {
     const key = await apiKeys.authenticate(token)
     const db = { scoped: admin, privileged: admin }
     const workspace = await new SupabaseWorkspaceRepository(db).findById(
@@ -213,7 +253,7 @@ export function createApi(
       workspace,
       // Key requests have no Supabase user JWT. Every exposed repository
       // operation filters by this verified workspace before any provider call.
-      services: createServices(db, providers, pages),
+      services: createServices(db, providers, pages, analytics.from(source)),
     }
   }
 
@@ -222,14 +262,16 @@ export function createApi(
     new SupabaseWebhookProcessor(
       admin,
       providers.instagram,
-      new SupabaseWorkspaceOperations(admin)
+      new SupabaseWorkspaceOperations(admin),
+      analytics.from("webhook")
     )
   )
   // Billing webhooks act for whichever workspace the subscription belongs to.
   const backend = createServices(
     { scoped: admin, privileged: admin },
     providers,
-    pages
+    pages,
+    analytics.from("webhook")
   )
   const billingWebhooks = new BillingWebhookService(
     new DodoWebhookGateway(config.dodo.webhookKey),
@@ -241,6 +283,7 @@ export function createApi(
     authenticateAgent,
     webhooks,
     billingWebhooks,
+    analytics,
     config,
   })
 }

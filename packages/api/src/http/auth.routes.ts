@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js"
 import type { FastifyPluginAsync } from "fastify"
 import type { ApiConfig } from "../config"
 import {
@@ -5,13 +6,39 @@ import {
   billingLoginPath,
   billingPath,
 } from "../contract/billing"
+import type { Analytics } from "../modules/analytics/analytics"
 import { BadRequestError, UnauthenticatedError } from "../shared/errors"
 import { presentUser } from "./presenters"
 
 const SIGN_IN_FAILED_PATH = "/login?error=google"
 const RETURN_COOKIE = "aghost-auth-return"
+// A first Google sign-in creates the account, so that session starts moments
+// after the account does; later sessions start long after.
+const FIRST_SESSION_WINDOW_MS = 60_000
 
-export function authRoutes(config: ApiConfig): FastifyPluginAsync {
+function recordSignIn(analytics: Analytics, user: User): void {
+  const name: unknown = user.user_metadata.full_name
+  analytics.identify(user.id, {
+    ...(user.email && { email: user.email }),
+    ...(typeof name === "string" && name.trim() && { name }),
+    signed_up_at: user.created_at,
+  })
+  const signedUp =
+    user.last_sign_in_at !== undefined &&
+    Date.parse(user.last_sign_in_at) - Date.parse(user.created_at) <
+      FIRST_SESSION_WINDOW_MS
+  analytics
+    .from("dashboard")
+    .capture(
+      { userId: user.id },
+      { name: signedUp ? "user_signed_up" : "user_signed_in", method: "google" }
+    )
+}
+
+export function authRoutes(
+  config: ApiConfig,
+  analytics: Analytics
+): FastifyPluginAsync {
   const appUrl = (path: string) => new URL(path, config.appUrl).toString()
   return async (router) => {
     router.get("/session", async (request) => {
@@ -92,8 +119,9 @@ export function authRoutes(config: ApiConfig): FastifyPluginAsync {
         reply.clearCookie(RETURN_COOKIE, { path: "/api/auth" })
         // Without a code, the sign-in was cancelled or refused.
         if (!code) return reply.redirect(appUrl(failure))
-        const { error } =
+        const { data, error } =
           await request.session.auth.exchangeCodeForSession(code)
+        if (!error) recordSignIn(analytics, data.user)
         return reply.redirect(appUrl(error ? failure : destination))
       }
     )

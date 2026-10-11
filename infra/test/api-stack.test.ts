@@ -93,6 +93,8 @@ describe("API stack", () => {
       "API_HOST",
       "API_PORT",
       "APP_URL",
+      "POSTHOG_HOST",
+      "POSTHOG_KEY",
       "SUPABASE_URL",
       "ZERNIO_API_URL",
     ])

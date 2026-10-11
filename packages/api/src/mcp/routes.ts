@@ -14,7 +14,7 @@ export function mcpRoutes(authenticate: AuthenticateAgent, appUrl: string) {
     )
 
     app.register(async (protectedRoutes) => {
-      protectedRoutes.addHook("onRequest", requireApiKey(authenticate))
+      protectedRoutes.addHook("onRequest", requireApiKey(authenticate, "mcp"))
       protectedRoutes.route({
         method: ["POST", "GET", "DELETE"],
         url: "/mcp",

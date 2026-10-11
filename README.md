@@ -10,7 +10,7 @@ Create, manage and monitor comment-to-DM automations through MCP, the REST API, 
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
-[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [API](#api) · [MCP](#mcp) · [Brand](#brand) · [Search and AI assistants](#search-and-ai-assistants) · [Testing](#testing) · [Deployment](#deployment)
+[Stack](#stack) · [Architecture](#architecture) · [Run locally](#run-locally) · [Configuration](#configuration) · [API](#api) · [MCP](#mcp) · [Analytics](#analytics) · [Brand](#brand) · [Search and AI assistants](#search-and-ai-assistants) · [Testing](#testing) · [Deployment](#deployment)
 
 </div>
 
@@ -24,6 +24,7 @@ Create, manage and monitor comment-to-DM automations through MCP, the REST API, 
 | **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS |
 | **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth              |
 | **Instagram**      | Zernio for account connections, automations, inbox, and contacts      |
+| **Analytics**      | PostHog for product events, web analytics, and session replay         |
 | **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                |
 
 ## Architecture
@@ -39,11 +40,14 @@ flowchart LR
   end
   supabase[("Supabase<br/>Postgres and Auth")]
   zernio["Zernio<br/>Instagram API"]
+  posthog["PostHog<br/>product analytics"]
 
   browser -->|"pages and /api"| web
   web -->|"/api/* rewrite"| gateway
+  web -->|"/relay/* rewrite"| posthog
   api --> supabase
   api <-->|"calls and webhooks"| zernio
+  api -->|"business events"| posthog
 ```
 
 - **One origin for the browser.** Pages and `/api` share the web app's origin; Next.js rewrites `/api/*` to the API. Locally, the same proxy points at the API in Docker.
@@ -139,10 +143,12 @@ The trycloudflare.com address changes each time the tunnel starts, so run `pnpm 
 | `DODO_PAYMENTS_ENVIRONMENT`               | API      | `test_mode` locally; `live_mode` for production billing          |
 | `DODO_PAYMENTS_API_KEY`                   | API      | Enables checkout, plan changes, and the billing portal           |
 | `DODO_PAYMENTS_WEBHOOK_KEY`               | API      | Verifies Dodo subscription and payment webhook signatures        |
+| `POSTHOG_KEY`                             | API, Web | PostHog project key; empty leaves [analytics](#analytics) off    |
+| `POSTHOG_HOST`                            | API, Web | PostHog's address for the project's region                       |
 
 The dashboard, REST API and MCP need a plan: after sign-in the app shows only the paywall until the workspace subscribes, so configure Dodo to use it locally. To connect Instagram, also set `ZERNIO_API_KEY`. Pro, Growth and Business cost $9 / $19 / $49 per month, billed in US dollars in every country with taxes included. Yearly billing costs twelve monthly payments, paid upfront. See [pricing and billing setup](docs/billing.md). Without Dodo credentials, sign-in works and nobody can subscribe. Without Zernio credentials, Instagram features are unavailable; the app never substitutes sample accounts or analytics.
 
-- Only `APP_URL` and `API_URL` reach Next.js. Supabase, Zernio and Dodo credentials go to the API container only, and the Google client to Supabase only. Env files are ignored by Git and excluded from Docker images.
+- Only `APP_URL`, `API_URL` and the PostHog key and host reach Next.js; the PostHog key is public by design. Supabase, Zernio and Dodo credentials go to the API container only, and the Google client to Supabase only. Env files are ignored by Git and excluded from Docker images.
 - Compose gives the API container `http://supabase_kong_aghost:8000` as `SUPABASE_URL`, so it talks to Supabase over the Docker network.
 - For a public or tunneled setup, update `APP_URL` and allow `/api/auth/callback` in Supabase's redirect URLs. Zernio redirects authorized Instagram connections to `/accounts/callback`.
 - Deployed environments inject these variables directly; no env file is needed.
@@ -158,6 +164,12 @@ Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full a
 Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool.
 
 MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
+
+## Analytics
+
+PostHog records the product end to end. The browser records page views, clicks, web vitals, errors and session replays through a same-origin `/relay`. The API records what happened, whether in the dashboard, through an agent over REST or MCP, or by webhook: sign-ups, checkouts, subscription changes and revenue, account connections, automations, and every agent tool call. Browser and API events share the signed-in user's id and are grouped by workspace. Instagram users' messages and contacts stay out of replays.
+
+Set `POSTHOG_KEY` and `POSTHOG_HOST` to turn it on. See [the analytics guide](docs/analytics.md) for production setup, the event catalog, and the questions it answers.
 
 ## Brand
 
@@ -184,7 +196,7 @@ The marketing pages serve readable HTML to search engines and AI assistants such
 - **Agent access.** The homepage, feature demo, and dedicated agent page explain how Claude Code, Codex, Cursor, or another MCP client can run aghost.
 - **Answers first.** The guide opens with a product definition and uses descriptive headings for setup, use cases, requirements, and stats. Its footer and feature-page links make it discoverable without JavaScript.
 - **Structured data.** The homepage describes the visible content as an `Organization`, `WebSite`, `WebApplication`, and `FAQPage` in JSON-LD. The guide adds `WebPage` and `BreadcrumbList` data matching its visible breadcrumb. Neither claims reviews or ratings.
-- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits public-page crawlers, with explicit groups for Googlebot, Bingbot, OpenAI search, Claude search, Perplexity search, and their user-requested fetchers. Each group excludes `/api/` except the public setup skill at `/api/mcp/skill.md`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages answer with `noindex`.
+- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits public-page crawlers, with explicit groups for Googlebot, Bingbot, OpenAI search, Claude search, Perplexity search, and their user-requested fetchers. Each group excludes `/api/`, except the public setup skill at `/api/mcp/skill.md`, and the analytics relay at `/relay/`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages answer with `noindex`.
 - **`/llms.txt`.** A plain-text summary for assistants that choose to read one. It links to product explanations, features, current pricing, and support before the agent setup details. It is a convenience, not a prerequisite for indexing or a citation guarantee.
 
 Canonical links, the sitemap, and the structured data use the site's public origin: `APP_URL` locally, and the project's production domain on Vercel.

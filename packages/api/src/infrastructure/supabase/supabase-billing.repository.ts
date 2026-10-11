@@ -14,6 +14,7 @@ import type {
   SubscriptionSnapshot,
 } from "../../modules/billing/billing"
 import type { BillingRepository } from "../../modules/billing/billing.repository"
+import type { WorkspaceOwner } from "../../modules/workspaces/workspace"
 import type { DataClients } from "./data-clients"
 import { completed, optional, required } from "./query"
 
@@ -91,19 +92,19 @@ export class SupabaseBillingRepository implements BillingRepository {
     return row ? toRecord(row) : null
   }
 
-  async findWorkspaceIdByCustomer(
+  async findWorkspaceByCustomer(
     providerCustomerId: string
-  ): Promise<string | null> {
+  ): Promise<WorkspaceOwner | null> {
     const row = optional(
       await this.db.privileged
         .from("workspace_billing")
-        .select("workspace_id")
+        .select("workspace_id, workspaces(owner_id)")
         .eq("dodo_customer_id", providerCustomerId)
         .maybeSingle(),
       "find the workspace of a billing customer"
     )
 
-    return row?.workspace_id ?? null
+    return row && { id: row.workspace_id, ownerId: row.workspaces.owner_id }
   }
 
   async saveCustomer(

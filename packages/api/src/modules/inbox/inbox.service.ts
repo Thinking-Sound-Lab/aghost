@@ -1,6 +1,7 @@
 import type { Conversation, Message } from "../../contract/inbox"
 import { AccountDisconnectedError, NotFoundError } from "../../shared/errors"
 import type { AccountRecord } from "../accounts/account"
+import { actorOf, type ProductAnalytics } from "../analytics/analytics"
 import type { WorkspaceRecord } from "../workspaces/workspace"
 import type { InboxProvider } from "./inbox.provider"
 
@@ -13,7 +14,8 @@ export interface InboxAccounts {
 export class InboxService {
   constructor(
     private readonly provider: InboxProvider,
-    private readonly accounts: InboxAccounts
+    private readonly accounts: InboxAccounts,
+    private readonly analytics: ProductAnalytics
   ) {}
 
   async listConversations(workspace: WorkspaceRecord): Promise<Conversation[]> {
@@ -76,6 +78,10 @@ export class InboxService {
       conversationId,
       text
     )
+    this.analytics.capture(actorOf(workspace), {
+      name: "inbox_message_sent",
+      account_id: account.id,
+    })
   }
 
   /**

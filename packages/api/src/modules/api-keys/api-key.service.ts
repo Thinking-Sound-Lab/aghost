@@ -9,6 +9,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../shared/errors"
+import { actorOf, type ProductAnalytics } from "../analytics/analytics"
 import type { WorkspaceRecord } from "../workspaces/workspace"
 import type { ApiKeyRecord, ApiKeyRepository } from "./api-key.repository"
 
@@ -24,7 +25,10 @@ export function hashApiKey(token: string): string {
 }
 
 export class ApiKeyService {
-  constructor(private readonly keys: ApiKeyRepository) {}
+  constructor(
+    private readonly keys: ApiKeyRepository,
+    private readonly analytics: ProductAnalytics
+  ) {}
 
   async list(workspace: WorkspaceRecord): Promise<ApiKey[]> {
     return (await this.keys.list(workspace.id)).map(presentKey)
@@ -48,12 +52,22 @@ export class ApiKeyService {
       prefix: token.slice(0, 12),
       tokenHash: hashApiKey(token),
     })
+    this.analytics.capture(actorOf(workspace), {
+      name: "api_key_created",
+      api_key_id: key.id,
+      scope_count: key.scopes.length,
+      expires: key.expiresAt !== null,
+    })
     return { key: presentKey(key), token }
   }
 
   async revoke(workspace: WorkspaceRecord, id: string): Promise<void> {
     if (!(await this.keys.revoke(workspace.id, id)))
       throw new NotFoundError("API key")
+    this.analytics.capture(actorOf(workspace), {
+      name: "api_key_revoked",
+      api_key_id: id,
+    })
   }
 
   async authenticate(token: string): Promise<ApiKeyRecord> {

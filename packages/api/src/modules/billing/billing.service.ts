@@ -11,16 +11,22 @@ import {
   PlanLimitError,
   PlanRequiredError,
 } from "../../shared/errors"
-import type { WorkspaceRecord } from "../workspaces/workspace"
+import { actorOf, type ProductAnalytics } from "../analytics/analytics"
+import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
 import { supersedes, type SubscriptionSnapshot } from "./billing"
+import {
+  priceUsd,
+  subscriptionEvents,
+  subscriptionTraits,
+} from "./billing-analytics"
 import type { BillingProvider } from "./billing.provider"
 import type { BillingRepository } from "./billing.repository"
 import { accountCount, type ConnectedAccounts } from "./plan-entitlements"
 
 /** Stops the automations of a workspace whose plan has ended. */
 export interface WorkspaceAutomations {
-  pauseAll(workspaceId: string): Promise<void>
+  pauseAll(workspace: WorkspaceOwner): Promise<void>
 }
 
 /** The signed-in person paying for the workspace. */
@@ -42,7 +48,8 @@ export class BillingService {
     private readonly accounts: ConnectedAccounts,
     private readonly automations: WorkspaceAutomations,
     private readonly pages: BillingPages,
-    private readonly operations: WorkspaceOperations
+    private readonly operations: WorkspaceOperations,
+    private readonly analytics: ProductAnalytics
   ) {}
 
   async getState(workspace: WorkspaceRecord): Promise<BillingState> {
@@ -51,8 +58,13 @@ export class BillingService {
       this.accounts.countConnected(workspace.id),
     ])
     const snapshot = record?.subscription ?? null
+    // Keeps the plan on the owner and workspace current, including for
+    // subscriptions that began before analytics did.
+    if (snapshot)
+      this.analytics.describeWorkspace(workspace, subscriptionTraits(snapshot))
 
     return {
+      workspaceId: workspace.id,
       currency: "USD",
       subscription: snapshot && {
         plan: snapshot.plan,
@@ -130,8 +142,10 @@ export class BillingService {
         status.payment === "unpaid" &&
         checkout.plan === choice.plan &&
         checkout.interval === choice.interval
-      )
+      ) {
+        this.recordCheckout(workspace, choice, true)
         return checkout.session.url
+      }
     }
 
     const providerProductId = await this.provider.prepareCheckout(
@@ -155,7 +169,22 @@ export class BillingService {
       cancelUrl: this.pages.checkoutCancel,
     })
     await this.billing.saveCheckout(workspace.id, session)
+    this.recordCheckout(workspace, choice, false)
     return session.url
+  }
+
+  private recordCheckout(
+    workspace: WorkspaceOwner,
+    choice: ChoosePlanInput,
+    resumed: boolean
+  ): void {
+    this.analytics.capture(actorOf(workspace), {
+      name: "checkout_started",
+      plan: choice.plan,
+      billing_interval: choice.interval,
+      price_usd: priceUsd(choice.plan, choice.interval),
+      resumed,
+    })
   }
 
   async changePlan(
@@ -195,6 +224,14 @@ export class BillingService {
       choice.plan,
       choice.interval
     )
+    this.analytics.capture(actorOf(workspace), {
+      name: "plan_change_requested",
+      plan: choice.plan,
+      billing_interval: choice.interval,
+      from_plan: current.plan,
+      from_billing_interval: current.interval,
+      payment_required: paymentUrl !== null,
+    })
     await this.refreshSubscription(current.providerSubscriptionId)
 
     return { state: await this.getState(workspace), paymentUrl }
@@ -208,10 +245,14 @@ export class BillingService {
       throw new PlanRequiredError("manage billing")
     }
 
-    return this.provider.createPortalSession(
+    const url = await this.provider.createPortalSession(
       record.providerCustomerId,
       this.pages.portalReturn
     )
+    this.analytics.capture(actorOf(workspace), {
+      name: "billing_portal_opened",
+    })
+    return url
   }
 
   /**
@@ -235,12 +276,12 @@ export class BillingService {
         null
       )
 
-      if (latest) await this.apply(workspace.id, latest)
-      else await this.enforce(workspace.id, record.subscription)
+      if (latest) await this.apply(workspace, latest)
+      else await this.enforce(workspace, record.subscription)
     } else {
       // Includes workspaces created before billing existed. The rollout
       // reconciliation command calls sync for all running workspaces.
-      await this.enforce(workspace.id, null)
+      await this.enforce(workspace, null)
     }
 
     return this.getState(workspace)
@@ -257,12 +298,12 @@ export class BillingService {
     const snapshot = await this.provider.getSubscription(providerSubscriptionId)
     if (!snapshot) return "ignored"
 
-    const workspaceId = await this.billing.findWorkspaceIdByCustomer(
+    const workspace = await this.billing.findWorkspaceByCustomer(
       snapshot.providerCustomerId
     )
-    if (!workspaceId) return "ignored"
+    if (!workspace) return "ignored"
 
-    return this.operations.run(workspaceId, async () => {
+    return this.operations.run(workspace.id, async () => {
       // The first read only locates the workspace. Refetch under ownership so
       // a slow earlier read cannot overwrite a newer webhook's saved state.
       const current = await this.provider.getSubscription(
@@ -273,39 +314,56 @@ export class BillingService {
         current.providerCustomerId !== snapshot.providerCustomerId
       )
         return "ignored"
-      await this.apply(workspaceId, current)
+      await this.apply(workspace, current)
       return "processed"
     })
   }
 
   private async apply(
-    workspaceId: string,
+    workspace: WorkspaceOwner,
     snapshot: SubscriptionSnapshot
   ): Promise<void> {
-    const record = await this.billing.findByWorkspace(workspaceId)
+    const record = await this.billing.findByWorkspace(workspace.id)
     const current = record?.subscription
     const replaces =
       !current ||
       current.providerSubscriptionId === snapshot.providerSubscriptionId ||
       supersedes(snapshot, current)
 
-    if (replaces) await this.billing.saveSubscription(workspaceId, snapshot)
+    if (replaces) {
+      await this.billing.saveSubscription(workspace.id, snapshot)
+      this.recordSubscription(workspace, current ?? null, snapshot)
+    }
 
     const effective = replaces || !current ? snapshot : current
-    await this.enforce(workspaceId, effective)
+    await this.enforce(workspace, effective)
+  }
+
+  /**
+   * Runs under the workspace's ownership, after the save, so a webhook and a
+   * sync that both see one change record it once.
+   */
+  private recordSubscription(
+    workspace: WorkspaceOwner,
+    previous: SubscriptionSnapshot | null,
+    current: SubscriptionSnapshot
+  ): void {
+    for (const event of subscriptionEvents(previous, current))
+      this.analytics.capture(actorOf(workspace), event)
+    this.analytics.describeWorkspace(workspace, subscriptionTraits(current))
   }
 
   private async enforce(
-    workspaceId: string,
+    workspace: WorkspaceOwner,
     subscription: SubscriptionSnapshot | null
   ): Promise<void> {
-    const connected = await this.accounts.countConnected(workspaceId)
+    const connected = await this.accounts.countConnected(workspace.id)
     if (
       !subscription ||
       !isEntitled(subscription.status) ||
       connected > PLANS[subscription.plan].instagramAccounts
     ) {
-      await this.automations.pauseAll(workspaceId)
+      await this.automations.pauseAll(workspace)
     }
   }
 

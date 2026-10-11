@@ -25,6 +25,12 @@ import type { WebhookService } from "../modules/webhooks/webhook.service"
 import type { BillingWebhookService } from "../modules/billing/billing-webhook"
 import type { Payer } from "../modules/billing/billing.service"
 import {
+  actorOf,
+  type Actor,
+  type Analytics,
+  type EventSource,
+} from "../modules/analytics/analytics"
+import {
   AppError,
   BadRequestError,
   BillingNotConfiguredError,
@@ -124,56 +130,84 @@ function isRejection(error: FastifyError): error is FastifyError & {
   )
 }
 
-function sendError(
-  error: FastifyError,
-  request: FastifyRequest,
-  reply: FastifyReply
-) {
-  if (error instanceof AppError) {
-    if (error.code === "internal_error") request.log.error(error)
-    return reply
-      .code(statusByCode[error.code])
-      .send(
-        errorBody(
-          error.code,
-          error.code === "internal_error"
-            ? INTERNAL_ERROR_MESSAGE
-            : error.message,
-          error.fields
-        )
-      )
-  }
-  if (isRejection(error)) {
-    request.log.warn(error)
-    return reply
-      .code(error.statusCode)
-      .send(
-        errorBody(
-          "bad_request",
-          rejectionMessages[error.code] ?? "The request could not be read."
-        )
-      )
-  }
-  request.log.error(error)
-  return reply
-    .code(500)
-    .send(errorBody("internal_error", INTERNAL_ERROR_MESSAGE))
+function sourceOf(request: FastifyRequest): EventSource {
+  const route = request.routeOptions.url ?? ""
+  if (WEBHOOK_PATHS.has(route)) return "webhook"
+  if (route === "/api/mcp") return "mcp"
+  return request.routeOptions.config?.agent ? "api" : "dashboard"
 }
+
+/** Who made the request, as far as authentication got before the error. */
+function actorOfRequest(request: FastifyRequest): Actor | null {
+  const workspace =
+    request.identity?.workspace ?? request.agentIdentity?.workspace
+  if (workspace) return actorOf(workspace)
+  return request.user ? { userId: request.user.id } : null
+}
+
+const errorHandler = (analytics: Analytics) =>
+  function sendError(
+    error: FastifyError,
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    const unexpected = () => {
+      request.log.error(error)
+      analytics
+        .from(sourceOf(request))
+        .captureException(error, actorOfRequest(request), {
+          method: request.method,
+          route: request.routeOptions.url ?? "unmatched",
+        })
+    }
+    if (error instanceof AppError) {
+      if (error.code === "internal_error") unexpected()
+      return reply
+        .code(statusByCode[error.code])
+        .send(
+          errorBody(
+            error.code,
+            error.code === "internal_error"
+              ? INTERNAL_ERROR_MESSAGE
+              : error.message,
+            error.fields
+          )
+        )
+    }
+    if (isRejection(error)) {
+      request.log.warn(error)
+      return reply
+        .code(error.statusCode)
+        .send(
+          errorBody(
+            "bad_request",
+            rejectionMessages[error.code] ?? "The request could not be read."
+          )
+        )
+    }
+    unexpected()
+    return reply
+      .code(500)
+      .send(errorBody("internal_error", INTERNAL_ERROR_MESSAGE))
+  }
 
 export function createApp({
   authenticate,
   authenticateAgent,
   webhooks,
   billingWebhooks,
+  analytics,
   config,
 }: {
   authenticate: Authenticate
   authenticateAgent: AuthenticateAgent
   webhooks: WebhookService
   billingWebhooks: BillingWebhookService
+  analytics: Analytics
   config: ApiConfig
 }) {
   const appOrigin = new URL(config.appUrl).origin
+  const sendError = errorHandler(analytics)
   const createSessionClient = createSessionClientFactory(config)
   const app = Fastify({
     logger: { redact: ["req.headers.authorization", "req.headers.cookie"] },
@@ -187,6 +221,11 @@ export function createApp({
     // Malformed URLs and oversized parameters, rejected before routing.
     frameworkErrors: sendError,
   })
+  analytics.reportFailuresTo((error) =>
+    app.log.warn({ err: error }, "PostHog did not receive analytics events")
+  )
+  // Events still queued are sent before the process stops.
+  app.addHook("onClose", () => analytics.shutdown())
   app.register(cookie)
   app.decorateRequest("session")
   app.decorateRequest("identity")
@@ -265,7 +304,7 @@ export function createApp({
           auth.addHook("onRequest", async (request, reply) => {
             request.session = createSessionClient(request, reply)
           })
-          auth.register(authRoutes(config))
+          auth.register(authRoutes(config, analytics))
         },
         { prefix: "/auth" }
       )

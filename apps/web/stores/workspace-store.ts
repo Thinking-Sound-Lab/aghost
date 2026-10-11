@@ -9,6 +9,7 @@ import type {
   BillingState,
 } from "@workspace/api/contract"
 import { isEntitled } from "@workspace/api/contract"
+import { analytics } from "@/lib/analytics"
 import { api } from "@/lib/api"
 import { useAuthStore } from "./auth-store"
 
@@ -20,7 +21,7 @@ export function hasPlan(billing: BillingState | null): boolean {
 
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError && error.code === "unauthenticated")
-    useAuthStore.setState({ user: null, status: "signed_out" })
+    useAuthStore.getState().expire()
   // The plan ended while the dashboard was open: reloading shows the paywall.
   if (error instanceof ApiClientError && error.code === "plan_required")
     void useWorkspaceStore.getState().load()
@@ -80,6 +81,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         api.integrations(),
         api.billing.get(),
       ])
+      // Joins the workspace before the paywall, so steps to a purchase count.
+      analytics?.group("workspace", billing.workspaceId)
       // Without a plan the API serves only billing, for the paywall.
       if (!hasPlan(billing)) {
         set({ ...initial, integration, billing, status: "ready" })
@@ -90,6 +93,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         api.accounts.list(),
         api.automations.list(),
       ])
+      analytics?.group("workspace", workspace.id, {
+        workspace_name: workspace.name,
+      })
       set({
         workspace,
         accounts,

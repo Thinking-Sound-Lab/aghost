@@ -11,6 +11,8 @@ const GITHUB_REPOSITORY = {
   subject: "repo:Thinking-Sound-Lab@230501294/aghost@1412704218",
 }
 const ZERNIO_API_URL = "https://zernio.com/api"
+// PostHog's US cloud; use https://eu.i.posthog.com for a project in the EU.
+const POSTHOG_HOST = "https://us.i.posthog.com"
 
 const environmentSchema = z.object({
   STAGE: z
@@ -20,6 +22,8 @@ const environmentSchema = z.object({
   AWS_REGION: z.string().min(1),
   APP_URL: z.url(),
   SUPABASE_URL: z.url(),
+  // Public by design. Unset, as in local cdk commands, leaves analytics off.
+  POSTHOG_KEY: z.string().default(""),
 })
 
 export type ApiConfig = {
@@ -27,6 +31,8 @@ export type ApiConfig = {
   appUrl: string
   supabaseUrl: string
   zernioApiUrl: string
+  /** The PostHog project that receives product events. */
+  posthog: { key: string; host: string }
   /** Secrets Manager secret with the API's credentials, created once by hand. */
   secretName: string
   capacity: {
@@ -66,6 +72,7 @@ export function loadStageConfig(
       appUrl: env.APP_URL,
       supabaseUrl: env.SUPABASE_URL,
       zernioApiUrl: ZERNIO_API_URL,
+      posthog: { key: env.POSTHOG_KEY, host: POSTHOG_HOST },
       secretName: `aghost/${env.STAGE}/api`,
       capacity: { cpu: 512, memoryMiB: 1024, minTasks: 2, maxTasks: 4 },
     },

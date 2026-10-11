@@ -12,6 +12,10 @@ if (!config.zernio.apiKey)
   api.log.info(
     "Zernio is not configured. Add ZERNIO_API_KEY to the root .env to connect Instagram."
   )
+if (!config.posthog)
+  api.log.info(
+    "PostHog is not configured. Add POSTHOG_KEY to the root .env to record product analytics."
+  )
 
 // Stop accepting connections and let requests in flight finish.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
