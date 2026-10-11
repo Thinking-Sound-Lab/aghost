@@ -55,13 +55,13 @@ curl --fail-with-body http://localhost:3000/api/v1/automations \
 
 Activity pagination defaults to `limit=25&offset=0`. The maximum limit is 50. Contacts use `search` and `offset` and return up to 50 per page. URL-encode opaque conversation IDs when putting them in a path.
 
-Errors have the shape `{ "error": { "code": "...", "message": "...", "fields": { ... } } }`, with `fields` present for validation errors. Missing, invalid, revoked, or expired keys return 401 with a Bearer challenge. Insufficient permissions return 403; another workspace's resource returns 404. Validation errors return 422. Provider rate limits and failures preserve the existing API's 429 and 502 responses.
+Errors have the shape `{ "error": { "code": "...", "message": "...", "fields": { ... } } }`, with `fields` present for validation errors. Missing, invalid, revoked, or expired keys return 401 with a Bearer challenge. A valid key whose workspace has no active plan returns 402 `plan_required` on every request, including the OpenAPI document, until the owner chooses a plan in the app. Insufficient permissions return 403; another workspace's resource returns 404. Validation errors return 422. Provider rate limits and failures preserve the existing API's 429 and 502 responses.
 
 Activating an automation can deliver real DMs and public replies. `send_message` sends a real inbox reply and is subject to the provider's messaging restrictions. Writes do not provide an idempotency-key contract: inspect state after an uncertain response instead of automatically retrying creation or message delivery.
 
 ## Key management and deployment
 
-Key management remains on cookie-authenticated routes, protected by the existing origin checks:
+Key management remains on cookie-authenticated routes, protected by the existing origin checks. Like the rest of the dashboard, they need an active plan:
 
 - `GET /api/api-keys` lists safe metadata.
 - `POST /api/api-keys` accepts `{ "name": "Claude Code" }` and returns `{ key, token }` once. The dashboard sends only the name; the server supplies all agent capabilities and no expiry. An empty `{}` remains valid and uses the default name. Existing API clients can still supply optional `scopes` and `expiresAt`.

@@ -15,7 +15,11 @@ import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
-import { grantPlan, signInDisposableUser } from "./session-fixture"
+import {
+  grantPlan,
+  signInDisposableUser,
+  workspaceIdOf,
+} from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 import { dodoFixture } from "./dodo-fixture"
 
@@ -162,14 +166,15 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       userIds.push(data.user.id)
       await signInDisposableUser(config, email, session.cookies)
       if (index === 0) ownerEmail = email
-      const workspace = await (await session.request("/workspace")).json()
-      if (index === 0) workspaceId = workspace.id
-      else otherWorkspaceId = workspace.id
+      const id = await workspaceIdOf(config, data.user.id)
+      if (index === 0) workspaceId = id
+      else otherWorkspaceId = id
     }
     const unpaid = await owner.request("/accounts/connect", "POST", {})
     expect(unpaid.statusCode).toBe(402)
     expect((await unpaid.json()).error.code).toBe("plan_required")
     await grantPlan(config, workspaceId, "growth")
+    await grantPlan(config, otherWorkspaceId, "pro")
     expect(
       (await owner.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(200)
@@ -720,14 +725,11 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     const india = await other.request("/billing", "GET", undefined, {
       "x-visitor-country": "IN",
     })
-    expect(await india.json()).toEqual({
+    expect(await india.json()).toMatchObject({
       currency: "USD",
-      subscription: null,
+      subscription: { plan: "pro", currency: "USD" },
       connectedAccounts: 0,
     })
-    expect((await (await other.request("/billing")).json()).currency).toBe(
-      "USD"
-    )
     expect(await (await owner.request("/billing")).json()).toMatchObject({
       currency: "USD",
       subscription: { plan: "growth", interval: "monthly", status: "active" },
@@ -746,9 +748,33 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     userIds.push(data.user.id)
     const customer = new ApiSession(app)
     await signInDisposableUser(config, email, customer.cookies)
-    const workspace = (await (await customer.request("/workspace")).json()) as {
-      id: string
+    const workspace = { id: await workspaceIdOf(config, data.user.id) }
+    // The paywall: until a plan is paid for, only billing answers.
+    for (const [path, method, body] of [
+      ["/workspace", "GET", undefined],
+      ["/accounts", "GET", undefined],
+      ["/automations", "GET", undefined],
+      ["/inbox", "GET", undefined],
+      ["/contacts", "GET", undefined],
+      ["/api-keys", "POST", {}],
+    ] as const) {
+      const locked = await customer.request(path, method, body)
+      expect(locked.statusCode).toBe(402)
+      expect(await locked.json()).toEqual({
+        error: {
+          code: "plan_required",
+          message: "Choose a plan to use this workspace.",
+        },
+      })
     }
+    expect((await customer.request("/integrations")).statusCode).toBe(200)
+    expect(
+      await (
+        await customer.request("/billing", "GET", undefined, {
+          "x-visitor-country": "IN",
+        })
+      ).json()
+    ).toEqual({ currency: "USD", subscription: null, connectedAccounts: 0 })
     const checkout = await customer.request(
       "/billing/checkout",
       "POST",
@@ -799,6 +825,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(
       (await (await customer.request("/billing")).json()).subscription.status
     ).toBe("active")
+    expect((await customer.request("/workspace")).statusCode).toBe(200)
     expect(
       (
         await customer.request("/billing/checkout", "POST", {
@@ -889,9 +916,19 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     })
     expect((await billingEvent("subscription.on_hold")).statusCode).toBe(200)
     expect(
-      (await (await customer.request(`/automations/${created.id}`)).json())
-        .status
+      (
+        await admin
+          .from("automations")
+          .select("status")
+          .eq("id", created.id)
+          .single()
+      ).data?.status
     ).toBe("paused")
+    // Locked out again, from the workspace's own automations too.
+    expect((await customer.request("/workspace")).statusCode).toBe(402)
+    expect(
+      (await customer.request(`/automations/${created.id}`)).statusCode
+    ).toBe(402)
     expect(
       (
         await customer.request(`/automations/${created.id}/status`, "PATCH", {
@@ -907,7 +944,20 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(
       (await customer.request("/billing/portal", "POST", {})).statusCode
     ).toBe(200)
-    await customer.request(`/automations/${created.id}`, "DELETE")
+
+    // Paying again reopens the workspace; its automations stay paused.
+    dodo.state.subscription = dodo.subscription({
+      product_id: "pdt_growth_monthly",
+    })
+    expect((await billingEvent("subscription.active")).statusCode).toBe(200)
+    expect(
+      (await (await customer.request(`/automations/${created.id}`)).json())
+        .status
+    ).toBe("paused")
+    expect(
+      (await customer.request(`/automations/${created.id}`, "DELETE"))
+        .statusCode
+    ).toBe(204)
   })
 
   it("commits concurrent duplicate webhook deliveries once", async () => {
@@ -1064,7 +1114,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     if (!data.user) throw new Error("Could not create the disposable user")
     userIds.push(data.user.id)
     await signInDisposableUser(config, email, session.cookies)
-    expect((await session.request("/workspace")).statusCode).toBe(200)
+    expect((await session.request("/billing")).statusCode).toBe(200)
     const signedOut = await session.request("/auth/sign-out", "POST", {})
     expect(signedOut.statusCode).toBe(204)
     const cleared = setCookies(signedOut)

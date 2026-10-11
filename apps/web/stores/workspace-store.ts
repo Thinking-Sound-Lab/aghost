@@ -12,9 +12,18 @@ import { isEntitled } from "@workspace/api/contract"
 import { api } from "@/lib/api"
 import { useAuthStore } from "./auth-store"
 
+/** Whether the workspace is past the paywall. */
+export function hasPlan(billing: BillingState | null): boolean {
+  const subscription = billing?.subscription
+  return Boolean(subscription && isEntitled(subscription.status))
+}
+
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError && error.code === "unauthenticated")
     useAuthStore.setState({ user: null, status: "signed_out" })
+  // The plan ended while the dashboard was open: reloading shows the paywall.
+  if (error instanceof ApiClientError && error.code === "plan_required")
+    void useWorkspaceStore.getState().load()
   return error instanceof Error
     ? error.message
     : "The request could not be completed. Try again."
@@ -67,14 +76,20 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (get().status === "loading") return
     set({ status: "loading", error: null })
     try {
-      const [workspace, accounts, automations, integration, billing] =
-        await Promise.all([
-          api.workspace.get(),
-          api.accounts.list(),
-          api.automations.list(),
-          api.integrations(),
-          api.billing.get(),
-        ])
+      const [integration, billing] = await Promise.all([
+        api.integrations(),
+        api.billing.get(),
+      ])
+      // Without a plan the API serves only billing, for the paywall.
+      if (!hasPlan(billing)) {
+        set({ ...initial, integration, billing, status: "ready" })
+        return
+      }
+      const [workspace, accounts, automations] = await Promise.all([
+        api.workspace.get(),
+        api.accounts.list(),
+        api.automations.list(),
+      ])
       set({
         workspace,
         accounts,
@@ -109,11 +124,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
   connect: async () => {
     if (get().busy) return
-    const subscription = get().billing?.subscription
-    if (!subscription || !isEntitled(subscription.status)) {
-      window.location.assign("/settings#billing")
-      return
-    }
     set({ busy: true, error: null })
     try {
       const { authUrl } = await api.accounts.connect()

@@ -62,6 +62,7 @@ export type Services = {
   inbox: InboxService
   contacts: ContactService
   billing: BillingService
+  plans: PlanEntitlements
 }
 
 type Providers = {
@@ -128,6 +129,7 @@ function createServices(
     inbox,
     contacts,
     billing,
+    plans,
   }
 }
 

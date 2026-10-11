@@ -36,7 +36,7 @@ Use your hosted app's URL in place of localhost for remote access. Store the key
 | `inbox:read`        | `list_conversations`, `list_messages`                                                    |
 | `inbox:write`       | `send_message`                                                                           |
 
-Tools return readable JSON text and `structuredContent.data`. Application failures return `isError` with the API error code and message. The SDK handles protocol and input-schema errors.
+Tools return readable JSON text and `structuredContent.data`. Application failures return `isError` with the API error code and message. The SDK handles protocol and input-schema errors. While the workspace has no active plan, the endpoint itself answers 402 `plan_required`, so a client can neither connect nor call tools until the owner chooses a plan in the app.
 
 Read accounts first to get an `instagramAccountId`. For a specific post, read that account's recent posts and use its `platformPostId`.
 

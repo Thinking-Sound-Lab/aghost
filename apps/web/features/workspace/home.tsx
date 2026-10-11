@@ -9,7 +9,6 @@ import { ErrorBanner, Page } from "@/components/interface"
 import { AutomationRows } from "@/features/automations/automation-list"
 import { count } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-import { isEntitled } from "@workspace/api/contract"
 
 export function Home() {
   const store = useWorkspaceStore()
@@ -18,8 +17,6 @@ export function Home() {
     void loadStats()
   }, [loadStats])
   const connected = store.accounts.some((item) => item.status === "connected")
-  const subscription = store.billing?.subscription
-  const hasPlan = subscription && isEntitled(subscription.status)
   function total(key: "dmsSent" | "linkClicks") {
     if (!store.stats) return "—"
     const values = store.automations.map(
@@ -51,12 +48,10 @@ export function Home() {
         <div className="flex items-center gap-3 bg-muted px-5 py-4">
           <Instagram size={20} />
           <p className="mr-auto text-sm font-medium">
-            {hasPlan
-              ? "Connect your Instagram account"
-              : "Choose a plan to connect Instagram"}
+            Connect your Instagram account
           </p>
           <Button disabled={store.busy} onClick={() => void store.connect()}>
-            {hasPlan ? "Connect" : "Choose plan"}
+            Connect
           </Button>
         </div>
       )}

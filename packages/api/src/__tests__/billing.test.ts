@@ -190,6 +190,34 @@ describe("plan entitlements", () => {
     )
   }
 
+  it("opens the workspace only while its plan is active or in its grace period", async () => {
+    for (const status of ["active", "past_due"] as const)
+      await expect(
+        entitlements(subscription({ status }), 0).assertCanUseWorkspace(
+          workspace
+        )
+      ).resolves.toBeUndefined()
+    for (const snapshot of [
+      null,
+      ...(
+        [
+          "pending",
+          "on_hold",
+          "paused",
+          "cancelled",
+          "failed",
+          "expired",
+        ] as const
+      ).map((status) => subscription({ status })),
+    ])
+      await expect(
+        entitlements(snapshot, 0).assertCanUseWorkspace(workspace)
+      ).rejects.toMatchObject({
+        code: "plan_required",
+        message: "Choose a plan to use this workspace.",
+      })
+  })
+
   it("asks for a plan before an account can be connected", async () => {
     await expect(
       entitlements(null, 0).assertCanConnectAccount(workspace)
