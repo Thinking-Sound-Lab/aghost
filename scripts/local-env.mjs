@@ -57,6 +57,11 @@ export function ensureRootEnv(directory = root) {
   return parseEnv(contents)
 }
 
+/** Explicit deployment/CLI variables override local defaults, including empty keys. */
+export function backendEnvironment(directory = root, inherited = process.env) {
+  return { ...ensureRootEnv(directory), ...inherited }
+}
+
 /** Sets values even when the root .env already has them. */
 export function writeRootEnv(values, directory = root) {
   const file = join(directory, ".env")

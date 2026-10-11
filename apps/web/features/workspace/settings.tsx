@@ -7,6 +7,7 @@ import {
   WORKSPACE_NAME_MAX_LENGTH,
   isEntitled,
   PLANS,
+  type ChoosePlanInput,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
@@ -41,7 +42,7 @@ function select(tab: Tab) {
   history.replaceState(null, "", `#${tab}`)
 }
 
-export function Settings() {
+export function Settings({ choice }: { choice: ChoosePlanInput | null }) {
   const { tab } = useSettings()
   useEffect(() => {
     function follow() {
@@ -76,7 +77,7 @@ export function Settings() {
         {tab === "channels" && <Channels />}
         {tab === "api" && <ApiAccess />}
         {tab === "mcp" && <McpAccess />}
-        {tab === "billing" && <Billing />}
+        {tab === "billing" && <Billing choice={choice} />}
         {tab === "account" && <Account />}
       </div>
     </Page>

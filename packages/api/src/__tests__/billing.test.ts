@@ -42,11 +42,15 @@ function subscription(
 }
 
 /** An in-memory store holding at most one workspace's billing. */
-function memoryRepository(initial: BillingRecord | null): BillingRepository & {
+function memoryRepository(
+  initial: Omit<BillingRecord, "checkout"> | null
+): BillingRepository & {
   record: BillingRecord | null
 } {
   const store = {
-    record: initial,
+    record: initial
+      ? { ...initial, checkout: null }
+      : (null as BillingRecord | null),
     findByWorkspace: async (workspaceId: string) =>
       store.record?.workspaceId === workspaceId ? store.record : null,
     findWorkspaceIdByCustomer: async (customerId: string) =>
@@ -58,6 +62,7 @@ function memoryRepository(initial: BillingRecord | null): BillingRepository & {
         workspaceId,
         providerCustomerId: customerId,
         subscription: null,
+        checkout: null,
       }
       return store.record
     },
@@ -68,6 +73,31 @@ function memoryRepository(initial: BillingRecord | null): BillingRepository & {
       if (!store.record) throw new Error("No customer")
       store.record = { ...store.record, subscription: snapshot }
     },
+    reserveCheckout: async (
+      _workspaceId: string,
+      choice: {
+        plan: "pro" | "growth" | "business"
+        interval: "monthly" | "yearly"
+      }
+    ) => {
+      if (!store.record || store.record.checkout)
+        throw new Error("Already reserved")
+      store.record.checkout = {
+        ...choice,
+        requestedAt: new Date().toISOString(),
+        session: null,
+      }
+    },
+    saveCheckout: async (
+      _workspaceId: string,
+      session: { providerSessionId: string; url: string }
+    ) => {
+      if (!store.record?.checkout) throw new Error("No reservation")
+      store.record.checkout.session = session
+    },
+    clearCheckout: async () => {
+      if (store.record) store.record.checkout = null
+    },
   }
   return store
 }
@@ -75,7 +105,15 @@ function memoryRepository(initial: BillingRecord | null): BillingRepository & {
 function provider(overrides: Partial<BillingProvider> = {}): BillingProvider {
   return {
     createCustomer: vi.fn(async () => "cus_new"),
-    createCheckout: vi.fn(async () => "https://checkout.example/session"),
+    prepareCheckout: vi.fn(async () => "pdt_1"),
+    createCheckout: vi.fn(async () => ({
+      providerSessionId: "cks_1",
+      url: "https://checkout.example/session",
+    })),
+    getCheckout: vi.fn(async () => ({
+      createdAt: new Date().toISOString(),
+      payment: "unpaid" as const,
+    })),
     getSubscription: vi.fn(async () => null),
     listSubscriptions: vi.fn(async () => []),
     changePlan: vi.fn(async () => null),
@@ -103,7 +141,8 @@ function service(
       billingProvider,
       { countConnected: async () => connected },
       { pauseAll },
-      pages
+      pages,
+      { run: (_workspaceId, work) => work() }
     ),
   }
 }
@@ -194,7 +233,7 @@ describe("plan entitlements", () => {
 })
 
 describe("billing", () => {
-  it("creates the customer once and leaves billing details to checkout", async () => {
+  it("reuses an unpaid checkout and creates the customer once", async () => {
     const repository = memoryRepository(null)
     const dodo = provider()
     const { billing } = service(repository, dodo)
@@ -205,8 +244,8 @@ describe("billing", () => {
       interval: "yearly",
     })
     await billing.startCheckout(workspace, payer, {
-      plan: "pro",
-      interval: "monthly",
+      plan: "growth",
+      interval: "yearly",
     })
 
     expect(dodo.createCustomer).toHaveBeenCalledOnce()
@@ -218,18 +257,100 @@ describe("billing", () => {
         interval: "yearly",
       })
     )
-    expect(dodo.createCheckout).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        providerCustomerId: "cus_new",
-        plan: "pro",
-        interval: "monthly",
-      })
-    )
+    expect(dodo.createCheckout).toHaveBeenCalledOnce()
     expect(vi.mocked(dodo.createCheckout).mock.calls[0]![0]).not.toHaveProperty(
       "country"
     )
   })
+
+  it("does not create another checkout after a lost creation response", async () => {
+    const repository = memoryRepository(null)
+    const dodo = provider({
+      createCheckout: vi.fn(async () => {
+        throw new Error("Response lost")
+      }),
+    })
+    const { billing } = service(repository, dodo)
+    const args = [
+      workspace,
+      { email: "maya@example.com", name: "Maya" },
+      { plan: "pro", interval: "monthly" },
+    ] as const
+    await expect(billing.startCheckout(...args)).rejects.toThrow(
+      "Response lost"
+    )
+    await expect(billing.startCheckout(...args)).rejects.toMatchObject({
+      code: "conflict",
+    })
+    expect(dodo.createCheckout).toHaveBeenCalledOnce()
+    expect(repository.record?.checkout?.session).toBeNull()
+  })
+
+  it("keeps an expired checkout reserved while its payment is processing", async () => {
+    const repository = memoryRepository(null)
+    const dodo = provider({
+      getCheckout: async () => ({
+        createdAt: "2020-01-01T00:00:00Z",
+        payment: "pending",
+      }),
+    })
+    const { billing } = service(repository, dodo)
+    const args = [
+      workspace,
+      { email: "maya@example.com", name: "Maya" },
+      { plan: "pro", interval: "monthly" },
+    ] as const
+    await billing.startCheckout(...args)
+    await expect(billing.startCheckout(...args)).rejects.toMatchObject({
+      code: "conflict",
+    })
+    expect(dodo.createCheckout).toHaveBeenCalledOnce()
+  })
+
+  it("permits a different choice only after the previous unpaid link expires", async () => {
+    const repository = memoryRepository(null)
+    const dodo = provider()
+    const { billing } = service(repository, dodo)
+    const payer = { email: "maya@example.com", name: "Maya" }
+    await billing.startCheckout(workspace, payer, {
+      plan: "pro",
+      interval: "monthly",
+    })
+    await expect(
+      billing.startCheckout(workspace, payer, {
+        plan: "business",
+        interval: "yearly",
+      })
+    ).rejects.toMatchObject({ code: "conflict" })
+    vi.mocked(dodo.getCheckout).mockResolvedValue({
+      createdAt: "2020-01-01T00:00:00Z",
+      payment: "unpaid",
+    })
+    await billing.startCheckout(workspace, payer, {
+      plan: "business",
+      interval: "yearly",
+    })
+    expect(dodo.createCheckout).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    null,
+    {
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: null,
+    },
+  ])(
+    "pauses legacy running automations even without a subscription (%s)",
+    async (record) => {
+      const { billing, pauseAll } = service(
+        memoryRepository(record),
+        provider()
+      )
+      await billing.sync(workspace)
+      expect(pauseAll).toHaveBeenCalledExactlyOnceWith(workspace.id)
+    }
+  )
 
   it("refuses a second checkout while a plan is active", async () => {
     const { billing } = service(

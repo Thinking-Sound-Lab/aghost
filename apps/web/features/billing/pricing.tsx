@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import type { BillingInterval } from "@workspace/api/contract"
+import { billingPath, type BillingInterval } from "@workspace/api/contract"
 import { buttonVariants } from "@workspace/ui/components/button"
 import { Brand } from "@/components/brand"
 import { BillingIntervalToggle, PlanCards, PricingTerms } from "./plan-cards"
@@ -43,7 +43,7 @@ export function Pricing() {
           interval={interval}
           action={(plan) => (
             <Link
-              href="/settings#billing"
+              href={billingPath({ plan: plan.id, interval })}
               className={buttonVariants({
                 variant: plan.id === "growth" ? "default" : "secondary",
                 className: "w-full",

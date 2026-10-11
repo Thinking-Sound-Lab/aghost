@@ -1,13 +1,21 @@
 import { SignIn } from "@/features/auth/sign-in"
+import { billingChoice } from "@workspace/api/contract"
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>
+  searchParams: Promise<{
+    error?: string
+    next?: string
+    plan?: string
+    interval?: string
+  }>
 }) {
-  const { error, next } = await searchParams
+  const query = await searchParams
+  const { error, next } = query
   return (
     <SignIn
       billing={next === "billing"}
+      choice={next === "billing" ? billingChoice(query) : null}
       error={
         error === "google" ? "Google sign-in did not finish. Try again." : null
       }

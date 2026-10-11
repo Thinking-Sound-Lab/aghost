@@ -1,5 +1,5 @@
 // Explicit ESM keeps top-level await working with the root package's loader.
-import { ensureRootEnv } from "./local-env.mjs"
+import { backendEnvironment } from "./local-env.mjs"
 import { loadApiConfig } from "../packages/api/src/config"
 import { createDodoClient } from "../packages/api/src/infrastructure/dodo/dodo-client"
 import {
@@ -7,7 +7,7 @@ import {
   syncCatalog,
 } from "../packages/api/src/infrastructure/dodo/dodo-catalog"
 
-const config = loadApiConfig({ ...process.env, ...ensureRootEnv() })
+const config = loadApiConfig(backendEnvironment())
 const client = createDodoClient(config.dodo)
 console.log(
   `Setting up the six plan products in Dodo ${config.dodo.environment}...`

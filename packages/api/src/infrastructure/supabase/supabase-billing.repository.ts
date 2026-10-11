@@ -6,9 +6,11 @@ import {
   BILLING_INTERVALS,
   PLAN_IDS,
   SUBSCRIPTION_STATUSES,
+  type ChoosePlanInput,
 } from "../../contract/billing"
 import type {
   BillingRecord,
+  CheckoutSession,
   SubscriptionSnapshot,
 } from "../../modules/billing/billing"
 import type { BillingRepository } from "../../modules/billing/billing.repository"
@@ -29,12 +31,28 @@ const subscriptionSchema = z.object({
 })
 
 function toRecord(row: BillingRow): BillingRecord {
+  const checkout =
+    row.checkout_plan === null
+      ? null
+      : {
+          plan: z.enum(PLAN_IDS).parse(row.checkout_plan),
+          interval: z.enum(BILLING_INTERVALS).parse(row.checkout_interval),
+          requestedAt: z.string().parse(row.checkout_requested_at),
+          session:
+            row.checkout_session_id === null
+              ? null
+              : {
+                  providerSessionId: row.checkout_session_id,
+                  url: z.string().parse(row.checkout_url),
+                },
+        }
   // The table keeps the subscription columns all set or all empty.
   if (row.dodo_subscription_id === null) {
     return {
       workspaceId: row.workspace_id,
       providerCustomerId: row.dodo_customer_id,
       subscription: null,
+      checkout,
     }
   }
 
@@ -53,6 +71,7 @@ function toRecord(row: BillingRow): BillingRecord {
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       createdAt: subscription.subscription_created_at,
     },
+    checkout,
   }
 }
 
@@ -135,6 +154,64 @@ export class SupabaseBillingRepository implements BillingRepository {
         .select("workspace_id")
         .single(),
       "store the subscription"
+    )
+  }
+
+  async reserveCheckout(
+    workspaceId: string,
+    choice: ChoosePlanInput
+  ): Promise<void> {
+    required(
+      await this.db.privileged
+        .from("workspace_billing")
+        .update({
+          checkout_plan: choice.plan,
+          checkout_interval: choice.interval,
+          checkout_requested_at: new Date().toISOString(),
+        })
+        .eq("workspace_id", workspaceId)
+        .is("checkout_plan", null)
+        .select("workspace_id")
+        .single(),
+      "reserve checkout"
+    )
+  }
+
+  async saveCheckout(
+    workspaceId: string,
+    session: CheckoutSession
+  ): Promise<void> {
+    required(
+      await this.db.privileged
+        .from("workspace_billing")
+        .update({
+          checkout_session_id: session.providerSessionId,
+          checkout_url: session.url,
+        })
+        .eq("workspace_id", workspaceId)
+        .not("checkout_plan", "is", null)
+        .is("checkout_session_id", null)
+        .select("workspace_id")
+        .single(),
+      "store checkout"
+    )
+  }
+
+  async clearCheckout(workspaceId: string): Promise<void> {
+    required(
+      await this.db.privileged
+        .from("workspace_billing")
+        .update({
+          checkout_plan: null,
+          checkout_interval: null,
+          checkout_requested_at: null,
+          checkout_session_id: null,
+          checkout_url: null,
+        })
+        .eq("workspace_id", workspaceId)
+        .select("workspace_id")
+        .single(),
+      "clear the expired checkout"
     )
   }
 }

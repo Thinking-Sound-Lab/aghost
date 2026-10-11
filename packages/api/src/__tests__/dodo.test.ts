@@ -7,7 +7,9 @@ describe("Dodo SDK billing integration", () => {
   it("fixes checkout to USD and leaves the billing country to the customer", async () => {
     const fixture = dodoFixture()
     const provider = new DodoBillingProvider(() => fixture.client)
+    const providerProductId = await provider.prepareCheckout("growth", "yearly")
     await provider.createCheckout({
+      providerProductId,
       providerCustomerId: "cus_1",
       plan: "growth",
       interval: "yearly",
@@ -119,18 +121,51 @@ describe("Dodo SDK billing integration", () => {
     const fixture = dodoFixture()
     fixture.state.quotedTotal = 899
     const provider = new DodoBillingProvider(() => fixture.client)
-    await expect(
-      provider.createCheckout({
-        providerCustomerId: "cus_1",
-        plan: "pro",
-        interval: "monthly",
-        returnUrl: "https://app.example/settings#billing",
-        cancelUrl: "https://app.example/settings#billing",
-      })
-    ).rejects.toThrow("checkout quote differs from the advertised USD price")
+    await expect(provider.prepareCheckout("pro", "monthly")).rejects.toThrow(
+      "checkout quote differs from the advertised USD price"
+    )
     expect(
       fixture.requests.some((request) => request.path === "/checkouts")
     ).toBe(false)
+  })
+
+  it("refreshes archived subscription products even when the sales catalog is incomplete or repriced", async () => {
+    const fixture = dodoFixture()
+    const original = fixture.products.get("pdt_pro_monthly")!
+    original.is_archived = true
+    original.price_detail = {
+      ...(original.price_detail as object),
+      price: 1200,
+    }
+    fixture.products.delete("pdt_business_yearly")
+    fixture.state.subscription = fixture.subscription({ status: "on_hold" })
+    const provider = new DodoBillingProvider(() => fixture.client)
+    expect(await provider.getSubscription("sub_1")).toMatchObject({
+      plan: "pro",
+      status: "on_hold",
+    })
+    expect(await provider.listSubscriptions("cus_1")).toMatchObject([
+      { plan: "pro", status: "on_hold" },
+    ])
+    expect(
+      fixture.requests.some((request) => request.path === "/products")
+    ).toBe(false)
+    await expect(provider.prepareCheckout("pro", "monthly")).rejects.toThrow(
+      "has no product"
+    )
+  })
+
+  it("ignores another app's products when reading subscriptions", async () => {
+    const fixture = dodoFixture()
+    fixture.products.set("pdt_assist", { metadata: { app: "assist" } })
+    fixture.state.subscription = fixture.subscription({
+      product_id: "pdt_assist",
+    })
+    expect(
+      await new DodoBillingProvider(() => fixture.client).getSubscription(
+        "sub_1"
+      )
+    ).toBeNull()
   })
 
   it("creates six USD-only products and reruns without duplicating them", async () => {

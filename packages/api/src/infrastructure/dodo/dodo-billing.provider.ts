@@ -8,14 +8,23 @@ import {
   type BillingInterval,
   type PlanId,
 } from "../../contract/billing"
-import type { SubscriptionSnapshot } from "../../modules/billing/billing"
+import type {
+  CheckoutSession,
+  CheckoutStatus,
+  SubscriptionSnapshot,
+} from "../../modules/billing/billing"
 import type {
   BillingProvider,
   CheckoutRequest,
   NewCustomer,
 } from "../../modules/billing/billing.provider"
 import { InternalError, ProviderError } from "../../shared/errors"
-import { DodoCatalog, loadCatalog } from "./dodo-catalog"
+import {
+  DodoCatalog,
+  catalogEntry,
+  loadCatalog,
+  type CatalogEntry,
+} from "./dodo-catalog"
 import { request, type DodoAccess } from "./dodo-client"
 
 type DodoSubscription = Pick<
@@ -32,6 +41,10 @@ type DodoSubscription = Pick<
 
 export class DodoBillingProvider implements BillingProvider {
   private catalog: Promise<DodoCatalog> | null = null
+  private readonly subscriptionProducts = new Map<
+    string,
+    Promise<CatalogEntry | null>
+  >()
 
   constructor(private readonly dodo: DodoAccess) {}
 
@@ -46,9 +59,12 @@ export class DodoBillingProvider implements BillingProvider {
     return created.customer_id
   }
 
-  async createCheckout(checkout: CheckoutRequest): Promise<string> {
+  async prepareCheckout(
+    plan: PlanId,
+    interval: BillingInterval
+  ): Promise<string> {
     const catalog = await this.loadCatalog()
-    const productId = catalog.productId(checkout.plan, checkout.interval)
+    const productId = catalog.productId(plan, interval)
     // Account-wide Charm Pricing can change even USD base prices. Check the
     // provider's quote before offering checkout at the advertised amount.
     const quote = await request("check the checkout price", () =>
@@ -59,7 +75,7 @@ export class DodoBillingProvider implements BillingProvider {
         billing_address: { country: "US" },
       })
     )
-    const expected = PLANS[checkout.plan].prices.USD[checkout.interval]
+    const expected = PLANS[plan].prices.USD[interval]
     if (
       quote.currency !== "USD" ||
       quote.current_breakup.total_amount !== expected ||
@@ -69,37 +85,61 @@ export class DodoBillingProvider implements BillingProvider {
         "Dodo's checkout quote differs from the advertised USD price. Check this business's Charm Pricing settings."
       )
     }
+    return productId
+  }
+
+  async createCheckout(checkout: CheckoutRequest): Promise<CheckoutSession> {
     const session = await request("start checkout", () =>
-      this.dodo().checkoutSessions.create({
-        product_cart: [
-          {
-            product_id: productId,
-            quantity: 1,
-          },
-        ],
-        customer: { customer_id: checkout.providerCustomerId },
-        // Bill the USD base price in every country and prevent the customer
-        // from switching currencies through Adaptive Currency.
-        billing_currency: "USD",
-        feature_flags: { allow_currency_selection: false },
-        return_url: checkout.returnUrl,
-        cancel_url: checkout.cancelUrl,
-      })
+      this.dodo().checkoutSessions.create(
+        {
+          product_cart: [
+            {
+              product_id: checkout.providerProductId,
+              quantity: 1,
+            },
+          ],
+          customer: { customer_id: checkout.providerCustomerId },
+          // Bill the USD base price in every country and prevent the customer
+          // from switching currencies through Adaptive Currency.
+          billing_currency: "USD",
+          feature_flags: { allow_currency_selection: false },
+          return_url: checkout.returnUrl,
+          cancel_url: checkout.cancelUrl,
+        },
+        { maxRetries: 0 }
+      )
     )
 
-    if (!session.checkout_url) {
+    if (!session.checkout_url || !session.session_id) {
       throw new ProviderError(
         "Couldn't start checkout. Dodo Payments returned no checkout page."
       )
     }
 
-    return session.checkout_url
+    return { providerSessionId: session.session_id, url: session.checkout_url }
+  }
+
+  async getCheckout(providerSessionId: string): Promise<CheckoutStatus> {
+    const session = await request("check the checkout", () =>
+      this.dodo().checkoutSessions.retrieve(providerSessionId)
+    )
+    const status = session.payment_status
+    return {
+      createdAt: session.created_at,
+      payment:
+        !session.payment_id && !status
+          ? "unpaid"
+          : status === "succeeded" ||
+              status === "failed" ||
+              status === "cancelled"
+            ? status
+            : "pending",
+    }
   }
 
   async getSubscription(
     providerSubscriptionId: string
   ): Promise<SubscriptionSnapshot | null> {
-    const catalog = await this.loadCatalog()
     const subscription = await request("load the subscription", async () => {
       try {
         return await this.dodo().subscriptions.retrieve(providerSubscriptionId)
@@ -111,20 +151,19 @@ export class DodoBillingProvider implements BillingProvider {
     })
 
     if (!subscription) return null
-    return this.paidSnapshot(catalog, subscription)
+    return this.paidSnapshot(subscription)
   }
 
   async listSubscriptions(
     providerCustomerId: string
   ): Promise<SubscriptionSnapshot[]> {
-    const catalog = await this.loadCatalog()
     const snapshots: SubscriptionSnapshot[] = []
 
     await request("list the subscriptions", async () => {
       for await (const subscription of this.dodo().subscriptions.list({
         customer_id: providerCustomerId,
       })) {
-        const snapshot = await this.paidSnapshot(catalog, subscription)
+        const snapshot = await this.paidSnapshot(subscription)
         if (snapshot) snapshots.push(snapshot)
       }
     })
@@ -151,10 +190,10 @@ export class DodoBillingProvider implements BillingProvider {
   }
 
   private async paidSnapshot(
-    catalog: DodoCatalog,
     subscription: DodoSubscription
   ): Promise<SubscriptionSnapshot | null> {
-    const snapshot = toSnapshot(catalog, subscription)
+    const entry = await this.subscriptionProduct(subscription.product_id)
+    const snapshot = entry && toSnapshot(entry, subscription)
     if (!snapshot || !isEntitled(snapshot.status)) return snapshot
 
     // Active can mean only that a payment authorization was completed. The
@@ -179,6 +218,18 @@ export class DodoBillingProvider implements BillingProvider {
       return false
     })
     return paid ? snapshot : { ...snapshot, status: "pending" }
+  }
+
+  /** Existing contracts remain readable even if their SKU is archived or repriced. */
+  private subscriptionProduct(productId: string): Promise<CatalogEntry | null> {
+    const existing = this.subscriptionProducts.get(productId)
+    if (existing) return existing
+    const loading = request("identify the subscription product", async () =>
+      catalogEntry(await this.dodo().products.retrieve(productId))
+    )
+    this.subscriptionProducts.set(productId, loading)
+    loading.catch(() => this.subscriptionProducts.delete(productId))
+    return loading
   }
 
   async createPortalSession(
@@ -210,12 +261,9 @@ export class DodoBillingProvider implements BillingProvider {
 }
 
 function toSnapshot(
-  catalog: DodoCatalog,
+  entry: CatalogEntry,
   subscription: DodoSubscription
 ): SubscriptionSnapshot | null {
-  const entry = catalog.entry(subscription.product_id)
-  if (!entry) return null
-
   const currency = BILLING_CURRENCIES.find(
     (code) => code === subscription.currency
   )

@@ -19,6 +19,8 @@ import { SupabaseAutomationRepository } from "./infrastructure/supabase/supabase
 import { SupabaseBillingRepository } from "./infrastructure/supabase/supabase-billing.repository"
 import { SupabaseWebhookProcessor } from "./infrastructure/supabase/supabase-webhook.processor"
 import { SupabaseWorkspaceRepository } from "./infrastructure/supabase/supabase-workspace.repository"
+import { SupabaseWorkspaceOperations } from "./infrastructure/supabase/supabase-workspace-operations"
+import { SupabaseBillingReconciliation } from "./infrastructure/supabase/supabase-billing-reconciliation"
 import { ZernioAutomationProvider } from "./infrastructure/zernio/zernio-automation.provider"
 import { createZernioClient } from "./infrastructure/zernio/zernio-client"
 import { ZernioContactProvider } from "./infrastructure/zernio/zernio-contact.provider"
@@ -81,6 +83,7 @@ function createServices(
 ): Services {
   const accountRepository = new SupabaseAccountRepository(db)
   const billingRepository = new SupabaseBillingRepository(db)
+  const operations = new SupabaseWorkspaceOperations(db.privileged)
   const plans = new PlanEntitlements(billingRepository, accountRepository)
 
   const workspaces = new WorkspaceService(
@@ -92,7 +95,8 @@ function createServices(
     providers.automations,
     accountRepository,
     providers.instagram,
-    plans
+    plans,
+    operations
   )
   const accounts = new AccountService(
     accountRepository,
@@ -107,7 +111,8 @@ function createServices(
     providers.billing,
     accountRepository,
     automations,
-    pages.billing
+    pages.billing,
+    operations
   )
 
   const inbox = new InboxService(providers.inbox, accountRepository)
@@ -125,11 +130,7 @@ function createServices(
   }
 }
 
-/** Composition root: builds the API from its configuration. */
-export function createApi(
-  config: ApiConfig,
-  options: { dodo?: DodoClient } = {}
-): ApiApp {
+function runtime(config: ApiConfig, options: { dodo?: DodoClient } = {}) {
   const zernio = () => createZernioClient(config.zernio)
   const providers: Providers = {
     profiles: new ZernioProfileProvider(zernio),
@@ -151,6 +152,29 @@ export function createApi(
     },
   }
   const admin = createAdminSupabaseClient(config.supabase)
+  return { providers, pages, admin }
+}
+
+/** A backend-only rollout command; it uses the API's provider and plan policy. */
+export function createBillingMaintenance(
+  config: ApiConfig,
+  options: { dodo?: DodoClient } = {}
+) {
+  const { admin, providers, pages } = runtime(config, options)
+  const services = createServices(
+    { scoped: admin, privileged: admin },
+    providers,
+    pages
+  )
+  return new SupabaseBillingReconciliation(admin, services.billing)
+}
+
+/** Composition root: builds the API from its configuration. */
+export function createApi(
+  config: ApiConfig,
+  options: { dodo?: DodoClient } = {}
+): ApiApp {
+  const { admin, providers, pages } = runtime(config, options)
 
   // Each request gets services whose reads run as the signed-in user.
   const authenticate: Authenticate = async (accessToken) => {

@@ -99,6 +99,25 @@ export const choosePlanSchema = z.object({
 
 export type ChoosePlanInput = z.infer<typeof choosePlanSchema>
 
+/** Invalid or incomplete URL selections are ignored, never trusted as payment state. */
+export function billingChoice(query: {
+  plan?: unknown
+  interval?: unknown
+}): ChoosePlanInput | null {
+  const parsed = choosePlanSchema.safeParse(query)
+  return parsed.success ? parsed.data : null
+}
+
+export function billingPath(choice: ChoosePlanInput | null = null): string {
+  return `/settings${choice ? `?${new URLSearchParams(choice)}` : ""}#billing`
+}
+
+export function billingLoginPath(
+  choice: ChoosePlanInput | null = null
+): string {
+  return `/login?${new URLSearchParams({ next: "billing", ...choice })}`
+}
+
 /** A page on the payment provider's site to send the browser to. */
 export type BillingRedirect = { url: string }
 

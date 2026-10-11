@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { billingChoice, billingLoginPath } from "@workspace/api/contract"
 import {
   CircleHelp,
   House,
@@ -51,7 +52,11 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       useBillingStore.getState().clear()
       router.replace(
         pathname === "/settings" && window.location.hash === "#billing"
-          ? "/login?next=billing"
+          ? billingLoginPath(
+              billingChoice(
+                Object.fromEntries(new URLSearchParams(window.location.search))
+              )
+            )
           : "/login"
       )
     }

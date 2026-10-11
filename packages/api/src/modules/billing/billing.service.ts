@@ -12,6 +12,7 @@ import {
   PlanRequiredError,
 } from "../../shared/errors"
 import type { WorkspaceRecord } from "../workspaces/workspace"
+import type { WorkspaceOperations } from "../workspaces/workspace-operations"
 import { supersedes, type SubscriptionSnapshot } from "./billing"
 import type { BillingProvider } from "./billing.provider"
 import type { BillingRepository } from "./billing.repository"
@@ -40,7 +41,8 @@ export class BillingService {
     private readonly provider: BillingProvider,
     private readonly accounts: ConnectedAccounts,
     private readonly automations: WorkspaceAutomations,
-    private readonly pages: BillingPages
+    private readonly pages: BillingPages,
+    private readonly operations: WorkspaceOperations
   ) {}
 
   async getState(workspace: WorkspaceRecord): Promise<BillingState> {
@@ -70,6 +72,16 @@ export class BillingService {
     payer: Payer,
     choice: ChoosePlanInput
   ): Promise<string> {
+    return this.operations.run(workspace.id, () =>
+      this.checkout(workspace, payer, choice)
+    )
+  }
+
+  private async checkout(
+    workspace: WorkspaceRecord,
+    payer: Payer,
+    choice: ChoosePlanInput
+  ): Promise<string> {
     let record = await this.billing.findByWorkspace(workspace.id)
     // A completed checkout may precede its webhook. Reconcile the customer's
     // subscriptions before letting them buy again.
@@ -91,16 +103,71 @@ export class BillingService {
       record?.providerCustomerId ??
       (await this.createCustomer(workspace, payer))
 
-    return this.provider.createCheckout({
+    const checkout = record?.checkout
+    if (checkout) {
+      if (!checkout.session) {
+        throw new ConflictError(
+          "Your previous checkout is being reconciled. Contact support before starting another payment."
+        )
+      }
+      const status = await this.provider.getCheckout(
+        checkout.session.providerSessionId
+      )
+      // Dodo's single-use, unconfirmed checkout links expire after 24 hours.
+      // Use the provider's creation time, with a clock-skew allowance. A
+      // payment begun before expiry can remain unsettled much longer.
+      const expired = Date.now() >= Date.parse(status.createdAt) + 86_460_000
+      if (!expired) {
+        if (
+          status.payment === "unpaid" &&
+          checkout.plan === choice.plan &&
+          checkout.interval === choice.interval
+        )
+          return checkout.session.url
+        throw new ConflictError(
+          "An unfinished checkout already exists. Complete it or wait for it to expire before choosing another plan."
+        )
+      }
+      if (
+        status.payment === "pending" ||
+        (status.payment === "succeeded" && !record?.subscription)
+      ) {
+        throw new ConflictError(
+          "Your checkout payment is still being reconciled. Refresh billing before starting another payment."
+        )
+      }
+      await this.billing.clearCheckout(workspace.id)
+    }
+
+    const providerProductId = await this.provider.prepareCheckout(
+      choice.plan,
+      choice.interval
+    )
+    // Persist intent before the provider call. Never create again when a
+    // previous request or database save has an uncertain outcome.
+    await this.billing.reserveCheckout(workspace.id, choice)
+    const session = await this.provider.createCheckout({
       providerCustomerId,
+      providerProductId,
       plan: choice.plan,
       interval: choice.interval,
       returnUrl: this.pages.checkoutReturn,
       cancelUrl: this.pages.checkoutCancel,
     })
+    await this.billing.saveCheckout(workspace.id, session)
+    return session.url
   }
 
   async changePlan(
+    workspace: WorkspaceRecord,
+    choice: ChoosePlanInput
+  ): Promise<PlanChangeResult> {
+    return this.operations.run(workspace.id, () =>
+      this.change(workspace, choice)
+    )
+  }
+
+  private async change(
     workspace: WorkspaceRecord,
     choice: ChoosePlanInput
   ): Promise<PlanChangeResult> {
@@ -152,6 +219,10 @@ export class BillingService {
    * right after checkout, before its webhook arrives.
    */
   async sync(workspace: WorkspaceRecord): Promise<BillingState> {
+    return this.operations.run(workspace.id, () => this.reconcile(workspace))
+  }
+
+  private async reconcile(workspace: WorkspaceRecord): Promise<BillingState> {
     const record = await this.billing.findByWorkspace(workspace.id)
 
     if (record) {
@@ -165,6 +236,11 @@ export class BillingService {
       )
 
       if (latest) await this.apply(workspace.id, latest)
+      else await this.enforce(workspace.id, record.subscription)
+    } else {
+      // Includes workspaces created before billing existed. The rollout
+      // reconciliation command calls sync for all running workspaces.
+      await this.enforce(workspace.id, null)
     }
 
     return this.getState(workspace)
@@ -186,8 +262,20 @@ export class BillingService {
     )
     if (!workspaceId) return "ignored"
 
-    await this.apply(workspaceId, snapshot)
-    return "processed"
+    return this.operations.run(workspaceId, async () => {
+      // The first read only locates the workspace. Refetch under ownership so
+      // a slow earlier read cannot overwrite a newer webhook's saved state.
+      const current = await this.provider.getSubscription(
+        providerSubscriptionId
+      )
+      if (
+        !current ||
+        current.providerCustomerId !== snapshot.providerCustomerId
+      )
+        return "ignored"
+      await this.apply(workspaceId, current)
+      return "processed"
+    })
   }
 
   private async apply(
@@ -204,10 +292,18 @@ export class BillingService {
     if (replaces) await this.billing.saveSubscription(workspaceId, snapshot)
 
     const effective = replaces || !current ? snapshot : current
+    await this.enforce(workspaceId, effective)
+  }
+
+  private async enforce(
+    workspaceId: string,
+    subscription: SubscriptionSnapshot | null
+  ): Promise<void> {
     const connected = await this.accounts.countConnected(workspaceId)
     if (
-      !isEntitled(effective.status) ||
-      connected > PLANS[effective.plan].instagramAccounts
+      !subscription ||
+      !isEntitled(subscription.status) ||
+      connected > PLANS[subscription.plan].instagramAccounts
     ) {
       await this.automations.pauseAll(workspaceId)
     }

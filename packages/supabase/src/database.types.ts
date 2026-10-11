@@ -232,6 +232,11 @@ export type Database = {
         Row: {
           billing_interval: string | null
           cancel_at_period_end: boolean | null
+          checkout_interval: string | null
+          checkout_plan: string | null
+          checkout_requested_at: string | null
+          checkout_session_id: string | null
+          checkout_url: string | null
           created_at: string
           currency: string | null
           current_period_end: string | null
@@ -247,6 +252,11 @@ export type Database = {
         Insert: {
           billing_interval?: string | null
           cancel_at_period_end?: boolean | null
+          checkout_interval?: string | null
+          checkout_plan?: string | null
+          checkout_requested_at?: string | null
+          checkout_session_id?: string | null
+          checkout_url?: string | null
           created_at?: string
           currency?: string | null
           current_period_end?: string | null
@@ -261,6 +271,11 @@ export type Database = {
         Update: {
           billing_interval?: string | null
           cancel_at_period_end?: boolean | null
+          checkout_interval?: string | null
+          checkout_plan?: string | null
+          checkout_requested_at?: string | null
+          checkout_session_id?: string | null
+          checkout_url?: string | null
           created_at?: string
           currency?: string | null
           current_period_end?: string | null
@@ -275,6 +290,33 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "workspace_billing_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_operations: {
+        Row: {
+          owner: string
+          started_at: string
+          workspace_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          owner: string
+          started_at?: string
+          workspace_id: string
+        }
+        Update: {
+          owner?: string
+          started_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_operations_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: true
             referencedRelation: "workspaces"
@@ -315,6 +357,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_workspace_operation: {
+        Args: { p_owner: string; p_workspace_id: string }
+        Returns: boolean
+      }
       process_account_webhook: {
         Args: {
           p_account: Json
@@ -324,6 +370,10 @@ export type Database = {
           p_type: string
         }
         Returns: string
+      }
+      release_workspace_operation: {
+        Args: { p_owner: string; p_workspace_id: string }
+        Returns: undefined
       }
     }
     Enums: {

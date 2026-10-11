@@ -1,4 +1,9 @@
-import type { BillingRecord, SubscriptionSnapshot } from "./billing"
+import type { ChoosePlanInput } from "../../contract/billing"
+import type {
+  BillingRecord,
+  CheckoutSession,
+  SubscriptionSnapshot,
+} from "./billing"
 
 export interface BillingRepository {
   findByWorkspace(workspaceId: string): Promise<BillingRecord | null>
@@ -15,4 +20,7 @@ export interface BillingRepository {
     workspaceId: string,
     subscription: SubscriptionSnapshot
   ): Promise<void>
+  reserveCheckout(workspaceId: string, choice: ChoosePlanInput): Promise<void>
+  saveCheckout(workspaceId: string, session: CheckoutSession): Promise<void>
+  clearCheckout(workspaceId: string): Promise<void>
 }

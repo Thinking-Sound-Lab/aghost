@@ -50,7 +50,8 @@ describe("automation creation compensation", () => {
         }),
       },
       { listRecentPosts: async () => [] },
-      { assertCanRunAutomations: async () => {} }
+      { assertCanRunAutomations: async () => {} },
+      { run: (_workspaceId, work) => work() }
     )
     await expect(
       service.create(

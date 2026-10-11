@@ -14,6 +14,7 @@ export function dodoFixture(withProducts = true) {
     query: URLSearchParams
     body: FixtureObject
   }[] = []
+  const checkouts = new Map<string, FixtureObject>()
   const state = {
     subscription: null as FixtureObject | null,
     payments: [] as FixtureObject[],
@@ -78,7 +79,16 @@ export function dodoFixture(withProducts = true) {
         Number(url.searchParams.get("page_number") ?? 1) === 1 ? value : [],
     })
     if (url.pathname === "/products") {
-      if (method === "GET") return respond(items([...products.values()]))
+      if (method === "GET")
+        return respond(
+          items(
+            [...products.values()].filter(
+              (product) =>
+                url.searchParams.get("archived") !== "false" ||
+                !product.is_archived
+            )
+          )
+        )
       const id = `pdt_created_${products.size}`
       products.set(id, {
         ...body,
@@ -118,6 +128,10 @@ export function dodoFixture(withProducts = true) {
       return respond(updated[0])
     }
     const product = url.pathname.match(/^\/products\/([^/]+)$/)
+    if (product && method === "GET")
+      return products.has(product[1]!)
+        ? respond(products.get(product[1]!))
+        : respond({ message: "Not found" }, 404)
     if (product && method === "PATCH") {
       // Dodo archives rules whose mode differs from the updated product.
       if ("pricing_mode" in body) {
@@ -150,14 +164,24 @@ export function dodoFixture(withProducts = true) {
         recurring_breakup: { total_amount: total },
       })
     }
-    if (url.pathname === "/checkouts")
+    if (url.pathname === "/checkouts") {
+      const id = `cks_${checkouts.size + 1}`
+      checkouts.set(id, {
+        id,
+        created_at: new Date().toISOString(),
+        payment_id: null,
+        payment_status: null,
+      })
       return respond(
         {
           checkout_url: "https://checkout.example/session",
-          session_id: "cks_1",
+          session_id: id,
         },
         201
       )
+    }
+    const checkout = url.pathname.match(/^\/checkouts\/([^/]+)$/)
+    if (checkout) return respond(checkouts.get(checkout[1]!))
     if (url.pathname === "/subscriptions")
       return respond(items(state.subscription ? [state.subscription] : []))
     if (url.pathname === "/payments") return respond(items(state.payments))
@@ -186,5 +210,14 @@ export function dodoFixture(withProducts = true) {
     fetch: transport,
     maxRetries: 0,
   })
-  return { client, products, rules, requests, state, subscription, payment }
+  return {
+    client,
+    products,
+    rules,
+    requests,
+    checkouts,
+    state,
+    subscription,
+    payment,
+  }
 }

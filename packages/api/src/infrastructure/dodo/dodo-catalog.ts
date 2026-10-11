@@ -84,7 +84,9 @@ export function productSpec(plan: PlanId, interval: BillingInterval) {
   }
 }
 
-function tagged(product: Product): CatalogEntry | null {
+export function catalogEntry(
+  product: Pick<Product, "metadata">
+): CatalogEntry | null {
   const plan = PLAN_IDS.find((id) => id === product.metadata[PLAN_KEY])
   const interval = BILLING_INTERVALS.find(
     (id) => id === product.metadata[INTERVAL_KEY]
@@ -127,7 +129,7 @@ async function listTaggedProducts(
       recurring: true,
       archived: false,
     })) {
-      const entry = tagged(product)
+      const entry = catalogEntry(product)
       if (!entry) continue
       const id = key(entry.plan, entry.interval)
       found.set(id, [...(found.get(id) ?? []), product])

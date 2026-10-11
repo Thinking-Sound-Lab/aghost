@@ -4,6 +4,7 @@ import {
   type BillingInterval,
   type PlanId,
   type SubscriptionStatus,
+  type ChoosePlanInput,
 } from "../../contract/billing"
 
 /** A subscription as the payment provider reports it, mapped onto the plans. */
@@ -25,6 +26,20 @@ export type BillingRecord = {
   workspaceId: string
   providerCustomerId: string
   subscription: SubscriptionSnapshot | null
+  checkout: ReservedCheckout | null
+}
+
+export type CheckoutSession = { providerSessionId: string; url: string }
+
+/** A reservation with no session means creation needs operator reconciliation. */
+export type ReservedCheckout = ChoosePlanInput & {
+  requestedAt: string
+  session: CheckoutSession | null
+}
+
+export type CheckoutStatus = {
+  createdAt: string
+  payment: "unpaid" | "pending" | "succeeded" | "failed" | "cancelled"
 }
 
 /**

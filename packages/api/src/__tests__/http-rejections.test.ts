@@ -210,4 +210,74 @@ describe("Google sign-in", () => {
       "http://localhost:3000/login?error=google"
     )
   })
+
+  it("carries yearly Business pricing through OAuth and back to billing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input)
+        )
+        if (url.pathname.endsWith("/authorize"))
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: "https://accounts.google.com/o/oauth2/v2/auth",
+            },
+          })
+        if (url.pathname.endsWith("/token"))
+          return Response.json({
+            access_token: "fixture-token",
+            refresh_token: "fixture-refresh",
+            token_type: "bearer",
+            expires_in: 3600,
+            user: {
+              id: randomUUID(),
+              aud: "authenticated",
+              role: "authenticated",
+              email: "maya@example.com",
+              app_metadata: {},
+              user_metadata: {},
+              created_at: new Date().toISOString(),
+            },
+          })
+        throw new Error(`Unexpected auth request ${url.pathname}`)
+      })
+    )
+    const start = await app.inject({
+      method: "GET",
+      url: "/api/auth/google?next=billing&plan=business&interval=yearly",
+    })
+    const cookie = [start.headers["set-cookie"] ?? []]
+      .flat()
+      .map((value) => String(value).split(";")[0])
+      .join("; ")
+    const finish = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback?code=fixture-code",
+      headers: { cookie },
+    })
+    expect(finish.headers.location).toBe(
+      "http://localhost:3000/settings?plan=business&interval=yearly#billing"
+    )
+  })
+
+  it("preserves the pricing choice after cancelled sign-in and ignores forged redirect destinations", async () => {
+    const cancelled = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: "aghost-auth-return=billing%3Abusiness%3Ayearly" },
+    })
+    expect(cancelled.headers.location).toBe(
+      "http://localhost:3000/login?next=billing&plan=business&interval=yearly&error=google"
+    )
+    const forged = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: "aghost-auth-return=https%3A%2F%2Fexample.com" },
+    })
+    expect(forged.headers.location).toBe(
+      "http://localhost:3000/login?error=google"
+    )
+  })
 })

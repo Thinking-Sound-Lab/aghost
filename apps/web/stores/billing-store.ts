@@ -4,6 +4,7 @@ import {
   type BillingInterval,
   type BillingState,
   type PlanId,
+  type ChoosePlanInput,
 } from "@workspace/api/contract"
 import { api } from "@/lib/api"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
@@ -11,11 +12,13 @@ import { errorMessage, useWorkspaceStore } from "./workspace-store"
 type BillingStore = {
   state: BillingState | null
   interval: BillingInterval
+  selectedPlan: PlanId | null
   loading: boolean
   busy: boolean
   error: string | null
   notice: string | null
   clear: () => void
+  select: (choice: ChoosePlanInput) => void
   load: (sync?: boolean) => Promise<void>
   choose: (plan: PlanId) => Promise<void>
   portal: () => Promise<void>
@@ -24,6 +27,7 @@ type BillingStore = {
 const initial = {
   state: null,
   interval: "monthly" as const,
+  selectedPlan: null,
   loading: false,
   busy: false,
   error: null,
@@ -33,6 +37,8 @@ const initial = {
 export const useBillingStore = create<BillingStore>((set, get) => ({
   ...initial,
   clear: () => set(initial),
+  select: (choice) =>
+    set({ selectedPlan: choice.plan, interval: choice.interval }),
   load: async (sync = false) => {
     if (get().loading) return
     set({ loading: true, error: null })
@@ -40,9 +46,10 @@ export const useBillingStore = create<BillingStore>((set, get) => ({
       const state = sync ? await api.billing.sync() : await api.billing.get()
       set({
         state,
-        ...(!get().state && {
-          interval: state.subscription?.interval ?? "monthly",
-        }),
+        ...(!get().state &&
+          !get().selectedPlan && {
+            interval: state.subscription?.interval ?? "monthly",
+          }),
       })
       useWorkspaceStore.setState({ billing: state })
     } catch (error) {
