@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { buttonVariants } from "@workspace/ui/components/button"
 import { Brand } from "@/components/brand"
 import { Google } from "@/components/google-icon"
@@ -30,6 +31,26 @@ export function SignIn({
           <Google size={16} />
           Continue with Google
         </a>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          By continuing, you agree to the{" "}
+          <Link
+            href="/terms-of-service"
+            className="underline underline-offset-4"
+          >
+            Terms of Service
+          </Link>{" "}
+          and acknowledge the{" "}
+          <Link href="/privacy-policy" className="underline underline-offset-4">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+        <Link
+          href="/contact"
+          className="w-fit text-sm text-muted-foreground underline underline-offset-4"
+        >
+          Need help? Contact us
+        </Link>
       </div>
     </main>
   )

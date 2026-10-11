@@ -161,7 +161,7 @@ MCP has its own backend route module on the same server as the API. See the [MCP
 
 ## Brand
 
-The mascot is the logo. [`mascot.png`](apps/web/public/mascot.png) is the one source image; the favicon, the Apple icon, and the share image in `apps/web/app` are made from it. The typeface is Inter.
+The mascot is the logo. [`mascot.png`](apps/web/public/mascot.png) is the one source image; the favicon, the Apple icon, and the share image in `apps/web/app` are made from it. The dashboard uses Inter. The marketing pages use Anton headings and Caveat handwritten notes, with Inter for body text; Next.js serves these fonts locally.
 
 | Colour       | Hex       | Role    |
 | ------------ | --------- | ------- |
@@ -174,20 +174,24 @@ The mascot is the logo. [`mascot.png`](apps/web/public/mascot.png) is the one so
 | Gray         | `#687280` | Neutral |
 | Off White    | `#F6F7F8` | Neutral |
 
-The colours are Tailwind tokens in [`globals.css`](packages/ui/src/styles/globals.css): `bg-brand`, `bg-brand-blue`, `text-brand-gray`, and so on. Buttons on green carry black text, because white on Aghost Green is too faint to read. The marketing site uses the full palette; the dashboard stays neutral and carries only the logo.
+The colours are Tailwind tokens in [`globals.css`](packages/ui/src/styles/globals.css): `bg-brand`, `bg-brand-blue`, `text-brand-gray`, and so on. Buttons on green carry black text, because white on Aghost Green is too faint to read. The marketing site adds ruled paper, graph paper, pastel notes, and taped product previews through scoped styles in [`notebook.css`](apps/web/features/marketing/notebook.css). The dashboard stays neutral and carries only the logo.
 
 ## Search and AI assistants
 
-The landing page is built to be read by search engines and by AI assistants such as ChatGPT, Claude, Perplexity, and Google's AI Overviews. Google's guidance is that both need the same things: crawlable, server-rendered pages that say something specific.
+The marketing pages serve readable HTML to search engines and AI assistants such as ChatGPT, Claude, and Perplexity. They describe Instagram comment-to-DM automation, its requirements, and the supported features. The [Instagram DM automation guide](apps/web/app/instagram-dm-automation/page.tsx) explains where aghost fits into social media management without implying that it schedules posts or manages other social networks.
 
 - **One copy of the text.** [`content.ts`](apps/web/features/marketing/content.ts) holds the facts, steps, features, and questions. The page, its structured data, and `/llms.txt` all read it, so crawlers are told what visitors see.
-- **Agentic first.** The headline is "Agentic DM automation for Instagram", and the agent story, the demo, and the steps lead with running aghost from Claude Code, Codex, Cursor, or another MCP client.
-- **Answers first.** The page opens by saying what aghost is, and each question is a heading with a direct answer under it.
-- **Structured data.** The page describes itself as an `Organization`, `WebSite`, `WebApplication`, and `FAQPage` in JSON-LD. It claims no price, rating, or review, because the product has none to show yet.
-- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits every crawler, including the ones that feed AI search, and keeps them out of `/api`, except the public setup skill at `/api/mcp/skill.md`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages answer with `noindex`.
-- **`/llms.txt`.** A plain-text summary for assistants that choose to read one. It opens with how an agent connects: the MCP endpoint, the REST API, and the setup skill. Google has said it does not use the file, so treat it as a courtesy and not as a ranking factor.
+- **Agent access.** The homepage, feature demo, and dedicated agent page explain how Claude Code, Codex, Cursor, or another MCP client can run aghost.
+- **Answers first.** The guide opens with a product definition and uses descriptive headings for setup, use cases, requirements, and stats. Its footer and feature-page links make it discoverable without JavaScript.
+- **Structured data.** The homepage describes the visible content as an `Organization`, `WebSite`, `WebApplication`, and `FAQPage` in JSON-LD. The guide adds `WebPage` and `BreadcrumbList` data matching its visible breadcrumb. Neither claims reviews or ratings.
+- **Crawling.** [`robots.ts`](apps/web/app/robots.ts) admits public-page crawlers, with explicit groups for Googlebot, Bingbot, OpenAI search, Claude search, Perplexity search, and their user-requested fetchers. Each group excludes `/api/` except the public setup skill at `/api/mcp/skill.md`. [`sitemap.ts`](apps/web/app/sitemap.ts) lists the public pages. Signed-in pages answer with `noindex`.
+- **`/llms.txt`.** A plain-text summary for assistants that choose to read one. It links to product explanations, features, current pricing, and support before the agent setup details. It is a convenience, not a prerequisite for indexing or a citation guarantee.
 
 Canonical links, the sitemap, and the structured data use the site's public origin: `APP_URL` locally, and the project's production domain on Vercel.
+
+After publishing, check that the production origin is correct, public pages return HTTP 200 without login or a bot challenge, and the CDN or firewall permits verified search crawlers. Submit the sitemap in Google Search Console and Bing Webmaster Tools, then inspect indexing and crawler logs. Local checks cannot establish production indexing or citations.
+
+The implementation follows [OpenAI's crawler guidance](https://developers.openai.com/api/docs/bots), [Anthropic's crawler guidance](https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler), [Perplexity's crawler guidance](https://docs.perplexity.ai/docs/resources/perplexity-crawlers), and [Google's guidance for AI features](https://developers.google.com/search/docs/appearance/ai-features). These services choose which sources to index and cite. Crawl access and helpful content improve eligibility; they do not guarantee appearance for any keyword.
 
 ## Project structure
 
