@@ -113,21 +113,7 @@ export class BillingService {
       const status = await this.provider.getCheckout(
         checkout.session.providerSessionId
       )
-      // Dodo's single-use, unconfirmed checkout links expire after 24 hours.
-      // Use the provider's creation time, with a clock-skew allowance. A
-      // payment begun before expiry can remain unsettled much longer.
-      const expired = Date.now() >= Date.parse(status.createdAt) + 86_460_000
-      if (!expired) {
-        if (
-          status.payment === "unpaid" &&
-          checkout.plan === choice.plan &&
-          checkout.interval === choice.interval
-        )
-          return checkout.session.url
-        throw new ConflictError(
-          "An unfinished checkout already exists. Complete it or wait for it to expire before choosing another plan."
-        )
-      }
+      // A payment begun on the link can remain unsettled long after it expires.
       if (
         status.payment === "pending" ||
         (status.payment === "succeeded" && !record?.subscription)
@@ -136,6 +122,19 @@ export class BillingService {
           "Your checkout payment is still being reconciled. Refresh billing before starting another payment."
         )
       }
+      // Dodo's single-use, unconfirmed checkout links expire after 24 hours.
+      // Use the provider's creation time, with a clock-skew allowance.
+      const expired = Date.now() >= Date.parse(status.createdAt) + 86_460_000
+      if (
+        !expired &&
+        status.payment === "unpaid" &&
+        checkout.plan === choice.plan &&
+        checkout.interval === choice.interval
+      )
+        return checkout.session.url
+      // The customer chose another plan, or the link can no longer be paid.
+      // Dodo cannot revoke a link, so an unpaid one replaced here stays
+      // payable until it expires.
       await this.billing.clearCheckout(workspace.id)
     }
 

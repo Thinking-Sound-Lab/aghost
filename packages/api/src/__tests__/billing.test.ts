@@ -307,9 +307,42 @@ describe("billing", () => {
     expect(dodo.createCheckout).toHaveBeenCalledOnce()
   })
 
-  it("permits a different choice only after the previous unpaid link expires", async () => {
+  it("replaces an abandoned unpaid checkout when another plan is chosen", async () => {
     const repository = memoryRepository(null)
     const dodo = provider()
+    const { billing } = service(repository, dodo)
+    const payer = { email: "maya@example.com", name: "Maya" }
+    await billing.startCheckout(workspace, payer, {
+      plan: "pro",
+      interval: "monthly",
+    })
+    vi.mocked(dodo.createCheckout).mockResolvedValueOnce({
+      providerSessionId: "cks_2",
+      url: "https://checkout.example/another",
+    })
+    await expect(
+      billing.startCheckout(workspace, payer, {
+        plan: "business",
+        interval: "yearly",
+      })
+    ).resolves.toBe("https://checkout.example/another")
+    expect(dodo.createCustomer).toHaveBeenCalledOnce()
+    expect(dodo.createCheckout).toHaveBeenCalledTimes(2)
+    expect(repository.record?.checkout).toMatchObject({
+      plan: "business",
+      interval: "yearly",
+      session: { providerSessionId: "cks_2" },
+    })
+  })
+
+  it("refuses another plan while the previous checkout's payment is processing", async () => {
+    const repository = memoryRepository(null)
+    const dodo = provider({
+      getCheckout: async () => ({
+        createdAt: new Date().toISOString(),
+        payment: "pending",
+      }),
+    })
     const { billing } = service(repository, dodo)
     const payer = { email: "maya@example.com", name: "Maya" }
     await billing.startCheckout(workspace, payer, {
@@ -322,16 +355,28 @@ describe("billing", () => {
         interval: "yearly",
       })
     ).rejects.toMatchObject({ code: "conflict" })
-    vi.mocked(dodo.getCheckout).mockResolvedValue({
-      createdAt: "2020-01-01T00:00:00Z",
-      payment: "unpaid",
-    })
-    await billing.startCheckout(workspace, payer, {
-      plan: "business",
-      interval: "yearly",
-    })
-    expect(dodo.createCheckout).toHaveBeenCalledTimes(2)
+    expect(dodo.createCheckout).toHaveBeenCalledOnce()
+    expect(repository.record?.checkout).toMatchObject({ plan: "pro" })
   })
+
+  it.each([
+    { createdAt: new Date().toISOString(), payment: "failed" as const },
+    { createdAt: "2020-01-01T00:00:00Z", payment: "unpaid" as const },
+  ])(
+    "starts a new checkout for the same plan once the previous link is $payment and cannot be resumed",
+    async (status) => {
+      const dodo = provider({ getCheckout: async () => status })
+      const { billing } = service(memoryRepository(null), dodo)
+      const args = [
+        workspace,
+        { email: "maya@example.com", name: "Maya" },
+        { plan: "pro", interval: "monthly" },
+      ] as const
+      await billing.startCheckout(...args)
+      await billing.startCheckout(...args)
+      expect(dodo.createCheckout).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it.each([
     null,

@@ -28,6 +28,32 @@ describe("Dodo SDK billing integration", () => {
     expect(checkouts[0]!.body).not.toHaveProperty("billing_address")
   })
 
+  it("reports a checkout left at the payment form as unpaid until a payment is submitted", async () => {
+    const fixture = dodoFixture()
+    const provider = new DodoBillingProvider(() => fixture.client)
+    const { providerSessionId } = await provider.createCheckout({
+      providerProductId: "pdt_pro_monthly",
+      providerCustomerId: "cus_1",
+      plan: "pro",
+      interval: "monthly",
+      returnUrl: "https://app.example/settings#billing",
+      cancelUrl: "https://app.example/settings#billing",
+    })
+    const checkout = fixture.checkouts.get(providerSessionId)!
+    expect(await provider.getCheckout(providerSessionId)).toMatchObject({
+      payment: "unpaid",
+    })
+    checkout.payment_id = "pay_1"
+    checkout.payment_status = "requires_payment_method"
+    expect(await provider.getCheckout(providerSessionId)).toMatchObject({
+      payment: "unpaid",
+    })
+    checkout.payment_status = "processing"
+    expect(await provider.getCheckout(providerSessionId)).toMatchObject({
+      payment: "pending",
+    })
+  })
+
   it("waits for an actual payment after a payment authorization becomes active", async () => {
     const fixture = dodoFixture()
     const provider = new DodoBillingProvider(() => fixture.client)
