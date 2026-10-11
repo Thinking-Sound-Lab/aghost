@@ -2,5 +2,5 @@
 export const contactEmail = "abhishek@thinkingsoundlab.com"
 
 export function contactHref(subject?: string) {
-  return `mailto:${contactEmail}${subject ? `?${new URLSearchParams({ subject })}` : ""}`
+  return `mailto:${contactEmail}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`
 }

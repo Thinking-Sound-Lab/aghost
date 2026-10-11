@@ -258,6 +258,10 @@
     2% 23%
   );
 }
+.notebook-page .notebook-sticker:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -5px;
+}
 .notebook-sticker-mint {
   background: var(--notebook-mint);
 }
