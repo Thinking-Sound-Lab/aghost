@@ -99,6 +99,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         status: "ready",
       })
     } catch (error) {
+      // The plan ended between the billing read and the workspace reads.
+      if (error instanceof ApiClientError && error.code === "plan_required") {
+        set({ status: "idle" })
+        return get().load()
+      }
       set({ error: errorMessage(error), status: "error" })
     }
   },
