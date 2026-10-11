@@ -6,6 +6,15 @@ const host = process.env.NEXT_PUBLIC_POSTHOG_HOST
 /** PostHog, when this build has a project key. Without one, analytics is off. */
 export const analytics = key ? posthog : null
 
+/**
+ * Detaches this browser from the person who signed in, so whoever uses it next
+ * starts as a new visitor. A visitor who never signed in keeps their history,
+ * which a later sign-up joins to the account.
+ */
+export function forgetPerson() {
+  if (analytics?.get_property("$user_state") === "identified") analytics.reset()
+}
+
 /** Starts PostHog before the app hydrates; see instrumentation-client.ts. */
 export function startAnalytics() {
   if (!key) return

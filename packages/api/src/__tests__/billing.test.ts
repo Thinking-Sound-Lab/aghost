@@ -698,6 +698,32 @@ describe("billing", () => {
     expect(dodo.changePlan).not.toHaveBeenCalled()
   })
 
+  it("describes an existing subscriber's plan whenever billing is read", async () => {
+    const { billing, recorded } = service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription({ plan: "growth", interval: "yearly" }),
+      }),
+      provider()
+    )
+    await billing.getState(workspace)
+    // Nothing changed, so nothing is reported as an event.
+    expect(recorded.events).toEqual([])
+    expect(recorded.workspaces).toEqual([
+      {
+        workspace,
+        traits: {
+          plan: "growth",
+          billing_interval: "yearly",
+          subscription_status: "active",
+          mrr_usd: 19,
+          cancel_at_period_end: false,
+        },
+      },
+    ])
+  })
+
   it("shows USD before and after subscribing", async () => {
     const empty = service(memoryRepository(null), provider()).billing
     expect((await empty.getState(workspace)).currency).toBe("USD")

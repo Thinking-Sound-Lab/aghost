@@ -3,6 +3,7 @@ import { once } from "node:events"
 import type { AddressInfo } from "node:net"
 import { gunzipSync } from "node:zlib"
 import { afterEach, describe, expect, it } from "vitest"
+import { loadApiConfig } from "../config"
 import { PostHogAnalytics } from "../infrastructure/posthog/posthog-analytics"
 
 type Sent = {
@@ -43,6 +44,39 @@ async function startPostHogFixture(status = 200) {
     close: () => new Promise((resolve) => server.close(resolve)),
   }
 }
+
+describe("PostHog configuration", () => {
+  const environment = {
+    APP_URL: "http://localhost:3000",
+    SUPABASE_URL: "http://127.0.0.1:54321",
+    SUPABASE_PUBLISHABLE_KEY: "publishable",
+    SUPABASE_SECRET_KEY: "secret",
+    ZERNIO_API_URL: "https://zernio.com/api",
+    ZERNIO_API_KEY: "",
+    ZERNIO_WEBHOOK_SECRET: "",
+  }
+
+  it("leaves analytics off without a key, even when Compose passes a blank host", () => {
+    expect(loadApiConfig(environment).posthog).toBeNull()
+    expect(
+      loadApiConfig({ ...environment, POSTHOG_KEY: "", POSTHOG_HOST: "" })
+        .posthog
+    ).toBeNull()
+  })
+
+  it("needs the host with a key, and uses both", () => {
+    expect(() =>
+      loadApiConfig({ ...environment, POSTHOG_KEY: "phc_1", POSTHOG_HOST: "" })
+    ).toThrow(/POSTHOG_HOST/)
+    expect(
+      loadApiConfig({
+        ...environment,
+        POSTHOG_KEY: "phc_1",
+        POSTHOG_HOST: "https://eu.i.posthog.com",
+      }).posthog
+    ).toEqual({ projectKey: "phc_1", host: "https://eu.i.posthog.com" })
+  })
+})
 
 describe("PostHog analytics", () => {
   const fixtures: { close: () => Promise<unknown> }[] = []

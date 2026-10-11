@@ -34,7 +34,7 @@ export async function serveMcp(request: FastifyRequest, reply: FastifyReply) {
           },
           async (input) => {
             try {
-              const data = (await operation.execute(identity, input)) ?? {
+              const data = (await operation.execute(identity, () => input)) ?? {
                 success: true,
               }
               return {

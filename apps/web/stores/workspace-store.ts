@@ -21,7 +21,7 @@ export function hasPlan(billing: BillingState | null): boolean {
 
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiClientError && error.code === "unauthenticated")
-    useAuthStore.setState({ user: null, status: "signed_out" })
+    useAuthStore.getState().expire()
   // The plan ended while the dashboard was open: reloading shows the paywall.
   if (error instanceof ApiClientError && error.code === "plan_required")
     void useWorkspaceStore.getState().load()

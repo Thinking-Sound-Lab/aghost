@@ -58,6 +58,10 @@ export class BillingService {
       this.accounts.countConnected(workspace.id),
     ])
     const snapshot = record?.subscription ?? null
+    // Keeps the plan on the owner and workspace current, including for
+    // subscriptions that began before analytics did.
+    if (snapshot)
+      this.analytics.describeWorkspace(workspace, subscriptionTraits(snapshot))
 
     return {
       currency: "USD",
@@ -343,15 +347,9 @@ export class BillingService {
     previous: SubscriptionSnapshot | null,
     current: SubscriptionSnapshot
   ): void {
-    const events = subscriptionEvents(previous, current)
-    for (const event of events)
+    for (const event of subscriptionEvents(previous, current))
       this.analytics.capture(actorOf(workspace), event)
-    const traits = subscriptionTraits(current)
-    if (
-      !previous ||
-      JSON.stringify(subscriptionTraits(previous)) !== JSON.stringify(traits)
-    )
-      this.analytics.describeWorkspace(workspace, traits)
+    this.analytics.describeWorkspace(workspace, subscriptionTraits(current))
   }
 
   private async enforce(

@@ -938,6 +938,16 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(
       (await customer.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(403)
+    // A refused connection is an upgrade signal, before any account exists.
+    expect(
+      recorded.events
+        .filter(
+          ({ actor, event }) =>
+            actor.userId === data.user!.id &&
+            event.name === "instagram_account_limit_reached"
+        )
+        .at(-1)?.event
+    ).toEqual({ name: "instagram_account_limit_reached", account_id: null })
     expect(
       (
         await customer.request("/billing/plan", "POST", {

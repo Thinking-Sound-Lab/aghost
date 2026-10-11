@@ -20,7 +20,7 @@ An empty `POSTHOG_KEY` leaves analytics off: the browser loads no PostHog code a
 - **API.** Services in `packages/api` record business events through the `ProductAnalytics` port (`modules/analytics/analytics.ts`); the PostHog adapter batches them in the background, so recording never slows or fails a request. The API sends what is queued when it stops. Unexpected API and MCP errors go to PostHog's error tracking.
 - **Identity.** The person is the Supabase user. After sign-in the browser identifies itself with that id, which joins the visits made before sign-up to the account. Each event is also grouped by `workspace`. A workspace has one owner, so actions taken with a workspace's API key belong to its owner.
 - **Source.** Every API event has a `source` property: `dashboard`, `api` (the REST API), `mcp`, `webhook` (Zernio and Dodo), or `maintenance` (`pnpm billing:reconcile`).
-- **Person and workspace properties.** The API sets `email`, `name` and `signed_up_at` at sign-in, and `plan`, `billing_interval`, `subscription_status`, `mrr_usd`, `cancel_at_period_end` and `workspace_name` whenever they change, on both the person and the workspace group, so any report can be broken down by plan.
+- **Person and workspace properties.** The API sets `email`, `name` and `signed_up_at` at sign-in, and `plan`, `billing_interval`, `subscription_status`, `mrr_usd`, `cancel_at_period_end` and `workspace_name` when they change and whenever the dashboard reads billing, on both the person and the workspace group, so any report can be broken down by plan. Reading billing also fills them in for plans that began before analytics did.
 
 ## Events
 
@@ -41,7 +41,7 @@ An empty `POSTHOG_KEY` leaves analytics off: the browser loads no PostHog code a
 | `subscription_ended`                  | The workspace loses its plan                                       | subscription properties, `previous_mrr_usd`                                          |
 | `instagram_connect_started`           | The owner starts connecting an Instagram account                   |                                                                                      |
 | `instagram_account_connected`         | An account becomes connected                                       | `account_id`                                                                         |
-| `instagram_account_limit_reached`     | An account is refused because the plan has no room for it          | `account_id`                                                                         |
+| `instagram_account_limit_reached`     | An account is refused because the plan has no room for it          | `account_id`, null when the connection was refused before Instagram authorization    |
 | `instagram_account_disconnected`      | A connected account stops working                                  | `account_id`, `reason`                                                               |
 | `instagram_account_removed`           | The owner removes an account                                       | `account_id`                                                                         |
 | `automation_created`                  | An automation is created                                           | automation properties                                                                |
@@ -54,7 +54,7 @@ An empty `POSTHOG_KEY` leaves analytics off: the browser loads no PostHog code a
 | `api_key_revoked`                     | An API key is revoked                                              | `api_key_id`                                                                         |
 | `agent_tool_called`                   | An agent calls a REST operation or MCP tool; `source` says which   | `tool`, `api_key_id`, `outcome`, `error_code`, `duration_ms`                         |
 
-Subscription properties are `subscription_id` (Dodo's), `plan`, `billing_interval`, `status`, `price_usd` (the list price for one period) and `mrr_usd` (monthly recurring revenue, zero once the plan has ended). Automation properties describe its shape, never its messages: `automation_id`, `status`, `post_scope`, `match_mode`, `keyword_count`, `has_opening_dm`, `button_count`, `has_comment_reply` and `requires_follow`.
+Subscription properties are `subscription_id` (Dodo's), `plan`, `billing_interval`, `status`, `price_usd` (the list price for one period) and `mrr_usd` (monthly recurring revenue at the plan's list price, zero once the plan has ended; a subscription kept on an older price after a price change is counted at the new one). Automation properties describe its shape, never its messages: `automation_id`, `status`, `post_scope`, `match_mode`, `keyword_count`, `has_opening_dm`, `button_count`, `has_comment_reply` and `requires_follow`.
 
 A subscription change is recorded once, after it is saved, even when a webhook and a dashboard refresh see it at the same time. Account connections are recorded by whichever of the post-authorization sync and Zernio's webhook stores them first.
 

@@ -16,7 +16,11 @@ const environmentSchema = z
     DODO_PAYMENTS_API_KEY: z.string().default(""),
     DODO_PAYMENTS_WEBHOOK_KEY: z.string().default(""),
     POSTHOG_KEY: z.string().default(""),
-    POSTHOG_HOST: z.url().optional(),
+    // Compose passes a variable the root .env leaves out as an empty string.
+    POSTHOG_HOST: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.url().optional()
+    ),
   })
   // The project key does not say which PostHog region holds the project.
   .refine((env) => !env.POSTHOG_KEY || env.POSTHOG_HOST, {

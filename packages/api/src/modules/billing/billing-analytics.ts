@@ -16,7 +16,10 @@ export function priceUsd(plan: PlanId, interval: BillingInterval): number {
   return PLANS[plan].prices.USD[interval] / 100
 }
 
-/** Monthly recurring revenue in US dollars: zero without a working plan. */
+/**
+ * Monthly recurring revenue in US dollars at the plan's list price: zero
+ * without a working plan. Stored subscriptions do not keep their own price.
+ */
 function mrrUsd(subscription: SubscriptionSnapshot): number {
   if (!isEntitled(subscription.status)) return 0
   const price = priceUsd(subscription.plan, subscription.interval)

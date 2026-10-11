@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { ApiClientError } from "@workspace/api/client"
 import type { SessionUser } from "@workspace/api/contract"
-import { analytics } from "@/lib/analytics"
+import { analytics, forgetPerson } from "@/lib/analytics"
 import { api } from "@/lib/api"
 
 type AuthState = {
@@ -10,6 +10,8 @@ type AuthState = {
   error: string | null
   load: () => Promise<void>
   signOut: () => Promise<void>
+  /** The session ended without signing out, for example it expired. */
+  expire: () => void
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -26,7 +28,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user, status: "signed_in" })
     } catch (error) {
       if (error instanceof ApiClientError && error.code === "unauthenticated")
-        set({ user: null, status: "signed_out" })
+        get().expire()
       else
         set({
           status: "error",
@@ -41,13 +43,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null })
     try {
       await api.auth.signOut()
-      // Whoever uses this browser next starts as a new visitor.
-      analytics?.reset()
-      set({ user: null, status: "signed_out" })
+      get().expire()
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Could not sign out.",
       })
     }
+  },
+  expire: () => {
+    forgetPerson()
+    set({ user: null, status: "signed_out" })
   },
 }))

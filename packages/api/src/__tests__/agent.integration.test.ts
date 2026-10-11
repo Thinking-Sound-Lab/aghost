@@ -503,6 +503,20 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
         )
       ).statusCode
     ).toBe(422)
+    // REST input is read inside the recorded call, so a refusal counts.
+    expect(
+      recorded.events
+        .filter(
+          ({ event }) =>
+            event.name === "agent_tool_called" &&
+            event.api_key_id === write.key.id
+        )
+        .at(-1)?.event
+    ).toMatchObject({
+      tool: "list_automation_activity",
+      outcome: "failed",
+      error_code: "validation_failed",
+    })
     expect(
       (
         await rest(write.token, "/automations", "POST", {

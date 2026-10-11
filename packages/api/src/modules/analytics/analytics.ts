@@ -44,7 +44,11 @@ export type SubscriptionShape = {
   status: SubscriptionStatus
   /** The plan's list price for one billing period. */
   price_usd: number
-  /** Monthly recurring revenue: zero once the plan has ended. */
+  /**
+   * Monthly recurring revenue at the plan's current list price: zero once the
+   * plan has ended. A subscription kept on an older price after a catalog
+   * change is still counted at the new one.
+   */
   mrr_usd: number
 }
 
@@ -64,8 +68,11 @@ type Events = {
   }
   instagram_connect_started: None
   instagram_account_connected: { account_id: string }
-  /** The plan had no room for an account the owner tried to connect. */
-  instagram_account_limit_reached: { account_id: string }
+  /**
+   * The plan had no room for an account the owner tried to connect. The id is
+   * null when the connection was refused before any account was authorized.
+   */
+  instagram_account_limit_reached: { account_id: string | null }
   instagram_account_disconnected: { account_id: string; reason: string }
   instagram_account_removed: { account_id: string }
   automation_created: AutomationShape

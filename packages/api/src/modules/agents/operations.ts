@@ -24,7 +24,8 @@ export type AgentOperation = {
   scope: ApiKeyScope
   schema: z.ZodObject
   destructive?: boolean
-  execute: (identity: AgentIdentity, input: unknown) => Promise<unknown>
+  /** Reads its input inside the recorded call, so invalid input counts as a failed call. */
+  execute: (identity: AgentIdentity, input: () => unknown) => Promise<unknown>
 }
 
 /** Shared workspace actions; each transport owns its request handling. */
@@ -58,7 +59,7 @@ function operation<Schema extends z.ZodObject, Name extends string>(
         }
         const result = await run(
           identity,
-          validate(definition.schema, input) as z.output<Schema>
+          validate(definition.schema, input()) as z.output<Schema>
         )
         record(null)
         return result

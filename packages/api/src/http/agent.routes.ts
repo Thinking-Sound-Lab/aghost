@@ -18,7 +18,7 @@ export function agentRoutes(authenticate: AuthenticateAgent) {
         handler: async (request, reply) => {
           const result = await route.operation.execute(
             request.agentIdentity,
-            route.requestInput(request)
+            () => route.requestInput(request)
           )
           if (route.status === 204) return reply.code(204).send()
           return reply.code(route.status ?? 200).send(result)

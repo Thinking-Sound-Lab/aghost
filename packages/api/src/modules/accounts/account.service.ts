@@ -1,5 +1,9 @@
 import type { InstagramPost } from "../../contract/account"
-import { AccountDisconnectedError, NotFoundError } from "../../shared/errors"
+import {
+  AccountDisconnectedError,
+  NotFoundError,
+  PlanLimitError,
+} from "../../shared/errors"
 import { actorOf, type ProductAnalytics } from "../analytics/analytics"
 import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
@@ -49,7 +53,16 @@ export class AccountService {
 
   async startConnection(workspace: WorkspaceRecord): Promise<string> {
     return this.operations.run(workspace.id, async () => {
-      await this.plan.assertCanConnectAccount(workspace)
+      try {
+        await this.plan.assertCanConnectAccount(workspace)
+      } catch (error) {
+        if (error instanceof PlanLimitError)
+          this.analytics.capture(actorOf(workspace), {
+            name: "instagram_account_limit_reached",
+            account_id: null,
+          })
+        throw error
+      }
       const providerProfileId =
         await this.profiles.ensureProviderProfile(workspace)
 
