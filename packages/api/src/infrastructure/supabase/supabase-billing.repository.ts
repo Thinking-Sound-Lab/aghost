@@ -211,7 +211,7 @@ export class SupabaseBillingRepository implements BillingRepository {
         .eq("workspace_id", workspaceId)
         .select("workspace_id")
         .single(),
-      "clear the expired checkout"
+      "clear the previous checkout"
     )
   }
 }

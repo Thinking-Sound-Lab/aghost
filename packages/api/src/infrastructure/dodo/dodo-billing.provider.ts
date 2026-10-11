@@ -127,7 +127,9 @@ export class DodoBillingProvider implements BillingProvider {
     return {
       createdAt: session.created_at,
       payment:
-        !session.payment_id && !status
+        // Dodo creates the payment when the customer reaches the payment
+        // form. It requires a payment method until they submit one.
+        (!session.payment_id && !status) || status === "requires_payment_method"
           ? "unpaid"
           : status === "succeeded" ||
               status === "failed" ||
