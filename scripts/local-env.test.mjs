@@ -137,3 +137,22 @@ test("the web process receives its addresses without backend credentials", () =>
     API_URL: "http://api:4000",
   })
 })
+
+test("the web app gets the public PostHog key, from the root .env or the deployment", () => {
+  const api = { API_URL: "http://127.0.0.1:4000" }
+  const posthog = {
+    POSTHOG_KEY: "phc_project",
+    POSTHOG_HOST: "https://eu.i.posthog.com",
+  }
+  for (const env of [
+    webEnvironment({ ...api, ...posthog }, {}),
+    webEnvironment(api, posthog),
+  ])
+    assert.equal(
+      [env.NEXT_PUBLIC_POSTHOG_KEY, env.NEXT_PUBLIC_POSTHOG_HOST].join(" "),
+      "phc_project https://eu.i.posthog.com"
+    )
+  // An empty key in the root .env leaves analytics off.
+  const off = webEnvironment({ ...api, POSTHOG_KEY: "" }, posthog)
+  assert.equal(off.NEXT_PUBLIC_POSTHOG_KEY, undefined)
+})

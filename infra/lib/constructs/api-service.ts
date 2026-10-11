@@ -24,7 +24,7 @@ export const SECRET_KEYS = [
 
 export type ApiServiceProps = Pick<
   ApiConfig,
-  "appUrl" | "supabaseUrl" | "zernioApiUrl" | "capacity"
+  "appUrl" | "supabaseUrl" | "zernioApiUrl" | "posthog" | "capacity"
 > & {
   vpc: ec2.IVpc
   image: ecs.ContainerImage
@@ -77,6 +77,9 @@ export class ApiService extends Construct {
             APP_URL: props.appUrl,
             SUPABASE_URL: props.supabaseUrl,
             ZERNIO_API_URL: props.zernioApiUrl,
+            // A project key is public: browsers send events with it too.
+            POSTHOG_KEY: props.posthog.key,
+            POSTHOG_HOST: props.posthog.host,
           },
           secrets: Object.fromEntries(
             SECRET_KEYS.map((key) => [

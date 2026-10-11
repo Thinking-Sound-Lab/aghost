@@ -75,7 +75,7 @@ export function ApiKeyDialog() {
                 {store.created.key.name}
               </p>
               <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
-                <code className="min-w-0 flex-1 self-center font-mono text-xs break-all select-all">
+                <code className="ph-no-capture min-w-0 flex-1 self-center font-mono text-xs break-all select-all">
                   {store.created.token}
                 </code>
                 <CopyButton

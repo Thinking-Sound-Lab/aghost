@@ -99,5 +99,12 @@ export function webEnvironment(values, inherited = process.env) {
   environment.API_URL = apiUrl
   // The site's public address, for canonical links. Vercel supplies its own.
   if (values.APP_URL) environment.APP_URL = values.APP_URL
+  // PostHog's project key is public: the browser sends events with it.
+  const posthogKey = values.POSTHOG_KEY ?? inherited.POSTHOG_KEY
+  const posthogHost = values.POSTHOG_HOST ?? inherited.POSTHOG_HOST
+  if (posthogKey) {
+    environment.NEXT_PUBLIC_POSTHOG_KEY = posthogKey
+    if (posthogHost) environment.NEXT_PUBLIC_POSTHOG_HOST = posthogHost
+  }
   return environment
 }

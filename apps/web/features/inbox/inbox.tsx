@@ -48,7 +48,9 @@ export function Inbox() {
         {inbox.status === "loading" || inbox.status === "idle" ? (
           <Loading />
         ) : (
-          <div className="grid min-h-0 flex-1 content-start gap-0.5 overflow-auto p-3">
+          // ph-no-capture keeps Instagram users' messages and names out of
+          // session replays and autocaptured clicks.
+          <div className="ph-no-capture grid min-h-0 flex-1 content-start gap-0.5 overflow-auto p-3">
             {conversations.length === 0 && inbox.status === "ready" && (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {inbox.conversations.length ? "No matches" : "No messages yet"}
@@ -116,7 +118,7 @@ function Thread() {
   }
   return (
     <>
-      <header className="box-content flex h-9 shrink-0 items-center gap-3 px-6 pt-10 pb-4">
+      <header className="ph-no-capture box-content flex h-9 shrink-0 items-center gap-3 px-6 pt-10 pb-4">
         <Avatar
           src={conversation.participant.avatarUrl}
           name={conversation.participant.name}
@@ -140,7 +142,7 @@ function Thread() {
         <Loading />
       ) : (
         // Reversed, so the newest message sits at the bottom without scrolling.
-        <div className="flex min-h-0 flex-1 flex-col-reverse gap-1.5 overflow-auto px-6 py-4">
+        <div className="ph-no-capture flex min-h-0 flex-1 flex-col-reverse gap-1.5 overflow-auto px-6 py-4">
           {[...inbox.messages].reverse().map((message) => (
             <div
               key={message.id}

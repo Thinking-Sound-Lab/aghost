@@ -1,5 +1,6 @@
 import { z } from "zod"
 import type { ApiKeyScope } from "../../contract/api-key"
+import type { ApiErrorCode } from "../../contract/errors"
 import {
   ACTIVITY_PAGE_MAX_LIMIT,
   createAutomationSchema,
@@ -14,7 +15,8 @@ import {
   presentWorkspace,
 } from "../../http/presenters"
 import { validate } from "../../http/validation"
-import { ForbiddenError } from "../../shared/errors"
+import { AppError, ForbiddenError } from "../../shared/errors"
+import { actorOf } from "../analytics/analytics"
 
 export type AgentOperation = {
   name: string
@@ -40,13 +42,30 @@ function operation<Schema extends z.ZodObject, Name extends string>(
   return {
     ...metadata,
     execute: async (identity, input) => {
-      if (!identity.apiKey.scopes.includes(definition.scope)) {
-        throw new ForbiddenError(definition.scope)
+      const started = performance.now()
+      const record = (error_code: ApiErrorCode | null) =>
+        identity.services.analytics.capture(actorOf(identity.workspace), {
+          name: "agent_tool_called",
+          tool: definition.name,
+          api_key_id: identity.apiKey.id,
+          outcome: error_code ? "failed" : "succeeded",
+          error_code,
+          duration_ms: Math.round(performance.now() - started),
+        })
+      try {
+        if (!identity.apiKey.scopes.includes(definition.scope)) {
+          throw new ForbiddenError(definition.scope)
+        }
+        const result = await run(
+          identity,
+          validate(definition.schema, input) as z.output<Schema>
+        )
+        record(null)
+        return result
+      } catch (error) {
+        record(error instanceof AppError ? error.code : "internal_error")
+        throw error
       }
-      return run(
-        identity,
-        validate(definition.schema, input) as z.output<Schema>
-      )
     },
   }
 }

@@ -1,8 +1,14 @@
 import type { InstagramPost } from "../../contract/account"
 import { AccountDisconnectedError, NotFoundError } from "../../shared/errors"
-import type { WorkspaceRecord } from "../workspaces/workspace"
+import { actorOf, type ProductAnalytics } from "../analytics/analytics"
+import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
-import { DISCONNECT_REASONS, type AccountRecord } from "./account"
+import {
+  accountChange,
+  DISCONNECT_REASONS,
+  type AccountRecord,
+  type AccountState,
+} from "./account"
 import type { AccountRepository } from "./account.repository"
 import type { InstagramProvider } from "./instagram.provider"
 
@@ -13,7 +19,10 @@ export interface ProviderProfiles {
 
 /** Removes the automations that depend on an account. */
 export interface AccountAutomations {
-  deleteAllForAccount(workspaceId: string, accountId: string): Promise<void>
+  deleteAllForAccount(
+    workspace: WorkspaceOwner,
+    accountId: string
+  ): Promise<void>
 }
 
 /** Checks that the workspace's plan has room for another account. */
@@ -30,7 +39,8 @@ export class AccountService {
     /** Where the provider sends the browser once the user has authorized. */
     private readonly connectRedirectUrl: string,
     private readonly plan: AccountPlan,
-    private readonly operations: WorkspaceOperations
+    private readonly operations: WorkspaceOperations,
+    private readonly analytics: ProductAnalytics
   ) {}
 
   list(workspace: WorkspaceRecord): Promise<AccountRecord[]> {
@@ -43,10 +53,14 @@ export class AccountService {
       const providerProfileId =
         await this.profiles.ensureProviderProfile(workspace)
 
-      return this.instagram.getConnectUrl(
+      const url = await this.instagram.getConnectUrl(
         providerProfileId,
         this.connectRedirectUrl
       )
+      this.analytics.capture(actorOf(workspace), {
+        name: "instagram_connect_started",
+      })
+      return url
     })
   }
 
@@ -82,6 +96,10 @@ export class AccountService {
           ? null
           : DISCONNECT_REASONS.accessExpired,
       })
+      const before = stored.find(
+        (candidate) => candidate.providerAccountId === account.providerAccountId
+      )
+      this.recordChange(workspace, saved.id, before ?? null, saved)
       // Keep provider reads, the database decision and rejected-account cleanup
       // under the same ownership as billing. An upgrade or downgrade cannot
       // pass an uncommitted connection or reconnect it during old cleanup.
@@ -106,6 +124,10 @@ export class AccountService {
           account.id,
           DISCONNECT_REASONS.removed
         )
+        this.recordChange(workspace, account.id, account, {
+          status: "disconnected",
+          disconnectReason: DISCONNECT_REASONS.removed,
+        })
       }
     }
 
@@ -130,10 +152,24 @@ export class AccountService {
     return this.operations.run(workspace.id, async () => {
       const account = await this.get(workspace, accountId)
 
-      await this.automations.deleteAllForAccount(workspace.id, account.id)
+      await this.automations.deleteAllForAccount(workspace, account.id)
       await this.instagram.disconnectAccount(account.providerAccountId)
       await this.accounts.delete(workspace.id, account.id)
+      this.analytics.capture(actorOf(workspace), {
+        name: "instagram_account_removed",
+        account_id: account.id,
+      })
     })
+  }
+
+  private recordChange(
+    workspace: WorkspaceOwner,
+    accountId: string,
+    before: AccountState | null,
+    after: AccountState
+  ): void {
+    const event = accountChange(accountId, before, after)
+    if (event) this.analytics.capture(actorOf(workspace), event)
   }
 
   private async get(

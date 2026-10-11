@@ -13,9 +13,11 @@ import type {
 } from "../modules/billing/billing"
 import type { BillingProvider } from "../modules/billing/billing.provider"
 import type { BillingRepository } from "../modules/billing/billing.repository"
+import { subscriptionEvents } from "../modules/billing/billing-analytics"
 import { BillingService } from "../modules/billing/billing.service"
 import { PlanEntitlements } from "../modules/billing/plan-entitlements"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
+import { recordingAnalytics } from "./analytics-fixture"
 
 const workspace: WorkspaceRecord = {
   id: "workspace",
@@ -53,9 +55,9 @@ function memoryRepository(
       : (null as BillingRecord | null),
     findByWorkspace: async (workspaceId: string) =>
       store.record?.workspaceId === workspaceId ? store.record : null,
-    findWorkspaceIdByCustomer: async (customerId: string) =>
+    findWorkspaceByCustomer: async (customerId: string) =>
       store.record?.providerCustomerId === customerId
-        ? store.record.workspaceId
+        ? { id: store.record.workspaceId, ownerId: workspace.ownerId }
         : null,
     saveCustomer: async (workspaceId: string, customerId: string) => {
       store.record ??= {
@@ -134,15 +136,18 @@ function service(
   connected = 0
 ) {
   const pauseAll = vi.fn(async () => {})
+  const recorded = recordingAnalytics()
   return {
     pauseAll,
+    recorded,
     billing: new BillingService(
       repository,
       billingProvider,
       { countConnected: async () => connected },
       { pauseAll },
       pages,
-      { run: (_workspaceId, work) => work() }
+      { run: (_workspaceId, work) => work() },
+      recorded.source("webhook")
     ),
   }
 }
@@ -264,7 +269,7 @@ describe("billing", () => {
   it("reuses an unpaid checkout and creates the customer once", async () => {
     const repository = memoryRepository(null)
     const dodo = provider()
-    const { billing } = service(repository, dodo)
+    const { billing, recorded } = service(repository, dodo)
     const payer = { email: "maya@example.com", name: "Maya" }
 
     await billing.startCheckout(workspace, payer, {
@@ -289,6 +294,15 @@ describe("billing", () => {
     expect(vi.mocked(dodo.createCheckout).mock.calls[0]![0]).not.toHaveProperty(
       "country"
     )
+    expect(recorded.events.map(({ event }) => event)).toEqual([
+      expect.objectContaining({ name: "checkout_started", resumed: false }),
+      expect.objectContaining({ name: "checkout_started", resumed: true }),
+    ])
+    expect(recorded.events[0]!.event).toMatchObject({
+      plan: "growth",
+      billing_interval: "yearly",
+      price_usd: 228,
+    })
   })
 
   it("does not create another checkout after a lost creation response", async () => {
@@ -443,7 +457,12 @@ describe("billing", () => {
         provider()
       )
       await billing.sync(workspace)
-      expect(pauseAll).toHaveBeenCalledExactlyOnceWith(workspace.id)
+      expect(pauseAll).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          id: workspace.id,
+          ownerId: workspace.ownerId,
+        })
+      )
     }
   )
 
@@ -510,7 +529,7 @@ describe("billing", () => {
       changePlan: async () => "https://checkout.example/approve",
       getSubscription: async () => subscription(),
     })
-    const { billing } = service(
+    const { billing, recorded } = service(
       memoryRepository({
         workspaceId: workspace.id,
         providerCustomerId: "cus_1",
@@ -527,6 +546,15 @@ describe("billing", () => {
       state: { subscription: { plan: "pro", interval: "monthly" } },
       paymentUrl: "https://checkout.example/approve",
     })
+    // Requested, but not changed until the payment is approved.
+    expect(recorded.namesFor(workspace.ownerId)).toEqual([
+      "plan_change_requested",
+    ])
+    expect(recorded.events[0]!.event).toMatchObject({
+      plan: "growth",
+      from_plan: "pro",
+      payment_required: true,
+    })
   })
 
   it("pauses running automations when a portal downgrade exceeds the account limit", async () => {
@@ -541,7 +569,9 @@ describe("billing", () => {
       3
     )
     await billing.refreshSubscription("sub_1")
-    expect(pauseAll).toHaveBeenCalledExactlyOnceWith(workspace.id)
+    expect(pauseAll).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: workspace.id, ownerId: workspace.ownerId })
+    )
   })
 
   it("applies the subscription Dodo reports and pauses automations when the plan ends", async () => {
@@ -551,7 +581,7 @@ describe("billing", () => {
       subscription: subscription(),
     })
     const onHold = subscription({ status: "on_hold" })
-    const { billing, pauseAll } = service(
+    const { billing, pauseAll, recorded } = service(
       repository,
       provider({ getSubscription: async () => onHold })
     )
@@ -560,7 +590,30 @@ describe("billing", () => {
       "processed"
     )
     expect(repository.record?.subscription).toEqual(onHold)
-    expect(pauseAll).toHaveBeenCalledExactlyOnceWith(workspace.id)
+    expect(recorded.events).toEqual([
+      {
+        source: "webhook",
+        actor: { userId: workspace.ownerId, workspaceId: workspace.id },
+        event: expect.objectContaining({
+          name: "subscription_ended",
+          status: "on_hold",
+          mrr_usd: 0,
+          previous_mrr_usd: 9,
+        }),
+      },
+    ])
+    expect(recorded.workspaces).toEqual([
+      {
+        workspace: { id: workspace.id, ownerId: workspace.ownerId },
+        traits: expect.objectContaining({
+          subscription_status: "on_hold",
+          mrr_usd: 0,
+        }),
+      },
+    ])
+    expect(pauseAll).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: workspace.id, ownerId: workspace.ownerId })
+    )
   })
 
   it("ignores subscriptions of customers it does not know", async () => {
@@ -658,6 +711,86 @@ describe("billing", () => {
       provider()
     ).billing
     expect((await subscribed.getState(workspace)).currency).toBe("USD")
+  })
+})
+
+describe("subscription analytics", () => {
+  const names = (...args: Parameters<typeof subscriptionEvents>) =>
+    subscriptionEvents(...args).map((event) => event.name)
+
+  it("starts a plan on the first entitled subscription, with its revenue", () => {
+    expect(
+      subscriptionEvents(null, subscription({ interval: "yearly" }))
+    ).toEqual([
+      {
+        name: "subscription_started",
+        subscription_id: "sub_1",
+        plan: "pro",
+        billing_interval: "yearly",
+        status: "active",
+        price_usd: 108,
+        mrr_usd: 9,
+        previous_status: null,
+      },
+    ])
+    expect(names(subscription({ status: "pending" }), subscription())).toEqual([
+      "subscription_started",
+    ])
+  })
+
+  it("records nothing for a pending first payment or an unchanged plan", () => {
+    expect(names(null, subscription({ status: "pending" }))).toEqual([])
+    expect(names(subscription(), subscription())).toEqual([])
+  })
+
+  it("tells renewals, plan changes and cancellations apart", () => {
+    expect(
+      names(
+        subscription(),
+        subscription({ currentPeriodEnd: "2026-12-11T00:00:00Z" })
+      )
+    ).toEqual(["subscription_renewed"])
+    expect(
+      subscriptionEvents(
+        subscription(),
+        subscription({
+          plan: "growth",
+          currentPeriodEnd: "2026-12-11T00:00:00Z",
+        })
+      )
+    ).toEqual([
+      expect.objectContaining({
+        name: "subscription_plan_changed",
+        plan: "growth",
+        from_plan: "pro",
+        mrr_usd: 19,
+        previous_mrr_usd: 9,
+      }),
+    ])
+    expect(
+      names(subscription(), subscription({ cancelAtPeriodEnd: true }))
+    ).toEqual(["subscription_cancellation_scheduled"])
+    expect(
+      names(subscription({ cancelAtPeriodEnd: true }), subscription())
+    ).toEqual(["subscription_cancellation_withdrawn"])
+  })
+
+  it("reports a missed payment and the end of the plan", () => {
+    expect(names(subscription(), subscription({ status: "past_due" }))).toEqual(
+      ["subscription_status_changed"]
+    )
+    expect(
+      names(
+        subscription({ status: "past_due" }),
+        subscription({ status: "cancelled" })
+      )
+    ).toEqual(["subscription_ended"])
+    expect(
+      names(
+        subscription({ status: "pending" }),
+        subscription({ status: "failed" })
+      )
+    ).toEqual(["subscription_status_changed"])
   })
 })
 

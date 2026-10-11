@@ -1,4 +1,5 @@
 import type { ChoosePlanInput } from "../../contract/billing"
+import type { WorkspaceOwner } from "../workspaces/workspace"
 import type {
   BillingRecord,
   CheckoutSession,
@@ -7,7 +8,9 @@ import type {
 
 export interface BillingRepository {
   findByWorkspace(workspaceId: string): Promise<BillingRecord | null>
-  findWorkspaceIdByCustomer(providerCustomerId: string): Promise<string | null>
+  findWorkspaceByCustomer(
+    providerCustomerId: string
+  ): Promise<WorkspaceOwner | null>
   /**
    * Stores the workspace's customer unless it already has one, and returns the
    * record that is stored.

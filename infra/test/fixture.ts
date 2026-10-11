@@ -6,6 +6,7 @@ export const environment = {
   AWS_REGION: "us-east-1",
   APP_URL: "https://aghost.example.com",
   SUPABASE_URL: "https://project.supabase.co",
+  POSTHOG_KEY: "phc_fixture",
 }
 
 export const config = loadStageConfig(environment)

@@ -7,7 +7,12 @@ import type { ApiKey } from "../contract/api-key"
 export type RequestIdentity = { services: Services; workspace: WorkspaceRecord }
 export type Authenticate = (accessToken: string) => Promise<RequestIdentity>
 export type AgentIdentity = RequestIdentity & { apiKey: ApiKey }
-export type AuthenticateAgent = (token: string) => Promise<AgentIdentity>
+/** How the agent reached the API: REST or MCP. */
+export type AgentSource = "api" | "mcp"
+export type AuthenticateAgent = (
+  token: string,
+  source: AgentSource
+) => Promise<AgentIdentity>
 
 declare module "fastify" {
   interface FastifyRequest {

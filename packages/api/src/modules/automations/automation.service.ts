@@ -15,7 +15,12 @@ import {
   ValidationError,
 } from "../../shared/errors"
 import type { AccountRecord } from "../accounts/account"
-import type { WorkspaceRecord } from "../workspaces/workspace"
+import {
+  actorOf,
+  type ProductAnalytics,
+  type ProductEvent,
+} from "../analytics/analytics"
+import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
 import type { AutomationConfig, AutomationRecord } from "./automation"
 import type {
@@ -46,7 +51,8 @@ export class AutomationService {
     private readonly accounts: AutomationAccounts,
     private readonly posts: PostCatalog,
     private readonly plan: AutomationPlan,
-    private readonly operations: WorkspaceOperations
+    private readonly operations: WorkspaceOperations,
+    private readonly analytics: ProductAnalytics
   ) {}
 
   list(workspace: WorkspaceRecord): Promise<AutomationRecord[]> {
@@ -105,8 +111,9 @@ export class AutomationService {
       input.status
     )
 
+    let created: AutomationRecord
     try {
-      return await this.automations.insert({
+      created = await this.automations.insert({
         ...config,
         workspaceId: workspace.id,
         accountId: account.id,
@@ -119,6 +126,10 @@ export class AutomationService {
       await this.provider.delete(providerAutomationId)
       throw error
     }
+
+    this.record(workspace, { name: "automation_created", ...shapeOf(created) })
+    this.recordStatus(workspace, null, created, "owner")
+    return created
   }
 
   async update(
@@ -165,7 +176,15 @@ export class AutomationService {
       input.status
     )
 
-    return this.automations.updateConfig(workspace.id, id, config, input.status)
+    const updated = await this.automations.updateConfig(
+      workspace.id,
+      id,
+      config,
+      input.status
+    )
+    this.record(workspace, { name: "automation_updated", ...shapeOf(updated) })
+    this.recordStatus(workspace, current, updated, "owner")
+    return updated
   }
 
   async setStatus(
@@ -192,7 +211,13 @@ export class AutomationService {
 
     await this.provider.setStatus(current.providerAutomationId, status)
 
-    return this.automations.updateStatus(workspace.id, id, status)
+    const updated = await this.automations.updateStatus(
+      workspace.id,
+      id,
+      status
+    )
+    this.recordStatus(workspace, current, updated, "owner")
+    return updated
   }
 
   async delete(workspace: WorkspaceRecord, id: string): Promise<void> {
@@ -203,39 +228,50 @@ export class AutomationService {
       // to find and stop the automation.
       await this.provider.delete(current.providerAutomationId)
       await this.automations.delete(workspace.id, id)
+      this.record(workspace, {
+        name: "automation_deleted",
+        automation_id: id,
+        reason: "owner",
+      })
     })
   }
 
   async deleteAllForAccount(
-    workspaceId: string,
+    workspace: WorkspaceOwner,
     accountId: string
   ): Promise<void> {
-    return this.operations.run(workspaceId, async () => {
+    return this.operations.run(workspace.id, async () => {
       const automations = await this.automations.listByAccount(
-        workspaceId,
+        workspace.id,
         accountId
       )
 
       for (const automation of automations) {
         await this.provider.delete(automation.providerAutomationId)
-        await this.automations.delete(workspaceId, automation.id)
+        await this.automations.delete(workspace.id, automation.id)
+        this.record(workspace, {
+          name: "automation_deleted",
+          automation_id: automation.id,
+          reason: "account_removed",
+        })
       }
     })
   }
 
   /** Pauses every running automation, for a workspace whose plan has ended. */
-  async pauseAll(workspaceId: string): Promise<void> {
-    return this.operations.run(workspaceId, async () => {
-      const automations = await this.automations.listByWorkspace(workspaceId)
+  async pauseAll(workspace: WorkspaceOwner): Promise<void> {
+    return this.operations.run(workspace.id, async () => {
+      const automations = await this.automations.listByWorkspace(workspace.id)
 
       for (const automation of automations) {
         if (automation.status !== "active") continue
         await this.provider.setStatus(automation.providerAutomationId, "paused")
-        await this.automations.updateStatus(
-          workspaceId,
+        const paused = await this.automations.updateStatus(
+          workspace.id,
           automation.id,
           "paused"
         )
+        this.recordStatus(workspace, automation, paused, "plan")
       }
     })
   }
@@ -273,6 +309,31 @@ export class AutomationService {
     const automation = await this.get(workspace, id)
 
     return this.provider.listActivity(automation.providerAutomationId, page)
+  }
+
+  private record(workspace: WorkspaceOwner, event: ProductEvent): void {
+    this.analytics.capture(actorOf(workspace), event)
+  }
+
+  /** Records an automation starting or stopping, whoever caused it. */
+  private recordStatus(
+    workspace: WorkspaceOwner,
+    before: AutomationRecord | null,
+    after: AutomationRecord,
+    reason: "owner" | "plan"
+  ): void {
+    if (before?.status === after.status) return
+    if (after.status === "active")
+      this.record(workspace, {
+        name: "automation_activated",
+        automation_id: after.id,
+      })
+    else if (before)
+      this.record(workspace, {
+        name: "automation_paused",
+        automation_id: after.id,
+        reason,
+      })
   }
 
   private async getAccount(
@@ -348,4 +409,19 @@ function requireProviderProfile(workspace: WorkspaceRecord): string {
   }
 
   return workspace.providerProfileId
+}
+
+/** What an automation does, without its messages. */
+function shapeOf(automation: AutomationRecord) {
+  return {
+    automation_id: automation.id,
+    status: automation.status,
+    post_scope: automation.trigger.postScope,
+    match_mode: automation.matchMode,
+    keyword_count: automation.keywords.length,
+    has_opening_dm: automation.openingDm !== null,
+    button_count: automation.dmButtons.length,
+    has_comment_reply: automation.commentReply !== null,
+    requires_follow: automation.requireFollow,
+  }
 }

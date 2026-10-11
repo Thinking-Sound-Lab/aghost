@@ -15,6 +15,7 @@ import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
+import { recordingAnalytics } from "./analytics-fixture"
 import {
   grantPlan,
   signInDisposableUser,
@@ -23,9 +24,13 @@ import {
 import { startZernioFixture } from "./zernio-fixture"
 import { dodoFixture } from "./dodo-fixture"
 
-const config = loadApiConfig(
-  parseEnv(readFileSync(new URL("../../../../.env", import.meta.url), "utf8"))
-)
+const config = {
+  ...loadApiConfig(
+    parseEnv(readFileSync(new URL("../../../../.env", import.meta.url), "utf8"))
+  ),
+  // Tests record events in memory, never in a PostHog project.
+  posthog: null,
+}
 if (
   !["localhost", "127.0.0.1"].includes(new URL(config.supabase.url).hostname)
 ) {
@@ -36,6 +41,7 @@ const runId = randomUUID()
 const appOrigin = new URL(config.appUrl).origin
 const eventIds: string[] = []
 const userIds: string[] = []
+const recorded = recordingAnalytics()
 
 /** The Set-Cookie headers of a response, as they were sent. */
 const setCookies = (response: LightMyRequestResponse) =>
@@ -151,7 +157,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
           webhookKey: dodoSecret,
         },
       },
-      { dodo: dodo.client }
+      { dodo: dodo.client, analytics: recorded.analytics }
     )
     owner = new ApiSession(app)
     other = new ApiSession(app)
@@ -218,6 +224,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       expect(callback.headers.location).toBe(`${appOrigin}/login?error=google`)
     }
     expect((await visitor.request("/auth/session")).statusCode).toBe(401)
+    expect(recorded.people).toEqual([])
   })
 
   it("accepts Google as the only way to sign in", async () => {
@@ -295,6 +302,10 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       status: "connected",
     })
     expect(account).not.toHaveProperty("providerAccountId")
+    expect(recorded.namesFor(userIds[0]!).slice(0, 2)).toEqual([
+      "instagram_connect_started",
+      "instagram_account_connected",
+    ])
     expect(
       (await other.request(`/accounts/${account.id}/posts`)).statusCode
     ).toBe(404)
@@ -396,6 +407,41 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       404
     )
     expect(fixture.automations.size).toBe(0)
+    expect(
+      recorded.events
+        .filter(
+          ({ event }) =>
+            "automation_id" in event && event.automation_id === created.id
+        )
+        .map(({ source, actor, event }) => [source, actor, event.name])
+    ).toEqual(
+      [
+        "automation_created",
+        "automation_activated",
+        "automation_updated",
+        "automation_paused",
+        "automation_activated",
+        "automation_deleted",
+      ].map((name) => ["dashboard", { userId: userIds[0], workspaceId }, name])
+    )
+    expect(
+      recorded.events.find(
+        ({ event }) =>
+          event.name === "automation_created" &&
+          event.automation_id === created.id
+      )?.event
+    ).toEqual({
+      name: "automation_created",
+      automation_id: created.id,
+      status: "active",
+      post_scope: "specific_post",
+      match_mode: "word",
+      keyword_count: 1,
+      has_opening_dm: false,
+      button_count: 1,
+      has_comment_reply: true,
+      requires_follow: true,
+    })
   })
 
   it("sends an opening DM through Zernio's tap-to-unlock and fully removes it again", async () => {
@@ -1125,6 +1171,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   })
 
   it("blocks activation while disconnected and removes dependent automations before disconnecting", async () => {
+    const before = recorded.events.length
     const created = await createAutomation()
     const disconnected = await deliver({
       id: newEventId(),
@@ -1164,6 +1211,22 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     )
     expect(writes.at(-2)?.path).toContain("/v1/comment-automations/")
     expect(writes.at(-1)?.path).toBe(`/v1/accounts/${fixture.accountId}`)
+    expect(
+      recorded.events
+        .slice(before)
+        .map(({ source, event }) => [source, event.name])
+    ).toEqual([
+      ["dashboard", "automation_created"],
+      ["dashboard", "automation_activated"],
+      ["webhook", "instagram_account_disconnected"],
+      ["dashboard", "automation_paused"],
+      ["dashboard", "automation_deleted"],
+      ["dashboard", "instagram_account_removed"],
+    ])
+    expect(recorded.events.slice(before)[2]!.event).toMatchObject({
+      account_id: account.id,
+      reason: "Access revoked",
+    })
   })
 
   it("reports the missing provider integration explicitly without contacting Zernio", async () => {

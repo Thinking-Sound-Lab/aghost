@@ -1,4 +1,5 @@
 import { InternalError } from "../../shared/errors"
+import { actorOf, type ProductAnalytics } from "../analytics/analytics"
 import type { ProfileProvider } from "./profile.provider"
 import type { WorkspaceRecord } from "./workspace"
 import type { WorkspaceRepository } from "./workspace.repository"
@@ -6,7 +7,8 @@ import type { WorkspaceRepository } from "./workspace.repository"
 export class WorkspaceService {
   constructor(
     private readonly workspaces: WorkspaceRepository,
-    private readonly profiles: ProfileProvider
+    private readonly profiles: ProfileProvider,
+    private readonly analytics: ProductAnalytics
   ) {}
 
   async getForOwner(ownerId: string): Promise<WorkspaceRecord> {
@@ -21,8 +23,14 @@ export class WorkspaceService {
     return workspace
   }
 
-  rename(workspace: WorkspaceRecord, name: string): Promise<WorkspaceRecord> {
-    return this.workspaces.rename(workspace.id, name)
+  async rename(
+    workspace: WorkspaceRecord,
+    name: string
+  ): Promise<WorkspaceRecord> {
+    const renamed = await this.workspaces.rename(workspace.id, name)
+    this.analytics.capture(actorOf(workspace), { name: "workspace_renamed" })
+    this.analytics.describeWorkspace(workspace, { workspace_name: name })
+    return renamed
   }
 
   /** Returns the workspace's provider profile id, creating the profile first if needed. */

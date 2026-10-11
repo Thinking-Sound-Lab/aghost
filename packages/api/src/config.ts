@@ -1,20 +1,28 @@
 import { parseEnvironment } from "@workspace/env"
 import { z } from "zod"
 
-const environmentSchema = z.object({
-  APP_URL: z.url(),
-  SUPABASE_URL: z.url(),
-  SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
-  SUPABASE_SECRET_KEY: z.string().min(1),
-  ZERNIO_API_URL: z.url(),
-  ZERNIO_API_KEY: z.string(),
-  ZERNIO_WEBHOOK_SECRET: z.string(),
-  DODO_PAYMENTS_ENVIRONMENT: z
-    .enum(["test_mode", "live_mode"])
-    .default("test_mode"),
-  DODO_PAYMENTS_API_KEY: z.string().default(""),
-  DODO_PAYMENTS_WEBHOOK_KEY: z.string().default(""),
-})
+const environmentSchema = z
+  .object({
+    APP_URL: z.url(),
+    SUPABASE_URL: z.url(),
+    SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+    SUPABASE_SECRET_KEY: z.string().min(1),
+    ZERNIO_API_URL: z.url(),
+    ZERNIO_API_KEY: z.string(),
+    ZERNIO_WEBHOOK_SECRET: z.string(),
+    DODO_PAYMENTS_ENVIRONMENT: z
+      .enum(["test_mode", "live_mode"])
+      .default("test_mode"),
+    DODO_PAYMENTS_API_KEY: z.string().default(""),
+    DODO_PAYMENTS_WEBHOOK_KEY: z.string().default(""),
+    POSTHOG_KEY: z.string().default(""),
+    POSTHOG_HOST: z.url().optional(),
+  })
+  // The project key does not say which PostHog region holds the project.
+  .refine((env) => !env.POSTHOG_KEY || env.POSTHOG_HOST, {
+    path: ["POSTHOG_HOST"],
+    message: "Set it with POSTHOG_KEY, for example https://us.i.posthog.com",
+  })
 
 export type ApiConfig = {
   /** Origin of the web app, used to build the URLs the provider redirects to. */
@@ -36,6 +44,8 @@ export type ApiConfig = {
     /** Signing secret of the webhook endpoint registered with Dodo Payments. */
     webhookKey: string
   }
+  /** The PostHog project that receives product events; null leaves analytics off. */
+  posthog: { projectKey: string; host: string } | null
 }
 
 /**
@@ -65,5 +75,9 @@ export function loadApiConfig(
       apiKey: env.DODO_PAYMENTS_API_KEY,
       webhookKey: env.DODO_PAYMENTS_WEBHOOK_KEY,
     },
+    posthog:
+      env.POSTHOG_KEY && env.POSTHOG_HOST
+        ? { projectKey: env.POSTHOG_KEY, host: env.POSTHOG_HOST }
+        : null,
   }
 }

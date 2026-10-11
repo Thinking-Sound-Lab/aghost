@@ -22,6 +22,7 @@ import type { Automation } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
 import type { ApiApp } from "../http/app"
 import { hashApiKey } from "../modules/api-keys/api-key.service"
+import { recordingAnalytics } from "./analytics-fixture"
 import {
   grantPlan,
   signInDisposableUser,
@@ -29,9 +30,14 @@ import {
 } from "./session-fixture"
 import { startZernioFixture } from "./zernio-fixture"
 
-const config = loadApiConfig(
-  parseEnv(readFileSync(new URL("../../../../.env", import.meta.url), "utf8"))
-)
+const config = {
+  ...loadApiConfig(
+    parseEnv(readFileSync(new URL("../../../../.env", import.meta.url), "utf8"))
+  ),
+  // Tests record events in memory, never in a PostHog project.
+  posthog: null,
+}
+const recorded = recordingAnalytics()
 if (
   !["localhost", "127.0.0.1"].includes(new URL(config.supabase.url).hostname)
 ) {
@@ -141,14 +147,17 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
 
   beforeAll(async () => {
     fixture = await startZernioFixture()
-    app = createApi({
-      ...config,
-      zernio: {
-        apiUrl: fixture.apiUrl,
-        apiKey: "fixture-api-key",
-        webhookSecret: "fixture-secret",
+    app = createApi(
+      {
+        ...config,
+        zernio: {
+          apiUrl: fixture.apiUrl,
+          apiKey: "fixture-api-key",
+          webhookSecret: "fixture-secret",
+        },
       },
-    })
+      { analytics: recorded.analytics }
+    )
     address = await app.listen({ port: 0, host: "127.0.0.1" })
     for (let index = 0; index < 2; index++) {
       const email = `aghost-agent-${randomUUID()}@example.com`
@@ -301,6 +310,33 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     await expect(
       client.callTool({ name: "get_workspace", arguments: {} })
     ).rejects.toThrow()
+
+    // Each call is recorded with the transport the agent used.
+    expect(
+      recorded.events
+        .filter(
+          ({ event }) =>
+            "api_key_id" in event && event.api_key_id === created.key.id
+        )
+        .map(({ source, event }) => [
+          source,
+          event.name,
+          "tool" in event ? event.tool : null,
+        ])
+    ).toEqual([
+      ["dashboard", "api_key_created", null],
+      ["mcp", "agent_tool_called", "get_workspace"],
+      ["api", "agent_tool_called", "create_automation"],
+      ["api", "agent_tool_called", "delete_automation"],
+      ["dashboard", "api_key_revoked", null],
+    ])
+    expect(
+      recorded.events.find(
+        ({ event }) =>
+          event.name === "automation_created" &&
+          event.automation_id === automation.json<Automation>().id
+      )?.source
+    ).toBe("api")
   })
 
   it("requires keys on agent routes and browser sessions on key management, retaining origin protection", async () => {
@@ -406,6 +442,16 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
       .eq("id", restricted.key.id)
       .single()
     expect(used.data?.last_used_at).not.toBeNull()
+    const calls = recorded.events.flatMap(({ event }) =>
+      event.name === "agent_tool_called" &&
+      event.api_key_id === restricted.key.id
+        ? [event]
+        : []
+    )
+    expect(calls).toMatchObject([
+      { tool: "list_accounts", outcome: "failed", error_code: "forbidden" },
+      { tool: "get_workspace", outcome: "succeeded", error_code: null },
+    ])
   })
 
   it("supports a full REST automation workflow with shared validation, posts, activity, and related reads", async () => {

@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { ApiClientError } from "@workspace/api/client"
 import type { SessionUser } from "@workspace/api/contract"
+import { analytics } from "@/lib/analytics"
 import { api } from "@/lib/api"
 
 type AuthState = {
@@ -20,6 +21,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: "loading", error: null })
     try {
       const { user } = await api.auth.session()
+      // Joins this browser's visits before sign-in to the person.
+      analytics?.identify(user.id, { email: user.email })
       set({ user, status: "signed_in" })
     } catch (error) {
       if (error instanceof ApiClientError && error.code === "unauthenticated")
@@ -38,6 +41,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null })
     try {
       await api.auth.signOut()
+      // Whoever uses this browser next starts as a new visitor.
+      analytics?.reset()
       set({ user: null, status: "signed_out" })
     } catch (error) {
       set({

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { AutomationService } from "../modules/automations/automation.service"
 import type { AutomationRepository } from "../modules/automations/automation.repository"
 import type { AutomationProvider } from "../modules/automations/automation.provider"
+import { recordingAnalytics } from "./analytics-fixture"
 
 describe("automation creation compensation", () => {
   it("removes a provider automation if its database record cannot be saved", async () => {
@@ -33,6 +34,7 @@ describe("automation creation compensation", () => {
       listStats: async () => new Map(),
       listActivity: async () => ({ entries: [], total: 0, hasMore: false }),
     }
+    const recorded = recordingAnalytics()
     const service = new AutomationService(
       repository,
       provider,
@@ -51,7 +53,8 @@ describe("automation creation compensation", () => {
       },
       { listRecentPosts: async () => [] },
       { assertCanRunAutomations: async () => {} },
-      { run: (_workspaceId, work) => work() }
+      { run: (_workspaceId, work) => work() },
+      recorded.source("dashboard")
     )
     await expect(
       service.create(
@@ -78,5 +81,7 @@ describe("automation creation compensation", () => {
     ).rejects.toBe(failure)
     expect(insert).toHaveBeenCalledOnce()
     expect(remove).toHaveBeenCalledExactlyOnceWith("remote-new")
+    // Nothing was created, so nothing is reported as created.
+    expect(recorded.events).toEqual([])
   })
 })

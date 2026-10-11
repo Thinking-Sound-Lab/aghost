@@ -9,6 +9,7 @@ import type {
   BillingState,
 } from "@workspace/api/contract"
 import { isEntitled } from "@workspace/api/contract"
+import { analytics } from "@/lib/analytics"
 import { api } from "@/lib/api"
 import { useAuthStore } from "./auth-store"
 
@@ -90,6 +91,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         api.accounts.list(),
         api.automations.list(),
       ])
+      analytics?.group("workspace", workspace.id, {
+        workspace_name: workspace.name,
+      })
       set({
         workspace,
         accounts,

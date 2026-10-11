@@ -26,6 +26,7 @@ import { PlanEntitlements } from "../modules/billing/plan-entitlements"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
 import type { WorkspaceOperations } from "../modules/workspaces/workspace-operations"
 import type { InboundEvent } from "../modules/webhooks/inbound-event"
+import { recordingAnalytics } from "./analytics-fixture"
 import { signInDisposableUser } from "./session-fixture"
 
 const config = loadApiConfig(
@@ -117,6 +118,8 @@ async function context() {
   }
   const automations = new SupabaseAutomationRepository(db)
   const accounts = new SupabaseAccountRepository(db)
+  const recorded = recordingAnalytics()
+  const analytics = recorded.source("webhook")
   const reported = new Map<string, ProviderAccount>()
   const instagram: InstagramProvider = {
     getConnectUrl: async () => "https://instagram.example/connect",
@@ -137,7 +140,8 @@ async function context() {
       accounts,
       instagram,
       plans,
-      operations
+      operations,
+      analytics
     )
     const billing = new BillingService(
       repository,
@@ -149,7 +153,8 @@ async function context() {
         checkoutCancel: "https://app.example/settings#billing",
         portalReturn: "https://app.example/settings#billing",
       },
-      operations
+      operations,
+      analytics
     )
     const account = new AccountService(
       accounts,
@@ -158,9 +163,15 @@ async function context() {
       automation,
       "https://app.example/accounts/callback",
       plans,
-      operations
+      operations,
+      analytics
     )
-    const webhooks = new SupabaseWebhookProcessor(admin, instagram, operations)
+    const webhooks = new SupabaseWebhookProcessor(
+      admin,
+      instagram,
+      operations,
+      analytics
+    )
     return { automation, billing, account, webhooks, operations }
   }
   async function paidAccount() {
@@ -213,6 +224,7 @@ async function context() {
     instagram,
     services,
     paidAccount,
+    recorded,
   }
 }
 
@@ -281,6 +293,12 @@ describe("billing coordination in PostgreSQL", () => {
       (await test.repository.findByWorkspace(test.workspace.id))?.subscription
         ?.status
     ).toBe("on_hold")
+    // Both refreshes saw the plan end; only the one that changed it records it.
+    expect(
+      test.recorded.events.filter(
+        ({ event }) => event.name === "subscription_ended"
+      )
+    ).toHaveLength(1)
   })
 
   it.each(["create", "update", "activate"] as const)(

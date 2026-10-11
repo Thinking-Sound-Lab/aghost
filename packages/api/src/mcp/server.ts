@@ -2,6 +2,7 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server"
 import { toNodeHandler } from "@modelcontextprotocol/node"
 import type { FastifyReply, FastifyRequest } from "fastify"
 import { AGENT_OPERATIONS } from "../modules/agents/operations"
+import { actorOf } from "../modules/analytics/analytics"
 import { AppError } from "../shared/errors"
 
 export async function serveMcp(request: FastifyRequest, reply: FastifyReply) {
@@ -45,7 +46,14 @@ export async function serveMcp(request: FastifyRequest, reply: FastifyReply) {
             } catch (error) {
               const expected =
                 error instanceof AppError && error.code !== "internal_error"
-              if (!expected) request.log.error(error)
+              if (!expected) {
+                request.log.error(error)
+                identity.services.analytics.captureException(
+                  error,
+                  actorOf(identity.workspace),
+                  { tool: operation.name }
+                )
+              }
               const body = {
                 error: {
                   code: expected ? error.code : "internal_error",

@@ -73,7 +73,7 @@ export function Activity({ id }: { id: string }) {
       ) : (
         page && (
           <section className="grid gap-4">
-            <div className="divide-y text-sm">
+            <div className="ph-no-capture divide-y text-sm">
               <div className="-mx-3 flex items-center gap-4 px-3 pb-2 text-xs text-muted-foreground">
                 <span className="w-44">Person</span>
                 <span className="flex-1">Comment</span>
