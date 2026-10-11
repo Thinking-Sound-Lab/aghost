@@ -64,6 +64,7 @@ export class BillingService {
       this.analytics.describeWorkspace(workspace, subscriptionTraits(snapshot))
 
     return {
+      workspaceId: workspace.id,
       currency: "USD",
       subscription: snapshot && {
         plan: snapshot.plan,

@@ -84,6 +84,8 @@ export type Subscription = {
 }
 
 export type BillingState = {
+  /** The workspace being billed, known to the browser even before a plan. */
+  workspaceId: string
   /** Plans are shown and charged in US dollars. */
   currency: BillingCurrency
   /** The workspace's most recent subscription, which may have ended. */

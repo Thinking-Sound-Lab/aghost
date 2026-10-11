@@ -820,7 +820,12 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
           "x-visitor-country": "IN",
         })
       ).json()
-    ).toEqual({ currency: "USD", subscription: null, connectedAccounts: 0 })
+    ).toEqual({
+      workspaceId: workspace.id,
+      currency: "USD",
+      subscription: null,
+      connectedAccounts: 0,
+    })
     const checkout = await customer.request(
       "/billing/checkout",
       "POST",

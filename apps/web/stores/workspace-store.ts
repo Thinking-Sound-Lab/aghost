@@ -81,6 +81,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         api.integrations(),
         api.billing.get(),
       ])
+      // Joins the workspace before the paywall, so steps to a purchase count.
+      analytics?.group("workspace", billing.workspaceId)
       // Without a plan the API serves only billing, for the paywall.
       if (!hasPlan(billing)) {
         set({ ...initial, integration, billing, status: "ready" })

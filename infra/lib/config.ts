@@ -22,8 +22,8 @@ const environmentSchema = z.object({
   AWS_REGION: z.string().min(1),
   APP_URL: z.url(),
   SUPABASE_URL: z.url(),
-  // Public by design; empty leaves product analytics off.
-  POSTHOG_KEY: z.string(),
+  // Public by design. Unset, as in local cdk commands, leaves analytics off.
+  POSTHOG_KEY: z.string().default(""),
 })
 
 export type ApiConfig = {

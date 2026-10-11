@@ -15,6 +15,14 @@ describe("stage configuration", () => {
     expect(config.api.secretName).toBe("aghost/prod/api")
   })
 
+  it("synthesizes without a PostHog key, leaving analytics off", () => {
+    const { POSTHOG_KEY: _unset, ...withoutKey } = environment
+    expect(loadStageConfig(withoutKey).api.posthog).toEqual({
+      key: "",
+      host: "https://us.i.posthog.com",
+    })
+  })
+
   it("names every missing or malformed variable", () => {
     const { SUPABASE_URL: _missing, ...incomplete } = environment
     expect(() =>
