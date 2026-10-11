@@ -263,7 +263,7 @@ export function AgentSession() {
   )
 }
 
-/** The MCP entry an agent's config needs, and who can use it. */
+/** The MCP entry for one client, and the others the setup skill covers. */
 export function AgentScene({ endpoint }: { endpoint: string }) {
   const config = `{
   "mcpServers": {
@@ -280,7 +280,7 @@ export function AgentScene({ endpoint }: { endpoint: string }) {
     <div aria-hidden className="rounded-[2rem] bg-black p-5 sm:p-8">
       <div className="overflow-hidden rounded-2xl bg-neutral-900 ring-1 ring-white/10">
         <p className="border-b border-white/10 px-4 py-2.5 font-mono text-xs text-white/50">
-          .mcp.json
+          Claude Code · .mcp.json
         </p>
         <pre className="overflow-hidden p-4 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-white/90 sm:text-xs">
           {config}
@@ -296,6 +296,9 @@ export function AgentScene({ endpoint }: { endpoint: string }) {
           </span>
         ))}
       </div>
+      <p className="mt-3 text-[13px] text-white/60">
+        Each client has its own config. The setup skill covers them.
+      </p>
     </div>
   )
 }
