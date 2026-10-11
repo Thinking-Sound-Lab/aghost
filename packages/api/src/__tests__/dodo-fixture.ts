@@ -185,6 +185,13 @@ export function dodoFixture(withProducts = true) {
     if (url.pathname === "/subscriptions")
       return respond(items(state.subscription ? [state.subscription] : []))
     if (url.pathname === "/payments") return respond(items(state.payments))
+    const paymentDetail = url.pathname.match(/^\/payments\/([^/]+)$/)
+    if (paymentDetail) {
+      const found = state.payments.find(
+        (candidate) => candidate.payment_id === paymentDetail[1]
+      )
+      return found ? respond(found) : respond({ message: "Not found" }, 404)
+    }
     if (url.pathname === "/subscriptions/sub_1")
       return state.subscription
         ? respond(state.subscription)

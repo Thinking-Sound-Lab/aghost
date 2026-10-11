@@ -208,12 +208,22 @@ export class DodoBillingProvider implements BillingProvider {
         status: "succeeded",
       })) {
         if (
-          payment.status === "succeeded" &&
-          payment.total_amount > 0 &&
-          payment.customer.customer_id === snapshot.providerCustomerId &&
-          payment.currency === snapshot.currency &&
-          (payment.subscription_id === snapshot.providerSubscriptionId ||
-            payment.subscription_ids.includes(snapshot.providerSubscriptionId))
+          payment.status !== "succeeded" ||
+          payment.customer.customer_id !== snapshot.providerCustomerId ||
+          payment.currency !== snapshot.currency ||
+          (payment.subscription_id !== snapshot.providerSubscriptionId &&
+            !payment.subscription_ids.includes(snapshot.providerSubscriptionId))
+        )
+          continue
+        if (payment.total_amount > 0) return true
+        // A $0 payment is either a period that a 100% discount code made free
+        // or only a payment authorization. The list omits discounts.
+        const detail = await this.dodo().payments.retrieve(payment.payment_id)
+        if (
+          detail.discounts?.some(
+            (discount) =>
+              discount.type === "percentage" && discount.amount >= 10_000
+          )
         )
           return true
       }
