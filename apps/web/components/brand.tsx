@@ -27,10 +27,17 @@ export function Mascot({
   )
 }
 
-export function Brand({ href = "/" }: { href?: string }) {
+export function Brand({
+  href = "/",
+  onClick,
+}: {
+  href?: string
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>
+}) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       aria-label="aghost home"
       className="flex items-center gap-2 text-lg font-bold tracking-tight"
     >

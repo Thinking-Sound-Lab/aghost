@@ -11,7 +11,15 @@ export function presentWorkspace(record: WorkspaceRecord) {
 }
 
 export function presentUser(user: User): SessionUser {
-  return { id: user.id, email: user.email ?? "" }
+  const metadata = user.user_metadata
+  const text = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : null
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    name: text(metadata.full_name) ?? text(metadata.name),
+    avatarUrl: text(metadata.avatar_url) ?? text(metadata.picture),
+  }
 }
 
 export function presentAccount(record: AccountRecord): InstagramAccount {

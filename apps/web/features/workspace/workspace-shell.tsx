@@ -1,11 +1,28 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { billingChoice, billingLoginPath } from "@workspace/api/contract"
-import { House, Inbox, Settings, UsersRound, Workflow } from "lucide-react"
+import {
+  House,
+  Inbox,
+  PanelLeft,
+  Settings,
+  UsersRound,
+  Workflow,
+  X,
+} from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@workspace/ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +38,7 @@ import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
 
 const ITEM =
-  "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
+  "flex h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8"
 
 const navigation = [
   { href: "/home", label: "Home", icon: House },
@@ -30,6 +47,137 @@ const navigation = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
+
+function SidebarContent({
+  onNavigate,
+  closeButton,
+}: {
+  onNavigate?: () => void
+  closeButton?: React.ReactNode
+}) {
+  const auth = useAuthStore()
+  const pathname = usePathname()
+  const name = auth.user?.name?.trim() || "Your account"
+
+  return (
+    <>
+      <div className="flex h-11 shrink-0 items-center justify-between px-2.5 md:h-9">
+        <Brand href="/home" onClick={onNavigate} />
+        {closeButton}
+      </div>
+      <nav
+        aria-label="Workspace"
+        className="mt-6 grid gap-1 overflow-y-auto md:mt-8 md:gap-px"
+      >
+        {navigation.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`)
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                ITEM,
+                active && "bg-card font-medium text-foreground hover:bg-card"
+              )}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+              {label}
+            </Link>
+          )
+        })}
+      </nav>
+      <div className="mt-auto grid shrink-0 gap-px pt-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={`${name} account menu`}
+            className={cn(
+              ITEM,
+              "h-12 w-full min-w-0 px-2 text-foreground md:h-12"
+            )}
+          >
+            <Avatar
+              src={auth.user?.avatarUrl ?? null}
+              name={name}
+              className="size-8 bg-card ring-1 ring-border"
+            />
+            <span className="min-w-0 flex-1 truncate text-left font-medium">
+              {name}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" className="w-52">
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => void auth.signOut()}>
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
+  )
+}
+
+function MobileNavigation() {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)")
+    const closeOnDesktop = () => {
+      if (desktop.matches) setOpen(false)
+    }
+    desktop.addEventListener("change", closeOnDesktop)
+    return () => desktop.removeEventListener("change", closeOnDesktop)
+  }, [])
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <header className="flex shrink-0 items-center gap-2 border-b bg-muted px-3 py-2 md:hidden">
+        <DialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11"
+              aria-label="Open sidebar"
+            />
+          }
+        >
+          <PanelLeft aria-hidden="true" className="size-5" />
+        </DialogTrigger>
+        <Brand href="/home" />
+      </header>
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName="data-open:motion-reduce:animate-none data-closed:motion-reduce:animate-none"
+        className="top-0 left-0 flex h-dvh w-72 max-w-[calc(100%-3rem)] translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-muted px-2 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:max-w-[calc(100%-3rem)] data-open:zoom-in-100 data-open:slide-in-from-left-4 data-open:motion-reduce:animate-none data-closed:zoom-out-100 data-closed:slide-out-to-left-4 data-closed:motion-reduce:animate-none"
+      >
+        <DialogTitle className="sr-only">Workspace navigation</DialogTitle>
+        <DialogDescription className="sr-only">
+          Choose a page in your workspace.
+        </DialogDescription>
+        <SidebarContent
+          onNavigate={() => setOpen(false)}
+          closeButton={
+            <DialogClose
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-11"
+                  aria-label="Close sidebar"
+                />
+              }
+            >
+              <X aria-hidden="true" className="size-5" />
+            </DialogClose>
+          }
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const auth = useAuthStore()
@@ -88,69 +236,28 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh">
       {/* The logo and menu line up with page titles and content. */}
-      <aside className="flex w-56 shrink-0 flex-col border-r bg-muted px-2 pt-10 pb-2">
-        <div className="flex h-9 items-center px-2.5">
-          <Brand href="/home" />
-        </div>
-        <nav aria-label="Workspace" className="mt-8 grid gap-px">
-          {navigation.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(`${href}/`)
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  ITEM,
-                  active && "bg-card font-medium text-foreground hover:bg-card"
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-              </Link>
-            )
-          })}
-        </nav>
-        <div className="mt-auto grid gap-px">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(ITEM, "h-9 w-full min-w-0 px-2 text-foreground")}
-            >
-              <Avatar
-                src={null}
-                name={auth.user?.email ?? null}
-                className="size-6 bg-card"
-              />
-              <span className="min-w-0 flex-1 truncate text-left">
-                {auth.user?.email}
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" className="w-52">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => void auth.signOut()}>
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      <aside className="hidden w-56 shrink-0 flex-col border-r bg-muted px-2 pt-10 pb-2 md:flex">
+        <SidebarContent />
       </aside>
-      <main className="flex min-w-0 flex-1 flex-col">
-        <ErrorBanner
-          message={workspace.error ?? auth.error}
-          retry={
-            workspace.status === "error"
-              ? () => void workspace.load()
-              : undefined
-          }
-          className="m-4 mb-0"
-        />
-        {workspace.status === "ready" ? (
-          children
-        ) : workspace.status !== "error" ? (
-          <Loading />
-        ) : null}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MobileNavigation key={pathname} />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ErrorBanner
+            message={workspace.error ?? auth.error}
+            retry={
+              workspace.status === "error"
+                ? () => void workspace.load()
+                : undefined
+            }
+            className="m-4 mb-0"
+          />
+          {workspace.status === "ready" ? (
+            children
+          ) : workspace.status !== "error" ? (
+            <Loading />
+          ) : null}
+        </main>
+      </div>
     </div>
   )
 }

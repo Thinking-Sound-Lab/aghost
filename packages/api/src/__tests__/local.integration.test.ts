@@ -166,6 +166,12 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       const { data, error } = await admin.auth.admin.createUser({
         email,
         email_confirm: true,
+        ...(index === 0 && {
+          user_metadata: {
+            full_name: "Aghost Fixture",
+            avatar_url: "https://example.com/profile.jpg",
+          },
+        }),
       })
       if (error || !data.user)
         throw new Error("Could not create the disposable integration user")
@@ -261,7 +267,20 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
 
   it("reads the session from HttpOnly cookies and rejects unauthenticated or cross-origin requests", async () => {
     expect(await (await owner.request("/auth/session")).json()).toEqual({
-      user: { id: userIds[0], email: ownerEmail },
+      user: {
+        id: userIds[0],
+        email: ownerEmail,
+        name: "Aghost Fixture",
+        avatarUrl: "https://example.com/profile.jpg",
+      },
+    })
+    expect((await other.request("/auth/session")).json()).toEqual({
+      user: {
+        id: userIds[1],
+        email: `aghost-fixture-${runId}-1@example.com`,
+        name: null,
+        avatarUrl: null,
+      },
     })
     expect((await new ApiSession(app).request("/workspace")).statusCode).toBe(
       401
