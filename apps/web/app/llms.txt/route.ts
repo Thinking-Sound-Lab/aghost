@@ -7,6 +7,7 @@ import {
 } from "@/features/marketing/content"
 import { site } from "@/lib/site"
 import { publicPages } from "@/features/marketing/navigation"
+import { articles, articlePath } from "@/features/blog/catalog"
 
 export const dynamic = "force-static"
 
@@ -53,6 +54,10 @@ ${faqs.map((faq) => `- ${faq.question} ${faq.answer}`).join("\n")}
 ## Agents
 
 - [Setup skill](${site.url}/api/mcp/skill.md): How to connect Claude Code, Codex, Cursor, or another agent over MCP or REST
+
+## Guides and comparisons
+
+${articles.map((article) => `- [${article.title}](${new URL(articlePath(article), site.url).href}): ${article.description}`).join("\n")}
 
 ## Pages
 

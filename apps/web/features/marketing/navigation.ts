@@ -3,6 +3,7 @@ export const marketingLinks = [
   { href: "/agents", label: "AI agents" },
   { href: "/about", label: "About" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/blog", label: "Blog" },
   { href: "/#faq", label: "FAQ" },
 ]
 
@@ -14,6 +15,7 @@ export const agentLinks = [
 ]
 
 export const resourceLinks = [
+  { href: "/blog", label: "Guides and comparisons" },
   { href: "/instagram-dm-automation", label: "Instagram DM guide" },
   { href: "/agents#connection", label: "MCP setup" },
   { href: "/agents#rest-api", label: "REST API" },
@@ -43,6 +45,11 @@ export const publicPages = [
     label: "Instagram DM automation guide",
     description:
       "How comment-to-DM automation fits into your social media workflow",
+  },
+  {
+    href: "/blog",
+    label: "Blog",
+    description: "Instagram DM guides, messaging limits, and tool comparisons",
   },
   {
     href: "/agents",
