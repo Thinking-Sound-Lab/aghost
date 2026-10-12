@@ -46,15 +46,17 @@ export function createApiClient(
     body?: unknown,
     format: "json" | "markdown" = "json"
   ): Promise<T> {
+    // Proxies can frame an empty DELETE as chunked. Give Fastify JSON to parse.
+    const requestBody = body === undefined && method === "DELETE" ? {} : body
     let response: Response
     try {
       response = await transport(`${baseUrl}${path}`, {
         method,
         credentials: "same-origin",
         cache: "no-store",
-        ...(body !== undefined && {
+        ...(requestBody !== undefined && {
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: JSON.stringify(requestBody),
         }),
       })
     } catch {
