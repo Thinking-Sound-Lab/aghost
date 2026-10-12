@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { AlertCircle, ArrowLeft, Loader2, Search } from "lucide-react"
@@ -30,7 +31,7 @@ export function Page({
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mx-auto grid w-full max-w-5xl content-start gap-8 px-10 py-10">
+      <div className="mx-auto grid w-full max-w-5xl content-start gap-8 px-4 py-6 sm:px-6 md:px-10 md:py-10">
         <header className="flex min-h-9 items-center gap-2">
           {back && (
             <Link
@@ -208,6 +209,7 @@ export function Avatar({
   name: string | null
   className?: string
 }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
   return (
     <span
       className={cn(
@@ -215,9 +217,16 @@ export function Avatar({
         className
       )}
     >
-      {src ? (
-        // Instagram signs its media links and expires them, so they are shown as-is.
-        <Image src={src} alt="" fill unoptimized className="object-cover" />
+      {src && src !== failedSrc ? (
+        // Profile photos can expire, so they are shown as-is.
+        <Image
+          src={src}
+          alt=""
+          fill
+          unoptimized
+          className="object-cover"
+          onError={() => setFailedSrc(src)}
+        />
       ) : (
         (name?.charAt(0) ?? "?")
       )}
