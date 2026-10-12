@@ -352,7 +352,7 @@ GitHub's runners have no IPv6, and the database's direct address is IPv6-only, s
 
 Moving the site to another domain takes four steps, in this order. Sign-in keeps working at the old address until step 3 moves it to the new one.
 
-1. **Vercel.** Add the domain to the project under **Settings → Domains**, then redeploy production. The build reads the address for canonical links, the sitemap, and `/llms.txt`.
+1. **Vercel.** Add the domain to the project under **Settings → Domains**. If Vercel's Production environment sets `APP_URL`, update it to the new origin or remove it to use `VERCEL_PROJECT_PRODUCTION_URL`. Then redeploy production so canonical links, the sitemap, and `/llms.txt` use the new domain.
 2. **Supabase.** Under **Authentication → URL Configuration**, set the site URL to the new origin and add `<new origin>/api/auth/callback` to the redirect URLs.
 3. **GitHub.** Set `APP_URL` in the `prod` environment and run the Deploy workflow. The API then returns sign-ins, checkouts, and Instagram connections to the new origin, and accepts dashboard writes only from it.
 4. **The old address.** Redirect its pages to the new origin with a routing rule on the Vercel project that leaves `/api` in place: host `<old address>`, pattern `^/(?!api/)(.*)$`, destination `<new origin>/$1`, status 308. Agents and webhooks configured with the old address keep working, because API keys and webhook signatures are not tied to an origin. Anchor the pattern; without `^` it also matches inside `/api` paths.
