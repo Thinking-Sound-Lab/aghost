@@ -4,14 +4,7 @@ import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { billingChoice, billingLoginPath } from "@workspace/api/contract"
-import {
-  CircleHelp,
-  House,
-  Inbox,
-  Settings,
-  UsersRound,
-  Workflow,
-} from "lucide-react"
+import { House, Inbox, Settings, UsersRound, Workflow } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   DropdownMenu,
@@ -27,7 +20,6 @@ import { useAuthStore } from "@/stores/auth-store"
 import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
 
-const HELP_URL = "https://github.com/Abhishekucs/aghost#readme"
 const ITEM =
   "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
 
@@ -141,10 +133,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <a href={HELP_URL} target="_blank" rel="noreferrer" className={ITEM}>
-            <CircleHelp className="size-4" />
-            Help
-          </a>
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
