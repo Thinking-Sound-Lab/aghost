@@ -1,16 +1,16 @@
-export type Article = {
+type ArticleMetadata = {
   slug: string
   title: string
   description: string
   category: "How to" | "Comparisons" | "Messaging rules"
   publishedAt: string
   updatedAt: string
-  related: string[]
+  related: readonly string[]
 }
 
 // Keep this small and free of article bodies: marketing navigation is also
 // imported by the client-side header.
-export const articles: Article[] = [
+const catalog = [
   {
     slug: "instagram-auto-reply",
     title: "Instagram auto reply: setup, examples, and comment-to-DM",
@@ -18,7 +18,7 @@ export const articles: Article[] = [
       "Set up Instagram auto replies in Meta Business Suite, choose when to use comment-to-DM automation, and adapt ready-to-use reply examples.",
     category: "How to",
     publishedAt: "2026-10-12",
-    updatedAt: "2026-10-12",
+    updatedAt: "2026-10-13",
     related: ["instagram-dm-limits", "best-instagram-dm-automation-tools"],
   },
   {
@@ -71,7 +71,17 @@ export const articles: Article[] = [
     updatedAt: "2026-10-12",
     related: ["manychat-pricing", "manychat-alternatives"],
   },
-]
+] as const satisfies readonly ArticleMetadata[]
+
+export type ArticleSlug = (typeof catalog)[number]["slug"]
+
+export type Article = Omit<ArticleMetadata, "slug" | "related"> & {
+  slug: ArticleSlug
+  related: readonly ArticleSlug[]
+}
+
+// Type checking rejects related links that are absent from the catalog.
+export const articles: readonly Article[] = catalog
 
 export function getArticle(slug: string): Article | undefined {
   return articles.find((article) => article.slug === slug)

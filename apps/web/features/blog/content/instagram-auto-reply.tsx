@@ -143,9 +143,10 @@ export const instagramAutoReply: ArticleContent = {
               the same keyword on another post does not deliver the wrong link.
             </li>
             <li>
-              Add GUIDE as a keyword. Choose whole-word matching for comments
-              such as “GUIDE please,” or exact matching if the comment should
-              contain only the keyword.
+              Add GUIDE as a keyword. New automations in the dashboard use
+              whole-word matching, so comments such as “GUIDE please” also
+              match. To require a comment containing only the keyword, use MCP
+              or REST to set exact matching.
             </li>
             <li>
               Write the DM and add a clear link button. aghost supports up to{" "}

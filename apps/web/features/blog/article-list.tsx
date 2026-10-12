@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { articlePath, type Article } from "./catalog"
 
-export function ArticleList({ articles }: { articles: Article[] }) {
+export function ArticleList({ articles }: { articles: readonly Article[] }) {
   return (
     <ul className="blog-list">
       {articles.map((article) => (

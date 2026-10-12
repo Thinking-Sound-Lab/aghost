@@ -115,6 +115,8 @@ review and deployment workflow.
 Recheck competitor pricing and Meta rules monthly, and before any promoted launch.
 Only advance `updatedAt` when the article has actually been reviewed or changed;
 sitemap timestamps come from that fixed date, not the build time.
+The catalog derives its slug type from its entries: type checking rejects a
+missing article body or a related link to an unknown slug before publication.
 After deployment, track impressions, clicks, and actual sign-ups by article in
 Search Console and existing analytics. No connected Search Console data was used
 in this research pass.
