@@ -13,8 +13,6 @@ export const renameWorkspaceSchema = z.object({
     ),
 })
 
-export type RenameWorkspaceInput = z.infer<typeof renameWorkspaceSchema>
-
 export type Workspace = {
   id: string
   name: string

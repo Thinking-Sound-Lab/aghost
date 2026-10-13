@@ -1,0 +1,27 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "includeEntryExports": true,
+  "ignoreIssues": {
+    // Keep the helper exports produced by `supabase gen types` intact.
+    "packages/supabase/src/database.types.ts": ["exports", "types"],
+  },
+  "workspaces": {
+    ".": {
+      // These scripts are loaded by the billing .mjs launchers.
+      "entry": [
+        "scripts/billing-setup.mts",
+        "scripts/billing-reconcile.mts",
+        "scripts/billing-webhook.mts",
+      ],
+    },
+    "apps/web": {
+      // Next.js resolves the plugin named by the shared PostCSS config.
+      "ignoreDependencies": ["@tailwindcss/postcss"],
+    },
+    "infra": {
+      "entry": ["bin/app.ts"],
+      // cdk.json launches the app with tsx.
+      "ignoreDependencies": ["tsx"],
+    },
+  },
+}

@@ -72,7 +72,7 @@ export function isEntitled(status: SubscriptionStatus): boolean {
   return ENTITLED_STATUSES.includes(status)
 }
 
-export type Subscription = {
+type Subscription = {
   plan: PlanId
   interval: BillingInterval
   status: SubscriptionStatus

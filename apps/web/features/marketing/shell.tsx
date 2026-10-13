@@ -171,7 +171,7 @@ function FooterLinks({
   )
 }
 
-export function MarketingFooter() {
+function MarketingFooter() {
   return (
     <footer className="mx-auto max-w-7xl px-5 pt-20 pb-10 sm:px-8">
       <div className="grid gap-12 lg:grid-cols-[1fr_2fr]">

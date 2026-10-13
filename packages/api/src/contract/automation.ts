@@ -69,7 +69,7 @@ export const dmButtonSchema = z.object({
 export type DmButton = z.infer<typeof dmButtonSchema>
 
 /** Sent first; the main DM follows when the commenter taps its button. */
-export const openingDmSchema = z.object({
+const openingDmSchema = z.object({
   message: z
     .string()
     .trim()
@@ -90,7 +90,7 @@ export const openingDmSchema = z.object({
 
 export type OpeningDm = z.infer<typeof openingDmSchema>
 
-export const automationTriggerInputSchema = z.discriminatedUnion("postScope", [
+const automationTriggerInputSchema = z.discriminatedUnion("postScope", [
   z.object({ postScope: z.literal("any_post") }),
   z.object({
     postScope: z.literal("specific_post"),
@@ -195,7 +195,6 @@ export const setAutomationStatusSchema = z.object({
 
 export type CreateAutomationInput = z.infer<typeof createAutomationSchema>
 export type UpdateAutomationInput = z.infer<typeof updateAutomationSchema>
-export type SetAutomationStatusInput = z.infer<typeof setAutomationStatusSchema>
 
 export const ACTIVITY_PAGE_MAX_LIMIT = 50
 
@@ -210,8 +209,6 @@ export const activityPageQuerySchema = z.object({
   ),
   offset: nonNegativeInteger,
 })
-
-export type ActivityPageQuery = z.infer<typeof activityPageQuerySchema>
 
 export type AutomationTrigger =
   | { postScope: "any_post" }
@@ -260,23 +257,9 @@ export type AutomationStats = {
 /** Stats keyed by automation id. An automation without an entry has none yet. */
 export type AutomationStatsById = Record<string, AutomationStats>
 
-export const DM_DELIVERY_STATUSES = [
-  "pending",
-  "sent",
-  "failed",
-  "skipped",
-  "gated",
-] as const
-
-export const COMMENT_REPLY_STATUSES = [
-  "pending",
-  "sent",
-  "failed",
-  "skipped",
-] as const
-
-export type DmDeliveryStatus = (typeof DM_DELIVERY_STATUSES)[number]
-export type CommentReplyStatus = (typeof COMMENT_REPLY_STATUSES)[number]
+export type DmDeliveryStatus =
+  "pending" | "sent" | "failed" | "skipped" | "gated"
+type CommentReplyStatus = "pending" | "sent" | "failed" | "skipped"
 
 /** One comment that triggered an automation, and what happened next. */
 export type AutomationActivity = {

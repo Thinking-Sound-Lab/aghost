@@ -228,11 +228,14 @@ The implementation follows [OpenAI's crawler guidance](https://developers.openai
 ## Testing
 
 ```sh
-pnpm verify        # types, lint, tests, and production builds
+pnpm verify        # unused code, types, lint, tests, and production builds
+pnpm check:unused  # unused files, dependencies, and exports across workspaces
 pnpm verify:local  # end-to-end checks against the running app
 ```
 
 `pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. CI uses `pnpm setup:test` instead, which starts only what the tests need. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
+
+`pnpm check:unused` also runs in CI. Its Knip configuration includes the billing and CDK command-line entry points, preserves generated Supabase helpers, and accounts for PostCSS and CDK dependencies loaded through configuration.
 
 The OAuth registration saturation test fills the global one-minute budget, so it is skipped on a shared local stack. With `.env` pointing to a dedicated local Supabase database, run `AGHOST_TEST_ISOLATED_DATABASE=1 pnpm test` to include it. CI enables it on its fresh database; the other OAuth tests run without the flag.
 
