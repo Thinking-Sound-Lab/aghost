@@ -77,6 +77,20 @@ export default function Page() {
         title="Instagram DM automation."
         description={productSummary}
       />
+      <nav
+        aria-label="More Instagram guides"
+        className="notebook-section notebook-prose pt-0"
+      >
+        <p>
+          Planning your next campaign? Learn about{" "}
+          <Link href="/blog/instagram-auto-reply">Instagram auto replies</Link>,{" "}
+          <Link href="/blog/instagram-dm-limits">Meta’s DM limits</Link>, or{" "}
+          <Link href="/blog/best-instagram-dm-automation-tools">
+            compare automation tools
+          </Link>
+          .
+        </p>
+      </nav>
       <section className="notebook-section notebook-two-column border-t border-black/20">
         <div id="what-is-comment-to-dm" className="notebook-prose">
           <h2 className="notebook-title">What is comment-to-DM automation?</h2>

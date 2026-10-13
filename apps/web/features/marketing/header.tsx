@@ -40,7 +40,12 @@ export function MarketingHeader() {
           <Link
             key={link.href}
             href={link.href}
-            aria-current={pathname === link.href ? "page" : undefined}
+            aria-current={
+              pathname === link.href ||
+              (link.href === "/blog" && pathname.startsWith("/blog/"))
+                ? "page"
+                : undefined
+            }
           >
             {link.label}
           </Link>
@@ -81,7 +86,12 @@ export function MarketingHeader() {
             <Link
               key={link.href}
               href={link.href}
-              aria-current={pathname === link.href ? "page" : undefined}
+              aria-current={
+                pathname === link.href ||
+                (link.href === "/blog" && pathname.startsWith("/blog/"))
+                  ? "page"
+                  : undefined
+              }
               onClick={() => setOpen(false)}
             >
               {link.label}
