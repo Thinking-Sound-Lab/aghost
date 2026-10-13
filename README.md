@@ -234,6 +234,8 @@ pnpm verify:local  # end-to-end checks against the running app
 
 `pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. CI uses `pnpm setup:test` instead, which starts only what the tests need. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
 
+The OAuth registration saturation test fills the global one-minute budget, so it is skipped on a shared local stack. With `.env` pointing to a dedicated local Supabase database, run `AGHOST_TEST_ISOLATED_DATABASE=1 pnpm test` to include it. CI enables it on its fresh database; the other OAuth tests run without the flag.
+
 With the app running, `pnpm verify:local` checks pages, the Next.js proxy, and the start of Google sign-in: the HttpOnly PKCE cookie, the redirect to Google with the client from the root `.env`, and the return to the login page when a sign-in does not finish. Signing in with a Google account, browser interaction, and visual review are separate checks.
 
 Live OAuth and comment-to-DM delivery need Zernio credentials and an authorized professional Instagram account.

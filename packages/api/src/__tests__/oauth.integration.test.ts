@@ -784,53 +784,58 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
     ).toEqual([])
   })
 
-  it("shares the registration budget across API replicas and rejects simultaneous excess requests", async () => {
-    // Earlier tests may take any amount of time. Give this test its entire
-    // budget using fresh fixtures, outside the window of our existing rows.
-    const aged = await admin
-      .from("oauth_clients")
-      .update({ created_at: new Date(Date.now() - 120_000).toISOString() })
-      .in("id", [...registeredClientIds])
-    expect(aged.error).toBeNull()
-    const padding = Array.from({ length: 59 }, () => ({
-      id: randomUUID(),
-      name: "Registration limit fixture",
-      redirect_uris: [CALLBACK],
-    }))
-    for (const client of padding) registeredClientIds.add(client.id)
-    const inserted = await admin.from("oauth_clients").insert(padding)
-    expect(inserted.error).toBeNull()
-    const replica = createApi(config, {
-      analytics: recordingAnalytics().analytics,
-    })
-    try {
-      const responses = await Promise.all(
-        [app, replica].map((instance) =>
-          instance.inject({
-            method: "POST",
-            url: "/api/oauth/register",
-            payload: {
-              redirect_uris: [CALLBACK],
-              token_endpoint_auth_method: "none",
-            },
-          })
-        )
-      )
-      for (const response of responses)
-        if (response.statusCode === 201)
-          registeredClientIds.add(
-            response.json<{ client_id: string }>().client_id
+  // Saturating a global budget must not run on a developer's shared stack.
+  // CI opts in on its fresh runner; local callers opt in only for a dedicated DB.
+  it.runIf(process.env.AGHOST_TEST_ISOLATED_DATABASE === "1")(
+    "shares the registration budget across API replicas and rejects simultaneous excess requests",
+    async () => {
+      // Earlier tests may take any amount of time. Give this test its entire
+      // budget using fresh fixtures, outside the window of our existing rows.
+      const aged = await admin
+        .from("oauth_clients")
+        .update({ created_at: new Date(Date.now() - 120_000).toISOString() })
+        .in("id", [...registeredClientIds])
+      expect(aged.error).toBeNull()
+      const padding = Array.from({ length: 59 }, () => ({
+        id: randomUUID(),
+        name: "Registration limit fixture",
+        redirect_uris: [CALLBACK],
+      }))
+      for (const client of padding) registeredClientIds.add(client.id)
+      const inserted = await admin.from("oauth_clients").insert(padding)
+      expect(inserted.error).toBeNull()
+      const replica = createApi(config, {
+        analytics: recordingAnalytics().analytics,
+      })
+      try {
+        const responses = await Promise.all(
+          [app, replica].map((instance) =>
+            instance.inject({
+              method: "POST",
+              url: "/api/oauth/register",
+              payload: {
+                redirect_uris: [CALLBACK],
+                token_endpoint_auth_method: "none",
+              },
+            })
           )
-      expect(responses.map((response) => response.statusCode).sort()).toEqual([
-        201, 429,
-      ])
-      const rejected = responses.find(
-        (response) => response.statusCode === 429
-      )!
-      expect(rejected.headers["retry-after"]).toBe("60")
-      expect(rejected.json()).toMatchObject({ error: "too_many_requests" })
-    } finally {
-      await replica.close()
+        )
+        for (const response of responses)
+          if (response.statusCode === 201)
+            registeredClientIds.add(
+              response.json<{ client_id: string }>().client_id
+            )
+        expect(responses.map((response) => response.statusCode).sort()).toEqual(
+          [201, 429]
+        )
+        const rejected = responses.find(
+          (response) => response.statusCode === 429
+        )!
+        expect(rejected.headers["retry-after"]).toBe("60")
+        expect(rejected.json()).toMatchObject({ error: "too_many_requests" })
+      } finally {
+        await replica.close()
+      }
     }
-  })
+  )
 })

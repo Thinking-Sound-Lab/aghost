@@ -33,6 +33,10 @@ jobs:
       - name: Start Supabase
         run: pnpm setup:test
       - run: pnpm test
+        env:
+          # This runner owns a fresh database; the saturation test can fill
+          # the registration budget without affecting a developer's apps.
+          AGHOST_TEST_ISOLATED_DATABASE: "1"
 
   build:
     name: Build
