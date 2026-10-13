@@ -3,14 +3,34 @@
 import { useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ArrowUpRight, Menu, X } from "lucide-react"
+import { ChevronsRight, Menu, X } from "lucide-react"
+import { cn } from "@workspace/ui/lib/utils"
 import { Mascot } from "@/components/brand"
 import { marketingLinks } from "./navigation"
 
-const links = [
-  { href: "/", label: "Home" },
-  ...marketingLinks.filter((link) => link.href !== "/#faq"),
-]
+export function Brand({ onClick }: { onClick?: () => void }) {
+  return (
+    <Link
+      href="/"
+      aria-label="aghost home"
+      onClick={onClick}
+      className="flex items-center gap-2 text-xl font-extrabold tracking-tight"
+    >
+      <Mascot size={30} eager />
+      aghost
+    </Link>
+  )
+}
+
+/** The blog's link stays current on its articles too. */
+function isCurrent(pathname: string, href: string) {
+  return (
+    pathname === href || (href === "/blog" && pathname.startsWith("/blog/"))
+  )
+}
+
+const pill =
+  "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand"
 
 export function MarketingHeader() {
   const pathname = usePathname()
@@ -18,7 +38,7 @@ export function MarketingHeader() {
   const menuButton = useRef<HTMLButtonElement>(null)
   return (
     <header
-      className="notebook-toolbar"
+      className="sticky top-0 z-40 bg-[#0e0e0e]/85 backdrop-blur-md"
       onKeyDown={(event) => {
         if (event.key === "Escape" && open) {
           setOpen(false)
@@ -26,73 +46,71 @@ export function MarketingHeader() {
         }
       }}
     >
-      <Link
-        href="/"
-        aria-label="aghost home"
-        className="notebook-brand"
-        onClick={() => setOpen(false)}
-      >
-        <Mascot size={25} eager />
-        aghost
-      </Link>
-      <nav aria-label="Main" className="notebook-navigation">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={
-              pathname === link.href ||
-              (link.href === "/blog" && pathname.startsWith("/blog/"))
-                ? "page"
-                : undefined
-            }
-          >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-      <div className="notebook-toolbar-end">
-        <div className="notebook-window-dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </div>
-        <Link href="/login" className="notebook-toolbar-cta">
-          Get started <ArrowUpRight className="size-3.5" aria-hidden="true" />
-        </Link>
-        <button
-          ref={menuButton}
-          type="button"
-          className="notebook-menu-button"
-          aria-label={open ? "Close navigation" : "Open navigation"}
-          aria-expanded={open}
-          aria-controls="marketing-mobile-nav"
-          onClick={() => setOpen((value) => !value)}
+      <div className="mx-auto flex h-20 max-w-7xl items-center gap-6 px-5 sm:px-8">
+        <Brand onClick={() => setOpen(false)} />
+        <nav
+          aria-label="Main"
+          className="mx-auto hidden items-center gap-9 text-[15px] font-medium md:flex"
         >
-          {open ? <X className="size-4" /> : <Menu className="size-4" />}
-        </button>
+          {marketingLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={isCurrent(pathname, link.href) ? "page" : undefined}
+              className="text-white/85 transition-colors hover:text-white aria-[current=page]:text-brand"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2 md:ml-0">
+          <Link
+            href="/login"
+            className={cn(
+              pill,
+              "text-white ring-1 ring-white/35 hover:bg-white/10 max-sm:hidden"
+            )}
+          >
+            Log in
+          </Link>
+          <Link
+            href="/login"
+            className={cn(pill, "bg-white text-black hover:bg-brand")}
+          >
+            Get started
+            <ChevronsRight aria-hidden="true" className="size-4" />
+          </Link>
+          <button
+            ref={menuButton}
+            type="button"
+            className="grid size-10 place-items-center rounded-full ring-1 ring-white/35 md:hidden"
+            aria-label={open ? "Close navigation" : "Open navigation"}
+            aria-expanded={open}
+            aria-controls="marketing-mobile-nav"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? <X className="size-4" /> : <Menu className="size-4" />}
+          </button>
+        </div>
       </div>
       {open && (
         <nav
           id="marketing-mobile-nav"
           aria-label="Mobile"
-          className="notebook-mobile-nav"
+          className="grid gap-1 border-t border-white/10 px-5 py-4 text-lg font-semibold md:hidden"
         >
           {[
-            ...links,
+            { href: "/", label: "Home" },
+            ...marketingLinks,
             { href: "/contact", label: "Contact" },
-            { href: "/#faq", label: "FAQ" },
+            { href: "/login", label: "Log in" },
           ].map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              aria-current={
-                pathname === link.href ||
-                (link.href === "/blog" && pathname.startsWith("/blog/"))
-                  ? "page"
-                  : undefined
-              }
+              aria-current={isCurrent(pathname, link.href) ? "page" : undefined}
               onClick={() => setOpen(false)}
+              className="rounded-xl px-3 py-2.5 hover:bg-white/10 aria-[current=page]:text-brand"
             >
               {link.label}
             </Link>

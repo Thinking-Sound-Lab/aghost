@@ -1,0 +1,131 @@
+/* What Tailwind utilities can't say on their own: the page canvas, the two
+   animations, and long-form text. Everything else is in the components. */
+
+/* Overscroll and the area behind the page match the marketing canvas. */
+html:has(.marketing) {
+  background: #0e0e0e;
+  color-scheme: dark;
+}
+
+/* Scrolls a row that holds its items twice, so the loop has no seam. */
+@keyframes marketing-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marketing-marquee {
+  animation: marketing-marquee 70s linear infinite;
+}
+
+.marketing-marquee-reverse {
+  animation-direction: reverse;
+}
+
+/* The same loop upwards, for a column that holds its items twice. */
+@keyframes marketing-scroll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.marketing-scroll {
+  animation: marketing-scroll 60s linear infinite;
+}
+
+.marketing-scroll-reverse {
+  animation-direction: reverse;
+}
+
+/* Steps through a column of five agents plus a copy of the first: each row is
+   a sixth of the column, and each agent holds for most of its fifth. */
+@keyframes marketing-rotate {
+  0%,
+  16% {
+    transform: translateY(0);
+  }
+  20%,
+  36% {
+    transform: translateY(calc(-100% / 6));
+  }
+  40%,
+  56% {
+    transform: translateY(calc(-200% / 6));
+  }
+  60%,
+  76% {
+    transform: translateY(-50%);
+  }
+  80%,
+  96% {
+    transform: translateY(calc(-400% / 6));
+  }
+  100% {
+    transform: translateY(calc(-500% / 6));
+  }
+}
+
+.marketing-rotate {
+  animation: marketing-rotate 12.5s cubic-bezier(0.7, 0, 0.3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-marquee,
+  .marketing-scroll,
+  .marketing-rotate {
+    animation: none;
+  }
+}
+
+/* Policies and guides: plain HTML from the page content. */
+.marketing-prose {
+  display: grid;
+  gap: 1.1rem;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: rgb(255 255 255 / 0.72);
+}
+
+.marketing-prose h2 {
+  margin-top: 1.5rem;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.marketing-prose section {
+  display: grid;
+  gap: 1.1rem;
+  scroll-margin-top: 6rem;
+}
+
+.marketing-prose section > div {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.marketing-prose a {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: rgb(255 255 255 / 0.35);
+  text-underline-offset: 4px;
+  overflow-wrap: anywhere;
+}
+
+.marketing-prose a:hover {
+  text-decoration-color: var(--color-brand);
+}
+
+.marketing-prose strong {
+  font-weight: 600;
+  color: #fff;
+}
+
+.marketing-prose ul {
+  display: grid;
+  gap: 0.5rem;
+  margin-left: 1.25rem;
+  list-style: disc;
+}

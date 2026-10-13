@@ -1,30 +1,23 @@
 import type { ComponentProps } from "react"
 import { cn } from "@workspace/ui/lib/utils"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
-import { AgentSession } from "./illustrations"
+import { SectionHeading } from "./shell"
 
 type Preview = Omit<ComponentProps<typeof InstagramPreview>, "account">
 
-const account = { username: "aghost", picture: "/mascot.png" }
+export const demoAccount = { username: "aghost", picture: "/mascot.png" }
 
 // Each example is a radio button, and CSS shows the picture for the checked
 // one, so the section needs no client JavaScript. The `show` classes are
 // written out in full because Tailwind only generates classes it finds in the
-// source. An example without a phone preview shows the agent at work.
+// source.
 const examples: {
   id: string
   show: string
   title: string
   text: string
-  preview: Preview | null
+  preview: Preview
 }[] = [
-  {
-    id: "demo-agent",
-    show: "group-has-[#demo-agent:checked]:block",
-    title: "Ask your agent",
-    text: "Say what you want. Your AI agent builds it.",
-    preview: null,
-  },
   {
     id: "demo-reply",
     show: "group-has-[#demo-reply:checked]:block",
@@ -113,65 +106,54 @@ const examples: {
   },
 ]
 
-/** "See it in action": pick an example, see what it produces. */
+/** Pick an example, see what the commenter gets. */
 export function Demo({ cta }: { cta: React.ReactNode }) {
   return (
     <section
       aria-labelledby="demo-heading"
       id="demo"
-      className="group notebook-demo"
+      className="group mx-auto mt-32 max-w-7xl px-5 sm:px-8"
     >
-      <div className="notebook-section notebook-demo-layout">
-        <div>
-          <p className="notebook-hand notebook-section-kicker">
-            Don’t take our word for it.
-          </p>
-          <h2
-            id="demo-heading"
-            className="notebook-title notebook-section-heading"
-          >
-            Try it out.
-          </h2>
+      <SectionHeading
+        id="demo-heading"
+        title="Pick what they get"
+        description="Choose an example to see what someone gets after they comment. A demo only: no real messages are sent."
+      />
+      <div className="mt-12 grid items-center gap-10 rounded-[2rem] bg-linear-to-br from-[#0a2a8a] via-brand-blue to-brand-cyan p-5 shadow-[0_0_120px_-30px_var(--color-brand-blue)] sm:p-12 lg:grid-cols-[1fr_auto] lg:gap-16">
+        <div className="min-w-0">
           <fieldset>
             <legend className="sr-only">Choose an example</legend>
-            <ul className="notebook-demo-options">
+            <ul className="grid gap-2">
               {examples.map((example, index) => (
                 <li key={example.id}>
                   <input
                     type="radio"
                     name="demo"
                     id={example.id}
-                    defaultChecked={index === 2}
+                    defaultChecked={index === 1}
                     className="peer sr-only"
                   />
-                  <label htmlFor={example.id} className="notebook-demo-option">
-                    <span>
-                      <strong>{example.title}</strong>
-                      <span className="mt-1 block text-xs text-black/60">
-                        {example.text}
-                      </span>
+                  <label
+                    htmlFor={example.id}
+                    className="block cursor-pointer rounded-2xl bg-black/25 px-5 py-4 transition-colors peer-checked:bg-white peer-checked:text-black peer-focus-visible:ring-2 peer-focus-visible:ring-white hover:bg-black/40 peer-checked:hover:bg-white"
+                  >
+                    <strong className="text-lg">{example.title}</strong>
+                    <span className="mt-0.5 block opacity-70">
+                      {example.text}
                     </span>
                   </label>
                 </li>
               ))}
             </ul>
           </fieldset>
-          <div className="mt-6">{cta}</div>
+          <div className="mt-8">{cta}</div>
         </div>
-        <div className="notebook-demo-stage">
+        <div className="flex justify-center">
           {examples.map((example) => (
-            <div
-              key={example.id}
-              className={cn("notebook-demo-preview hidden", example.show)}
-            >
-              {example.preview ? (
-                <InstagramPreview account={account} {...example.preview} />
-              ) : (
-                <AgentSession />
-              )}
+            <div key={example.id} className={cn("hidden", example.show)}>
+              <InstagramPreview account={demoAccount} {...example.preview} />
             </div>
           ))}
-          <p className="notebook-hand">A tiny demo. No real messages sent.</p>
         </div>
       </div>
     </section>

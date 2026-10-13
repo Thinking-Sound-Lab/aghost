@@ -1,56 +1,77 @@
 import Link from "next/link"
-import { Check, Terminal } from "lucide-react"
-import { Mascot } from "@/components/brand"
 import { Google } from "@/components/google-icon"
 import { ErrorBanner } from "@/components/interface"
+import { cn } from "@workspace/ui/lib/utils"
 import {
-  NotebookBrand,
-  NotebookCanvas,
-  marketingLink,
-} from "@/features/marketing/shell"
+  ClaudeCodeApp,
+  CodexApp,
+  CursorApp,
+  McpConfigApp,
+} from "@/features/marketing/agent-apps"
+import { Brand } from "@/features/marketing/header"
+import {
+  Screen,
+  buttonsScene,
+  tapScene,
+} from "@/features/marketing/illustrations"
+import { MarketingCanvas, textLink } from "@/features/marketing/shell"
 import { api } from "@/lib/api"
+import { site } from "@/lib/site"
 import type { ChoosePlanInput } from "@workspace/api/contract"
-import "./sign-in.css"
 
-function AgentPreview() {
+/** One column of the wall: its items twice over, so the loop has no seam. */
+function WallColumn({
+  items,
+  reverse = false,
+}: {
+  items: React.ReactNode[]
+  reverse?: boolean
+}) {
   return (
-    <figure className="notebook-sign-in-preview">
-      <div className="notebook-sign-in-papers" aria-hidden="true">
-        <div className="notebook-sign-in-agent-paper">
-          <div className="notebook-sign-in-agent-header">
-            <Terminal size={17} />
-            <span>Your agent</span>
+    <div className="min-h-0 overflow-hidden">
+      <div
+        className={cn(
+          "marketing-scroll grid",
+          reverse && "marketing-scroll-reverse"
+        )}
+      >
+        {[0, 1].map((copy) => (
+          <div key={copy} className="grid gap-4 pb-4">
+            {items}
           </div>
-          <div className="notebook-sign-in-prompt">
-            <span>You</span>
-            <p>
-              Create a paused GUIDE automation for my latest Instagram reel.
-            </p>
-          </div>
-          <div className="notebook-sign-in-agent-result">
-            <Check size={17} />
-            <p>
-              Automation created.
-              <span>Paused, as requested.</span>
-            </p>
-          </div>
-        </div>
-        <div className="notebook-sign-in-dm-paper">
-          <div className="notebook-sign-in-dm-header">
-            <Mascot size={23} eager />
-            <span>DM preview</span>
-          </div>
-          <p>Here’s the guide you asked for ✨</p>
-          <div className="notebook-sign-in-dm-link">Get the guide ↗</div>
-        </div>
+        ))}
       </div>
-      <figcaption>
-        <span className="notebook-hand">
-          One prompt. A little less busywork.
-        </span>
-        <span className="notebook-sign-in-example">Example agent workflow</span>
-      </figcaption>
-    </figure>
+    </div>
+  )
+}
+
+/** Agents at work, in two columns scrolling opposite ways, faded at both ends. */
+function AgentWall() {
+  return (
+    <div
+      aria-hidden="true"
+      className="grid min-h-0 flex-1 grid-cols-2 gap-4 [mask-image:linear-gradient(to_bottom,transparent,black_14%,black_80%,transparent)] px-10"
+    >
+      <WallColumn
+        items={[
+          <ClaudeCodeApp key="claude" />,
+          <Screen key="tap" className="bg-[#1a1a1a]">
+            {tapScene}
+          </Screen>,
+          <McpConfigApp key="mcp" endpoint={`${site.url}/api/mcp`} />,
+        ]}
+      />
+      <WallColumn
+        reverse
+        items={[
+          <CodexApp key="codex" />,
+          <Screen key="buttons" className="bg-[#1a1a1a]">
+            {buttonsScene}
+          </Screen>,
+          <CursorApp key="cursor" />,
+        ]}
+      />
+    </div>
   )
 }
 
@@ -64,71 +85,63 @@ export function SignIn({
   choice?: ChoosePlanInput | null
 }) {
   return (
-    <NotebookCanvas className="notebook-sign-in">
-      <div className="notebook-page notebook-sign-in-page">
-        <header className="notebook-sign-in-toolbar">
-          <NotebookBrand />
-          <Link href="/" className={marketingLink}>
-            Back to home
-          </Link>
-        </header>
-        <main className="notebook-sign-in-layout">
-          <section
-            className="notebook-sign-in-panel"
-            aria-labelledby="sign-in-heading"
+    <MarketingCanvas className="flex p-3">
+      <main className="grid w-full gap-3 lg:h-[calc(100svh-1.5rem)] lg:grid-cols-[minmax(0,36rem)_1fr]">
+        <section
+          aria-labelledby="sign-in-heading"
+          className="flex min-h-[calc(100svh-1.5rem)] items-center rounded-3xl bg-[#1a1a1a] px-8 py-12 sm:px-16 lg:min-h-0"
+        >
+          <div className="mx-auto w-full max-w-md">
+            <Brand />
+            <h1
+              id="sign-in-heading"
+              className="mt-10 text-4xl font-bold tracking-[-0.035em] sm:text-5xl"
+            >
+              Log in or sign up
+            </h1>
+            <p className="mt-8 font-medium">Continue with</p>
+            <ErrorBanner message={error} className="mt-3" />
+            {/* A full navigation: the API sends the browser to Google and back. */}
+            <a
+              href={`${api.auth.googleSignInUrl}${billing ? `?${new URLSearchParams({ next: "billing", ...choice })}` : ""}`}
+              className="mt-3 flex h-13 items-center justify-center gap-3 rounded-xl bg-white px-6 text-base font-semibold text-black transition-colors outline-none hover:bg-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
+            >
+              <Google size={21} />
+              Google
+            </a>
+            <p className="mt-6 text-sm leading-relaxed text-white/50">
+              By continuing, you agree to the{" "}
+              <Link href="/terms-of-service" className={textLink}>
+                Terms of Service
+              </Link>{" "}
+              and acknowledge the{" "}
+              <Link href="/privacy-policy" className={textLink}>
+                Privacy Policy
+              </Link>
+              .
+            </p>
+            <p className="mt-10 text-sm text-white/70">
+              Need a hand?{" "}
+              <Link href="/contact" className={textLink}>
+                Contact us
+              </Link>
+            </p>
+          </div>
+        </section>
+        <section
+          aria-labelledby="sign-in-agent-heading"
+          className="hidden min-h-0 flex-col pt-20 lg:flex"
+        >
+          <h2
+            id="sign-in-agent-heading"
+            className="mx-auto mb-10 max-w-3xl px-6 text-center text-4xl font-bold tracking-[-0.035em] text-balance xl:text-5xl"
           >
-            <div className="notebook-sign-in-form">
-              <h1 id="sign-in-heading">Log in or sign up</h1>
-              <p className="notebook-sign-in-description">
-                Your workspace starts here.
-              </p>
-              <ErrorBanner message={error} className="notebook-sign-in-error" />
-              {/* A full navigation: the API sends the browser to Google and back. */}
-              <a
-                href={`${api.auth.googleSignInUrl}${billing ? `?${new URLSearchParams({ next: "billing", ...choice })}` : ""}`}
-                className="notebook-sign-in-google"
-              >
-                <Google size={21} />
-                Continue with Google
-              </a>
-              <p className="notebook-sign-in-legal">
-                By continuing, you agree to the{" "}
-                <Link href="/terms-of-service" className={marketingLink}>
-                  Terms of Service
-                </Link>{" "}
-                and acknowledge the{" "}
-                <Link href="/privacy-policy" className={marketingLink}>
-                  Privacy Policy
-                </Link>
-                .
-              </p>
-            </div>
-          </section>
-          <section
-            className="notebook-sign-in-story"
-            aria-labelledby="sign-in-agent-heading"
-          >
-            <div className="notebook-sign-in-story-content">
-              <h2 id="sign-in-agent-heading" className="notebook-title">
-                Your agent.
-                <br />
-                Your Instagram.
-              </h2>
-              <p className="notebook-sign-in-story-description">
-                Let Claude Code, Codex, or Cursor run your Instagram DMs. You
-                set the direction. Your agent handles the setup.
-              </p>
-              <AgentPreview />
-            </div>
-          </section>
-        </main>
-        <footer className="notebook-sign-in-footer">
-          <span>© 2026 aghost</span>
-          <Link href="/contact" className={marketingLink}>
-            Need a hand? Contact us
-          </Link>
-        </footer>
-      </div>
-    </NotebookCanvas>
+            Turn Instagram comments into DMs with your{" "}
+            <span className="text-brand">AI agent</span>
+          </h2>
+          <AgentWall />
+        </section>
+      </main>
+    </MarketingCanvas>
   )
 }

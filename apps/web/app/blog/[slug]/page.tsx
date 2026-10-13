@@ -1,7 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArticleList } from "@/features/blog/article-list"
+import { Check } from "lucide-react"
+import { Mascot } from "@/components/brand"
+import {
+  ArticleCover,
+  ArticleGrid,
+  Byline,
+} from "@/features/blog/article-cards"
 import {
   articles,
   articleDate,
@@ -9,7 +15,13 @@ import {
   getArticle,
 } from "@/features/blog/catalog"
 import { getArticleContent } from "@/features/blog/content"
-import { MarketingPage } from "@/features/marketing/shell"
+import { LaunchVideoPlayer } from "@/features/marketing/launch-video"
+import {
+  MarketingCta,
+  MarketingPage,
+  startingPrice,
+  textLink,
+} from "@/features/marketing/shell"
 import { openGraph, site } from "@/lib/site"
 import "@/features/blog/blog.css"
 
@@ -109,35 +121,29 @@ export default async function Page({ params }: Props) {
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
-      <article>
-        <header className="notebook-section blog-article-header">
-          <nav aria-label="Breadcrumb" className="notebook-breadcrumbs">
+      <div className="mx-auto grid max-w-7xl gap-14 px-5 pt-12 sm:px-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-16 lg:pt-16">
+        <article className="min-w-0">
+          <nav aria-label="Breadcrumb" className="blog-breadcrumbs">
             <Link href="/">Home</Link>
             <span aria-hidden="true">/</span>
             <Link href="/blog">Blog</Link>
             <span aria-hidden="true">/</span>
             <span aria-current="page">{article.category}</span>
           </nav>
-          <span className="notebook-sticker notebook-sticker-mint">
-            {article.category}
-          </span>
-          <h1 className="notebook-title">{article.title}</h1>
-          <p className="blog-description">{article.description}</p>
-          <div className="blog-byline">
-            <Link href="/about">aghost editorial team</Link>
-            <span>
-              Published{" "}
-              <time dateTime={article.publishedAt}>
-                {articleDate(article.publishedAt)}
-              </time>
-            </span>
-            <span>
-              Checked{" "}
-              <time dateTime={article.updatedAt}>
-                {articleDate(article.updatedAt)}
-              </time>
-            </span>
-          </div>
+          <h1 className="mt-6 text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance sm:text-5xl lg:text-[3.5rem]">
+            {article.title}
+          </h1>
+          <p className="mt-5 max-w-3xl text-lg text-white/70">
+            {article.description}
+          </p>
+          <Byline article={article} linked className="mt-7 text-lg" />
+          <p className="mt-2 text-sm text-white/50">
+            Checked{" "}
+            <time dateTime={article.updatedAt}>
+              {articleDate(article.updatedAt)}
+            </time>
+          </p>
+          <ArticleCover article={article} className="mt-8 rounded-[1.5rem]" />
           {article.category === "Comparisons" && (
             <p className="blog-disclosure">
               We build aghost. This comparison uses public product documentation
@@ -145,11 +151,9 @@ export default async function Page({ params }: Props) {
               rankings. Prices and availability can change.
             </p>
           )}
-        </header>
-        <div className="notebook-section blog-article-layout">
-          <aside className="blog-contents">
-            <nav aria-label="Table of contents">
-              <h2>In this guide</h2>
+          <div className="blog-prose mt-10">
+            <details className="blog-toc">
+              <summary>In this guide</summary>
               <ol>
                 {content.sections.map((section) => (
                   <li key={section.id}>
@@ -160,9 +164,7 @@ export default async function Page({ params }: Props) {
                   <a href="#questions">Frequently asked questions</a>
                 </li>
               </ol>
-            </nav>
-          </aside>
-          <div className="blog-prose">
+            </details>
             <div className="blog-answer">
               <p className="blog-answer-label">The quick answer</p>
               <p>{content.answer}</p>
@@ -183,34 +185,74 @@ export default async function Page({ params }: Props) {
                 </div>
               ))}
             </section>
-            <div className="blog-article-cta">
-              <h2>Put a requested link in the right conversation.</h2>
-              <p>
-                Explore aghost’s Instagram comment-to-DM workflow, then choose
-                the plan that fits your accounts.
-              </p>
-              <div>
-                <Link href="/instagram-dm-automation">
-                  Explore the workflow
-                </Link>
-                <Link href="/pricing">See plans and pricing</Link>
-              </div>
-            </div>
           </div>
-        </div>
-      </article>
+        </article>
+        <aside className="grid content-start gap-4 lg:sticky lg:top-28 lg:self-start">
+          <div className="grid justify-items-center gap-4 rounded-[1.75rem] bg-linear-to-br from-brand to-brand-cyan p-6 text-center text-black">
+            <span className="grid size-16 place-items-center rounded-full bg-black">
+              <Mascot size={46} />
+            </span>
+            <p className="text-2xl leading-tight font-extrabold tracking-[-0.03em]">
+              Want every comment to get its link?
+            </p>
+            <p className="text-sm text-black/75">
+              aghost DMs your link to everyone who comments, and your AI agent
+              can set it up for you.
+            </p>
+            <ul className="grid gap-2 text-left text-sm font-medium">
+              {[
+                "Keyword or any-comment triggers",
+                "Links by DM, with buttons",
+                "Run it from Claude Code or Codex",
+                "Unlimited contacts and DMs",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <Check
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0"
+                    strokeWidth={3}
+                  />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/login"
+              className="mt-1 w-full rounded-full bg-black px-5 py-3 text-[15px] font-semibold text-white transition-colors outline-none hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+            >
+              Start for {startingPrice}/month
+            </Link>
+            <Link
+              href="/instagram-dm-automation"
+              className="text-sm font-medium underline decoration-black/40 underline-offset-4 hover:decoration-black"
+            >
+              See how it works
+            </Link>
+          </div>
+          <div className="overflow-hidden rounded-[1.25rem] bg-[#161616] ring-1 ring-white/10">
+            <p className="px-4 py-3 text-sm font-semibold">
+              See aghost in action
+            </p>
+            <LaunchVideoPlayer />
+          </div>
+        </aside>
+      </div>
       <section
         aria-labelledby="related-articles"
-        className="notebook-section blog-related"
+        className="mx-auto mt-24 max-w-7xl px-5 sm:px-8"
       >
-        <h2 id="related-articles" className="notebook-title">
-          Keep reading.
+        <h2
+          id="related-articles"
+          className="text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl"
+        >
+          Keep reading
         </h2>
-        <ArticleList articles={related} />
-        <Link className="blog-back" href="/blog">
-          Browse all guides
+        <ArticleGrid articles={related} className="mt-10" />
+        <Link href="/blog" className={`${textLink} mt-8 inline-block`}>
+          Browse all posts
         </Link>
       </section>
+      <MarketingCta />
     </MarketingPage>
   )
 }
