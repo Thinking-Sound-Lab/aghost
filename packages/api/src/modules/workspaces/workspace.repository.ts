@@ -1,6 +1,7 @@
 import type { WorkspaceRecord } from "./workspace"
 
 export interface WorkspaceRepository {
+  findById(id: string): Promise<WorkspaceRecord | null>
   findByOwnerId(ownerId: string): Promise<WorkspaceRecord | null>
   findByProviderProfileId(
     providerProfileId: string

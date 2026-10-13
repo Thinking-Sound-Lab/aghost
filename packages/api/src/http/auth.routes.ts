@@ -1,11 +1,13 @@
 import type { User } from "@supabase/supabase-js"
 import type { FastifyPluginAsync } from "fastify"
+import { z } from "zod"
 import type { ApiConfig } from "../config"
 import {
   billingChoice,
   billingLoginPath,
   billingPath,
 } from "../contract/billing"
+import { authorizeLoginPath, authorizePath } from "../contract/oauth"
 import type { Analytics } from "../modules/analytics/analytics"
 import { BadRequestError, UnauthenticatedError } from "../shared/errors"
 import { presentUser } from "./presenters"
@@ -15,6 +17,48 @@ const RETURN_COOKIE = "aghost-auth-return"
 // A first Google sign-in creates the account, so that session starts moments
 // after the account does; later sessions start long after.
 const FIRST_SESSION_WINDOW_MS = 60_000
+
+type SignInReturn = {
+  /** Kept in a cookie while Google signs the person in. */
+  cookie: string
+  destination: string
+  /** The login page to try again from. */
+  failure: string
+}
+
+/** Where a sign-in ends: the page that sent the person to log in, or home. */
+function signInReturn(query: {
+  next?: unknown
+  plan?: unknown
+  interval?: unknown
+  request?: unknown
+}): SignInReturn {
+  if (query.next === "billing") {
+    const choice = billingChoice(query)
+    return {
+      cookie: choice ? `billing:${choice.plan}:${choice.interval}` : "billing",
+      destination: billingPath(choice),
+      failure: `${billingLoginPath(choice)}&error=google`,
+    }
+  }
+  const request = z.uuid().safeParse(query.request)
+  if (query.next === "authorize" && request.success)
+    return {
+      cookie: `authorize:${request.data}`,
+      destination: authorizePath(request.data),
+      failure: `${authorizeLoginPath(request.data)}&error=google`,
+    }
+  return { cookie: "home", destination: "/home", failure: SIGN_IN_FAILED_PATH }
+}
+
+function returnFromCookie(value: string): SignInReturn {
+  const [next, first, second] = value.split(":")
+  return signInReturn(
+    next === "billing"
+      ? { next, plan: first, interval: second }
+      : { next, request: first }
+  )
+}
 
 function recordSignIn(analytics: Analytics, user: User): void {
   const name: unknown = user.user_metadata.full_name
@@ -49,16 +93,15 @@ export function authRoutes(
     // The browser navigates here. Google signs the person in and Supabase
     // sends them back to /callback; a first sign-in creates their account.
     router.get<{
-      Querystring: { next?: string; plan?: string; interval?: string }
+      Querystring: {
+        next?: string
+        plan?: string
+        interval?: string
+        request?: string
+      }
     }>("/google", async (request, reply) => {
-      const billing = request.query.next === "billing"
-      const choice = billing ? billingChoice(request.query) : null
-      const returnTo = billing
-        ? choice
-          ? `billing:${choice.plan}:${choice.interval}`
-          : "billing"
-        : "home"
-      reply.setCookie(RETURN_COOKIE, returnTo, {
+      const returnTo = signInReturn(request.query)
+      reply.setCookie(RETURN_COOKIE, returnTo.cookie, {
         path: "/api/auth",
         httpOnly: true,
         sameSite: "lax",
@@ -89,13 +132,7 @@ export function authRoutes(
       } catch (cause) {
         // The browser navigated here, so the login page reports the failure.
         request.log.error(cause, "Could not start Google sign-in")
-        return reply.redirect(
-          appUrl(
-            billing
-              ? `${billingLoginPath(choice)}&error=google`
-              : SIGN_IN_FAILED_PATH
-          )
-        )
+        return reply.redirect(appUrl(returnTo.failure))
       }
     })
     router.post("/sign-out", async (request, reply) => {
@@ -107,15 +144,9 @@ export function authRoutes(
       "/callback",
       async (request, reply) => {
         const { code } = request.query
-        const [next, plan, interval] = (
+        const { destination, failure } = returnFromCookie(
           request.cookies[RETURN_COOKIE] ?? ""
-        ).split(":")
-        const choice = billingChoice({ plan, interval })
-        const destination = next === "billing" ? billingPath(choice) : "/home"
-        const failure =
-          next === "billing"
-            ? `${billingLoginPath(choice)}&error=google`
-            : SIGN_IN_FAILED_PATH
+        )
         reply.clearCookie(RETURN_COOKIE, { path: "/api/auth" })
         // Without a code, the sign-in was cancelled or refused.
         if (!code) return reply.redirect(appUrl(failure))

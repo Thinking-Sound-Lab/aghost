@@ -16,6 +16,7 @@ import { PostHogAnalytics } from "./infrastructure/posthog/posthog-analytics"
 import type { DataClients } from "./infrastructure/supabase/data-clients"
 import { SupabaseAccountRepository } from "./infrastructure/supabase/supabase-account.repository"
 import { SupabaseApiKeyRepository } from "./infrastructure/supabase/supabase-api-key.repository"
+import { SupabaseOAuthRepository } from "./infrastructure/supabase/supabase-oauth.repository"
 import { SupabaseAutomationRepository } from "./infrastructure/supabase/supabase-automation.repository"
 import { SupabaseBillingRepository } from "./infrastructure/supabase/supabase-billing.repository"
 import { SupabaseWebhookProcessor } from "./infrastructure/supabase/supabase-webhook.processor"
@@ -50,6 +51,8 @@ import type { ContactProvider } from "./modules/contacts/contact.provider"
 import { ContactService } from "./modules/contacts/contact.service"
 import type { InboxProvider } from "./modules/inbox/inbox.provider"
 import { InboxService } from "./modules/inbox/inbox.service"
+import { oauthEndpoints } from "./modules/oauth/oauth"
+import { OAuthService } from "./modules/oauth/oauth.service"
 import { WebhookService } from "./modules/webhooks/webhook.service"
 import type { ProfileProvider } from "./modules/workspaces/profile.provider"
 import { WorkspaceService } from "./modules/workspaces/workspace.service"
@@ -257,6 +260,18 @@ export function createApi(
     }
   }
 
+  // An MCP client that signs in receives a workspace API key, so it connects
+  // and is revoked like any other key.
+  const oauth = new OAuthService(
+    new SupabaseOAuthRepository(admin),
+    new SupabaseWorkspaceRepository({ scoped: admin, privileged: admin }),
+    new ApiKeyService(
+      new SupabaseApiKeyRepository(admin),
+      analytics.from("mcp")
+    ),
+    oauthEndpoints(config.appUrl)
+  )
+
   const webhooks = new WebhookService(
     new ZernioWebhookGateway(config.zernio.webhookSecret),
     new SupabaseWebhookProcessor(
@@ -283,6 +298,7 @@ export function createApi(
     authenticateAgent,
     webhooks,
     billingWebhooks,
+    oauth,
     analytics,
     config,
   })

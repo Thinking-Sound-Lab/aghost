@@ -50,7 +50,7 @@ An empty `POSTHOG_KEY` leaves analytics off: the browser loads no PostHog code a
 | `automation_paused`                   | A running automation stops                                         | `automation_id`, `reason` (`owner`, or `plan` when billing paused it)                |
 | `automation_deleted`                  | An automation is deleted                                           | `automation_id`, `reason` (`owner` or `account_removed`)                             |
 | `inbox_message_sent`                  | A reply is sent from the inbox                                     | `account_id`                                                                         |
-| `api_key_created`                     | An API key is created                                              | `api_key_id`, `scope_count`, `expires`                                               |
+| `api_key_created`                     | An API key is created; `source` is `mcp` when an MCP app signs in  | `api_key_id`, `scope_count`, `expires`                                               |
 | `api_key_revoked`                     | An API key is revoked                                              | `api_key_id`                                                                         |
 | `agent_tool_called`                   | An agent calls a REST operation or MCP tool; `source` says which   | `tool`, `api_key_id`, `outcome`, `error_code`, `duration_ms`                         |
 

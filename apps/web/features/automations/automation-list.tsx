@@ -30,7 +30,7 @@ import {
 import { count } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
-export function summary(item: Automation): string {
+function summary(item: Automation): string {
   const post = item.trigger.postScope === "any_post" ? "Any post" : "One post"
   const words = item.keywords.length ? item.keywords.join(", ") : "Any word"
   return `${post} · ${words}`

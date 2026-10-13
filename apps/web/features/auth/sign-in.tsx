@@ -17,7 +17,6 @@ import {
 import { MarketingCanvas, textLink } from "@/features/marketing/shell"
 import { api } from "@/lib/api"
 import { site } from "@/lib/site"
-import type { ChoosePlanInput } from "@workspace/api/contract"
 
 /** One column of the wall: its items twice over, so the loop has no seam. */
 function WallColumn({
@@ -77,12 +76,11 @@ function AgentWall() {
 
 export function SignIn({
   error,
-  billing = false,
-  choice = null,
+  returnTo,
 }: {
   error: string | null
-  billing?: boolean
-  choice?: ChoosePlanInput | null
+  /** The page that sent the person here, which the API returns them to. */
+  returnTo: Record<string, string> | null
 }) {
   return (
     <MarketingCanvas className="flex p-3">
@@ -103,7 +101,7 @@ export function SignIn({
             <ErrorBanner message={error} className="mt-3" />
             {/* A full navigation: the API sends the browser to Google and back. */}
             <a
-              href={`${api.auth.googleSignInUrl}${billing ? `?${new URLSearchParams({ next: "billing", ...choice })}` : ""}`}
+              href={`${api.auth.googleSignInUrl}${returnTo ? `?${new URLSearchParams(returnTo)}` : ""}`}
               className="mt-3 flex h-13 items-center justify-center gap-3 rounded-xl bg-white px-6 text-base font-semibold text-black transition-colors outline-none hover:bg-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
             >
               <Google size={21} />

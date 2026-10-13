@@ -161,7 +161,7 @@ Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full a
 
 ## MCP
 
-Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool.
+Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool. Apps that sign in to MCP servers, such as Claude's custom connectors, need only the URL: the owner approves the app in aghost, and it receives its own key.
 
 MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
 
@@ -228,11 +228,16 @@ The implementation follows [OpenAI's crawler guidance](https://developers.openai
 ## Testing
 
 ```sh
-pnpm verify        # types, lint, tests, and production builds
+pnpm verify        # unused code, types, lint, tests, and production builds
+pnpm check:unused  # unused files, dependencies, and exports across workspaces
 pnpm verify:local  # end-to-end checks against the running app
 ```
 
 `pnpm verify` runs the integration tests against the local Supabase stack, so start it first with `pnpm setup:local` or `pnpm dev`. CI uses `pnpm setup:test` instead, which starts only what the tests need. Provider adapter tests use a local HTTP fixture and never send real Instagram messages. The infrastructure tests synthesize both CDK stacks offline.
+
+`pnpm check:unused` also runs in CI. Its Knip configuration includes the billing and CDK command-line entry points, preserves generated Supabase helpers, and accounts for PostCSS and CDK dependencies loaded through configuration.
+
+The OAuth registration saturation test fills the global one-minute budget, so it is skipped on a shared local stack. With `.env` pointing to a dedicated local Supabase database, run `AGHOST_TEST_ISOLATED_DATABASE=1 pnpm test` to include it. CI enables it on its fresh database; the other OAuth tests run without the flag.
 
 With the app running, `pnpm verify:local` checks pages, the Next.js proxy, and the start of Google sign-in: the HttpOnly PKCE cookie, the redirect to Google with the client from the root `.env`, and the return to the login page when a sign-in does not finish. Signing in with a Google account, browser interaction, and visual review are separate checks.
 

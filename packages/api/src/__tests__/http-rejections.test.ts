@@ -263,6 +263,46 @@ describe("Google sign-in", () => {
     )
   })
 
+  it("returns to an agent app's consent request after sign-in, or to its login page when cancelled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response(null, {
+            status: 302,
+            headers: {
+              location: "https://accounts.google.com/o/oauth2/v2/auth",
+            },
+          })
+      )
+    )
+    const request = randomUUID()
+    const start = await app.inject({
+      method: "GET",
+      url: `/api/auth/google?next=authorize&request=${request}`,
+    })
+    const returnCookie = [start.headers["set-cookie"] ?? []]
+      .flat()
+      .map((value) => String(value).split(";")[0])
+      .find((value) => value?.startsWith("aghost-auth-return="))
+    const cancelled = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: returnCookie! },
+    })
+    expect(cancelled.headers.location).toBe(
+      `http://localhost:3000/login?next=authorize&request=${request}&error=google`
+    )
+    const forged = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: "aghost-auth-return=authorize%3A..%2F..%2Fhome" },
+    })
+    expect(forged.headers.location).toBe(
+      "http://localhost:3000/login?error=google"
+    )
+  })
+
   it("preserves the pricing choice after cancelled sign-in and ignores forged redirect destinations", async () => {
     const cancelled = await app.inject({
       method: "GET",

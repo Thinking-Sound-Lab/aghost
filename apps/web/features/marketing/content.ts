@@ -58,20 +58,6 @@ export const agentAbilities = [
   "Read the inbox and reply to conversations",
 ]
 
-/** Facts about the product, not usage figures: aghost has none to show yet. */
-export const facts = [
-  { value: "MCP", label: "and a REST API, for your AI agent" },
-  { value: "24/7", label: "replies, even while you sleep" },
-  {
-    value: String(AUTOMATION_LIMITS.maxKeywords),
-    label: "keywords per automation",
-  },
-  {
-    value: String(AUTOMATION_LIMITS.maxDmButtons),
-    label: "link buttons per DM",
-  },
-]
-
 export const steps = [
   {
     title: "Connect Instagram",

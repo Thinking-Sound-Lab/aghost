@@ -30,16 +30,35 @@ const nextConfig: NextConfig = {
   devIndicators: { position: "bottom-right" },
   // PostHog's endpoints end with a slash, which a redirect would drop.
   skipTrailingSlashRedirect: true,
+  // The consent page for agent apps must not be framed by another site.
+  async headers() {
+    return [
+      {
+        source: "/authorize",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      },
+    ]
+  },
   async rewrites() {
     const apiUrl = process.env.API_URL
     if (!apiUrl)
       throw new Error(
         "Set API_URL in the root .env. Run pnpm setup:local first."
       )
+    const api = new URL(apiUrl).origin
     return [
+      { source: "/api/:path*", destination: `${api}/api/:path*` },
+      // OAuth discovery for MCP clients, served by the API at the app's origin.
       {
-        source: "/api/:path*",
-        destination: `${new URL(apiUrl).origin}/api/:path*`,
+        source: "/.well-known/oauth-authorization-server",
+        destination: `${api}/.well-known/oauth-authorization-server`,
+      },
+      {
+        source: "/.well-known/oauth-protected-resource/:path*",
+        destination: `${api}/.well-known/oauth-protected-resource/:path*`,
       },
       ...posthogRewrites(),
     ]
