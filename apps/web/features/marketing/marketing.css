@@ -75,6 +75,19 @@ html:has(.marketing) {
   .marketing-rotate {
     animation: none;
   }
+
+  /* A still row would hide most cards past the edge, so wrap them instead
+     and drop the copies the loop needed. */
+  .marketing-marquee {
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-inline: 1.25rem;
+  }
+
+  .marketing-marquee > [aria-hidden="true"] {
+    display: none;
+  }
 }
 
 /* Policies and guides: plain HTML from the page content. */

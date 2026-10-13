@@ -30,7 +30,7 @@ function isCurrent(pathname: string, href: string) {
 }
 
 const pill =
-  "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand"
+  "inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold whitespace-nowrap sm:px-5 sm:text-[15px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand"
 
 export function MarketingHeader() {
   const pathname = usePathname()
@@ -46,11 +46,11 @@ export function MarketingHeader() {
         }
       }}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-6 px-5 sm:px-8">
+      <div className="mx-auto flex h-20 max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-8">
         <Brand onClick={() => setOpen(false)} />
         <nav
           aria-label="Main"
-          className="mx-auto hidden items-center gap-9 text-[15px] font-medium md:flex"
+          className="mx-auto hidden items-center gap-9 text-[15px] font-medium lg:flex"
         >
           {marketingLinks.map((link) => (
             <Link
@@ -63,7 +63,7 @@ export function MarketingHeader() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2 md:ml-0">
+        <div className="ml-auto flex items-center gap-2 lg:ml-0">
           <Link
             href="/login"
             className={cn(
@@ -78,12 +78,15 @@ export function MarketingHeader() {
             className={cn(pill, "bg-white text-black hover:bg-brand")}
           >
             Get started
-            <ChevronsRight aria-hidden="true" className="size-4" />
+            <ChevronsRight
+              aria-hidden="true"
+              className="size-4 max-[400px]:hidden"
+            />
           </Link>
           <button
             ref={menuButton}
             type="button"
-            className="grid size-10 place-items-center rounded-full ring-1 ring-white/35 md:hidden"
+            className="grid size-10 place-items-center rounded-full ring-1 ring-white/35 lg:hidden"
             aria-label={open ? "Close navigation" : "Open navigation"}
             aria-expanded={open}
             aria-controls="marketing-mobile-nav"
@@ -97,7 +100,7 @@ export function MarketingHeader() {
         <nav
           id="marketing-mobile-nav"
           aria-label="Mobile"
-          className="grid gap-1 border-t border-white/10 px-5 py-4 text-lg font-semibold md:hidden"
+          className="grid gap-1 border-t border-white/10 px-5 py-4 text-lg font-semibold lg:hidden"
         >
           {[
             { href: "/", label: "Home" },

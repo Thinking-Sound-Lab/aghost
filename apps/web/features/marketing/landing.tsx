@@ -4,7 +4,12 @@ import { cn } from "@workspace/ui/lib/utils"
 import { Instagram } from "@/components/instagram-icon"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
 import { site } from "@/lib/site"
-import { ClaudeCodeApp, CodexApp, CursorApp, McpConfigApp } from "./agent-apps"
+import {
+  ClaudeCodeApp,
+  CodexApp,
+  CursorApp,
+  McpSettingsApp,
+} from "./agent-apps"
 import {
   ClaudeLogo,
   CodexLogo,
@@ -326,7 +331,7 @@ function Agents() {
       Logo: McpLogo,
       text: "Anything that speaks MCP over HTTP with a Bearer token can connect.",
       tone: "green",
-      picture: <McpConfigApp endpoint={`${site.url}/api/mcp`} />,
+      picture: <McpSettingsApp endpoint={`${site.url}/api/mcp`} />,
     },
   ] as const
   return (

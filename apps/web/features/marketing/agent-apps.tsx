@@ -322,7 +322,7 @@ export function CursorApp() {
   )
 }
 
-/** The MCP entry in an editor, as you would add it to any client. */
+/** Claude Code's MCP entry in an editor. Other clients use other files. */
 export function McpConfigApp({ endpoint }: { endpoint: string }) {
   const lines: ["k" | "s" | "p", string][][] = [
     [["p", "{"]],
@@ -366,7 +366,7 @@ export function McpConfigApp({ endpoint }: { endpoint: string }) {
       aria-hidden
       className="overflow-hidden rounded-xl bg-[#1e1e1e] font-mono text-[10.5px] leading-[1.8] text-[#d4d4d4] shadow-2xl ring-1 shadow-black/40 ring-white/10 sm:text-[11.5px]"
     >
-      <TitleBar dark title=".mcp.json — studio" />
+      <TitleBar dark title="Claude Code · .mcp.json" />
       <div className="flex border-b border-black/40 bg-[#252526] text-[10.5px]">
         <span className="border-t-2 border-[#0e7cf0] bg-[#1e1e1e] px-3 py-1.5 text-white">
           .mcp.json
@@ -388,6 +388,40 @@ export function McpConfigApp({ endpoint }: { endpoint: string }) {
             </span>
           </p>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/** The connection details every MCP client needs, whatever file it keeps. */
+export function McpSettingsApp({ endpoint }: { endpoint: string }) {
+  const settings = [
+    ["Name", "aghost"],
+    ["Transport", "HTTP"],
+    ["URL", endpoint],
+    ["Header", "Authorization: Bearer <API key>"],
+  ]
+  return (
+    <div
+      aria-hidden
+      className="overflow-hidden rounded-xl bg-[#1e1e1e] text-[11.5px] text-[#d4d4d4] shadow-2xl ring-1 shadow-black/40 ring-white/10"
+    >
+      <TitleBar dark title="Add an MCP server" />
+      <div className="grid gap-2 p-4">
+        {settings.map(([label, value]) => (
+          <div key={label} className="grid gap-1">
+            <span className="text-[10.5px] font-medium text-white/50">
+              {label}
+            </span>
+            <span className="truncate rounded-md bg-black/40 px-2.5 py-1.5 font-mono text-white ring-1 ring-white/10">
+              {value}
+            </span>
+          </div>
+        ))}
+        <p className="mt-1 text-white/55">
+          Claude Code, Codex, and Cursor each keep this in their own config. The
+          setup skill has the exact entry for each.
+        </p>
       </div>
     </div>
   )

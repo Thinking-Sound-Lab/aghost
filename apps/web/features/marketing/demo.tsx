@@ -119,7 +119,7 @@ export function Demo({ cta }: { cta: React.ReactNode }) {
         title="Pick what they get"
         description="Choose an example to see what someone gets after they comment. A demo only: no real messages are sent."
       />
-      <div className="mt-12 grid items-center gap-10 rounded-[2rem] bg-linear-to-br from-[#0a2a8a] via-brand-blue to-brand-cyan p-5 shadow-[0_0_120px_-30px_var(--color-brand-blue)] sm:p-12 lg:grid-cols-[1fr_auto] lg:gap-16">
+      <div className="mt-12 grid grid-cols-[minmax(0,1fr)] items-center gap-10 rounded-[2rem] bg-linear-to-br from-[#0a2a8a] via-brand-blue to-brand-cyan p-5 shadow-[0_0_120px_-30px_var(--color-brand-blue)] sm:p-12 lg:grid-cols-[1fr_auto] lg:gap-16">
         <div className="min-w-0">
           <fieldset>
             <legend className="sr-only">Choose an example</legend>
@@ -150,7 +150,10 @@ export function Demo({ cta }: { cta: React.ReactNode }) {
         </div>
         <div className="flex justify-center">
           {examples.map((example) => (
-            <div key={example.id} className={cn("hidden", example.show)}>
+            <div
+              key={example.id}
+              className={cn("hidden max-[400px]:[zoom:0.8]", example.show)}
+            >
               <InstagramPreview account={demoAccount} {...example.preview} />
             </div>
           ))}
