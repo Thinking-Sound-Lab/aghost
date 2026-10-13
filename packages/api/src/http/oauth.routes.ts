@@ -34,6 +34,7 @@ const fromApps = { config: { oauth: true } }
 
 function statusOf(error: OAuthError): number {
   if (error.code === OAuthErrorCode.InvalidClient) return 401
+  if (error.code === OAuthErrorCode.TooManyRequests) return 429
   if (error.code === OAuthErrorCode.ServerError) return 500
   return 400
 }
@@ -100,6 +101,8 @@ export function oauthRoutes(
     )
     app.setErrorHandler<FastifyError>((error, request, reply) => {
       if (error instanceof OAuthError) {
+        if (error.code === OAuthErrorCode.TooManyRequests)
+          reply.header("Retry-After", "60")
         // RFC 6749, section 5.2: a failed HTTP Basic login is challenged.
         if (statusOf(error) === 401 && request.headers.authorization)
           reply.header("WWW-Authenticate", 'Basic realm="aghost"')

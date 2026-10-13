@@ -253,6 +253,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_used_at: string | null
           name: string
           redirect_uris: string[]
           secret_hash: string | null
@@ -261,6 +262,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          last_used_at?: string | null
           name: string
           redirect_uris: string[]
           secret_hash?: string | null
@@ -268,6 +270,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          last_used_at?: string | null
           name?: string
           redirect_uris?: string[]
           secret_hash?: string | null

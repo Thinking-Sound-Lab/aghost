@@ -1,3 +1,4 @@
+import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server"
 import type { DatabaseClient } from "@workspace/supabase/server"
 import type { Database } from "@workspace/supabase/types"
 import type {
@@ -42,18 +43,21 @@ export class SupabaseOAuthRepository implements OAuthRepository {
   constructor(private readonly admin: DatabaseClient) {}
 
   async insertClient(client: NewOAuthClient): Promise<OAuthClientRecord> {
-    const row = required(
-      await this.admin
-        .from("oauth_clients")
-        .insert({
-          name: client.name,
-          redirect_uris: client.redirectUris,
-          secret_hash: client.secretHash,
-        })
-        .select()
-        .single(),
-      "register an OAuth client"
-    )
+    const result = await this.admin
+      .from("oauth_clients")
+      .insert({
+        name: client.name,
+        redirect_uris: client.redirectUris,
+        secret_hash: client.secretHash,
+      })
+      .select()
+      .single()
+    if (result.error?.code === "PT429")
+      throw new OAuthError(
+        OAuthErrorCode.TooManyRequests,
+        "Too many apps have registered. Try again in one minute."
+      )
+    const row = required(result, "register an OAuth client")
     return toClient(row)
   }
 
@@ -67,6 +71,27 @@ export class SupabaseOAuthRepository implements OAuthRepository {
       "load an OAuth client"
     )
     return row ? toClient(row) : null
+  }
+
+  async markClientUsed(id: string): Promise<void> {
+    completed(
+      await this.admin
+        .from("oauth_clients")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", id),
+      "record an OAuth client's sign-in"
+    )
+  }
+
+  async deleteUnusedClients(registeredBefore: string): Promise<void> {
+    completed(
+      await this.admin
+        .from("oauth_clients")
+        .delete()
+        .is("last_used_at", null)
+        .lt("created_at", registeredBefore),
+      "delete unused OAuth clients"
+    )
   }
 
   async insertAuthorization(

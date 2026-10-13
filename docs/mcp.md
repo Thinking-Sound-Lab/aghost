@@ -16,7 +16,9 @@ aghost is the app's OAuth 2.1 authorization server:
 
 - An unauthenticated MCP request is answered `401` with `WWW-Authenticate: Bearer resource_metadata="<APP_URL>/.well-known/oauth-protected-resource/api/mcp"`. That document (RFC 9728) names `<APP_URL>` as the issuer, whose metadata is at `/.well-known/oauth-authorization-server` (RFC 8414). The web app forwards both paths to the API.
 - `POST /api/oauth/register` is dynamic client registration (RFC 7591). Public clients use `token_endpoint_auth_method: "none"`; others receive a secret for `client_secret_basic` or `client_secret_post`. Redirect addresses must use https, an app's own scheme, or http on `localhost`, `127.0.0.1` or `[::1]`, where any port matches the registered address (RFC 8252).
+- Registration is limited to 60 clients per rolling minute across all API replicas. Excess requests receive `429` with `Retry-After: 60`. Each registration also removes clients older than a day that never completed sign-in; clients that have signed in remain registered.
 - `GET /api/oauth/authorize` requires S256 PKCE and a registered redirect address. It sends the browser to the consent page at `/authorize`, through Google sign-in when needed. A workspace without a plan cannot approve, but can send the app back with `access_denied`.
+- Choosing a plan preserves the pending connection in the current tab through checkout, then returns to consent after the plan activates. Consent requests expire after ten minutes; an expired return asks the owner to restart connecting from the app.
 - `POST /api/oauth/token` accepts form-encoded `authorization_code` grants. A code works once, within five minutes of approval. The response has no `refresh_token` or `expires_in`: the key works until the owner revokes it, and the app signs in again after a `401`.
 - An optional `resource` parameter (RFC 8707) must be the MCP endpoint. Responses to the app carry `iss` (RFC 9207).
 

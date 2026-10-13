@@ -47,6 +47,7 @@ const admin = createAdminSupabaseClient(config.supabase)
 const appOrigin = new URL(config.appUrl).origin
 const mcpUrl = new URL("/api/mcp", appOrigin)
 const CALLBACK = "http://127.0.0.1:43123/callback"
+const registeredClientIds = new Set<string>()
 
 function pkce() {
   const verifier = randomBytes(32).toString("base64url")
@@ -82,6 +83,7 @@ class MemoryProvider implements OAuthClientProvider {
   }
 
   saveClientInformation(client: StoredOAuthClientInformation) {
+    registeredClientIds.add(client.client_id)
     this.client = client
   }
 
@@ -151,12 +153,15 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
   }
 
   async function register(metadata: Record<string, unknown>) {
-    return app.inject({
+    const response = await app.inject({
       method: "POST",
       url: "/api/oauth/register",
       headers: { "content-type": "application/json" },
       payload: JSON.stringify(metadata),
     })
+    if (response.statusCode === 201)
+      registeredClientIds.add(response.json<{ client_id: string }>().client_id)
+    return response
   }
 
   async function publicClient(redirectUri = CALLBACK) {
@@ -247,6 +252,15 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
   afterAll(async () => {
     for (const client of clients) await client.close()
     await app?.close()
+    // Registered clients have no user foreign key. Deleting them also removes
+    // any requests left pending by the fixture through ON DELETE CASCADE.
+    if (registeredClientIds.size) {
+      const { error } = await admin
+        .from("oauth_clients")
+        .delete()
+        .in("id", [...registeredClientIds])
+      if (error) throw new Error("Could not clean up OAuth test clients")
+    }
     for (const id of userIds) {
       const { error } = await admin.auth.admin.deleteUser(id)
       if (error) throw new Error("Could not clean up an OAuth test user")
@@ -650,6 +664,123 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
       )
       for (const table of ["oauth_clients", "oauth_authorizations"] as const)
         expect((await direct.from(table).select()).error?.code).toBe("42501")
+    }
+  })
+
+  it("replaces conflicting callback fields while preserving the app's query", async () => {
+    const redirect =
+      "https://agent.example/callback?own=kept&code=old&error=old&error_description=old&state=old&iss=old"
+    const clientId = await publicClient(redirect)
+    const approved = await approve(
+      await startSignIn(clientId, pkce().challenge, redirect)
+    )
+    expect(Object.fromEntries(approved.searchParams)).toEqual({
+      own: "kept",
+      code: expect.any(String),
+      state: "opaque-state",
+      iss: appOrigin,
+    })
+    expect(approved.searchParams.get("code")).not.toBe("old")
+
+    const requestId = await startSignIn(clientId, pkce().challenge, redirect)
+    const denied = await session(`/oauth/requests/${requestId}/deny`, "POST")
+    const callback = new URL(denied.json<AuthorizationDecision>().redirectUrl)
+    expect(Object.fromEntries(callback.searchParams)).toEqual({
+      own: "kept",
+      error: "access_denied",
+      error_description: expect.any(String),
+      state: "opaque-state",
+      iss: appOrigin,
+    })
+  })
+
+  it("removes day-old unused clients and their requests, retaining clients that signed in", async () => {
+    const unusedId = await publicClient()
+    const usedId = await publicClient()
+    const pendingId = await startSignIn(unusedId, pkce().challenge)
+    const { verifier, challenge } = pkce()
+    const code = (
+      await approve(await startSignIn(usedId, challenge))
+    ).searchParams.get("code")!
+    expect(
+      (
+        await token({
+          grant_type: "authorization_code",
+          client_id: usedId,
+          code,
+          redirect_uri: CALLBACK,
+          code_verifier: verifier,
+        })
+      ).statusCode
+    ).toBe(200)
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60_000).toISOString()
+    const aged = await admin
+      .from("oauth_clients")
+      .update({ created_at: old })
+      .in("id", [unusedId, usedId])
+    expect(aged.error).toBeNull()
+    await publicClient()
+    const retained = await admin
+      .from("oauth_clients")
+      .select("id,last_used_at")
+      .in("id", [unusedId, usedId])
+    expect(retained.error).toBeNull()
+    expect(retained.data).toEqual([
+      { id: usedId, last_used_at: expect.any(String) },
+    ])
+    const pending = await admin
+      .from("oauth_authorizations")
+      .select("id")
+      .eq("id", pendingId)
+    expect(pending.error).toBeNull()
+    expect(pending.data).toEqual([])
+  })
+
+  it("shares the registration budget across API replicas and rejects simultaneous excess requests", async () => {
+    const recent = await admin
+      .from("oauth_clients")
+      .select("id", { count: "exact", head: true })
+      .gt("created_at", new Date(Date.now() - 60_000).toISOString())
+    expect(recent.error).toBeNull()
+    const padding = Array.from({ length: 59 - recent.count! }, () => ({
+      id: randomUUID(),
+      name: "Registration limit fixture",
+      redirect_uris: [CALLBACK],
+    }))
+    for (const client of padding) registeredClientIds.add(client.id)
+    const inserted = await admin.from("oauth_clients").insert(padding)
+    expect(inserted.error).toBeNull()
+    const replica = createApi(config, {
+      analytics: recordingAnalytics().analytics,
+    })
+    try {
+      const responses = await Promise.all(
+        [app, replica].map((instance) =>
+          instance.inject({
+            method: "POST",
+            url: "/api/oauth/register",
+            payload: {
+              redirect_uris: [CALLBACK],
+              token_endpoint_auth_method: "none",
+            },
+          })
+        )
+      )
+      for (const response of responses)
+        if (response.statusCode === 201)
+          registeredClientIds.add(
+            response.json<{ client_id: string }>().client_id
+          )
+      expect(responses.map((response) => response.statusCode).sort()).toEqual([
+        201, 429,
+      ])
+      const rejected = responses.find(
+        (response) => response.statusCode === 429
+      )!
+      expect(rejected.headers["retry-after"]).toBe("60")
+      expect(rejected.json()).toMatchObject({ error: "too_many_requests" })
+    } finally {
+      await replica.close()
     }
   })
 })

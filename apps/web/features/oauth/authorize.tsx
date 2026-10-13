@@ -9,6 +9,7 @@ import { Brand } from "@/components/brand"
 import { ErrorBanner, Loading } from "@/components/interface"
 import { useAuthStore } from "@/stores/auth-store"
 import { useAuthorizeStore } from "@/stores/authorize-store"
+import { usePendingConnectionStore } from "@/stores/pending-connection-store"
 
 function Heading({
   title,
@@ -29,6 +30,7 @@ function Heading({
 export function Authorize({ requestId }: { requestId: string | null }) {
   const auth = useAuthStore()
   const consent = useAuthorizeStore()
+  const rememberRequest = usePendingConnectionStore((state) => state.remember)
   const router = useRouter()
   useEffect(() => {
     if (requestId && auth.status === "idle") void auth.load()
@@ -37,9 +39,10 @@ export function Authorize({ requestId }: { requestId: string | null }) {
     if (!requestId) return
     if (auth.status === "signed_out")
       router.replace(authorizeLoginPath(requestId))
-    if (auth.status === "signed_in" && consent.status === "idle")
-      void consent.load(requestId)
-  }, [requestId, auth.status, consent.status, consent.load, router])
+    if (auth.status === "signed_in") void consent.load(requestId)
+    // Returning from billing or opening another request reloads consent.
+    return consent.reset
+  }, [requestId, auth.status, consent.load, consent.reset, router])
 
   const request = consent.request
   let content: React.ReactNode = <Loading />
@@ -57,7 +60,8 @@ export function Authorize({ requestId }: { requestId: string | null }) {
     content = (
       <>
         <Heading title="Choose a plan first">
-          Apps can connect to aghost once your workspace has a plan.
+          Apps can connect to aghost once your workspace has a plan. You will
+          come back here after choosing one.
         </Heading>
         <ErrorBanner message={consent.error} />
         <div className="flex justify-end gap-2">
@@ -68,14 +72,26 @@ export function Authorize({ requestId }: { requestId: string | null }) {
           >
             Cancel
           </Button>
-          <Link href="/settings#billing" className={buttonVariants()}>
+          {/* The dashboard brings the owner back here once the plan is active. */}
+          <Link
+            href="/settings#billing"
+            onClick={() => rememberRequest(requestId)}
+            className={buttonVariants()}
+          >
             Choose a plan
           </Link>
         </div>
       </>
     )
   else if (consent.status === "error")
-    content = <ErrorBanner message={consent.error} />
+    content = (
+      <>
+        <ErrorBanner message={consent.error} />
+        <Link href="/home" className={buttonVariants({ variant: "secondary" })}>
+          Back to aghost
+        </Link>
+      </>
+    )
   else if (consent.status === "ready" && request)
     content = (
       <>

@@ -7,7 +7,10 @@ create table public.oauth_clients (
   redirect_uris text[] not null check (cardinality(redirect_uris) between 1 and 10),
   -- Null for public clients, which prove themselves with PKCE alone.
   secret_hash text check (secret_hash ~ '^[a-f0-9]{64}$'),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Registration is anonymous: a client that never completes a sign-in is
+  -- deleted after a day.
+  last_used_at timestamptz
 );
 
 -- One sign-in in progress. Approval sets the workspace and the hash of a
@@ -27,6 +30,9 @@ create table public.oauth_authorizations (
   )
 );
 
+create index oauth_clients_unused_idx on public.oauth_clients (created_at)
+  where last_used_at is null;
+create index oauth_clients_created_at_idx on public.oauth_clients (created_at);
 create index oauth_authorizations_client_id_idx on public.oauth_authorizations (client_id);
 create index oauth_authorizations_workspace_id_idx on public.oauth_authorizations (workspace_id);
 create index oauth_authorizations_expires_at_idx on public.oauth_authorizations (expires_at);
@@ -35,6 +41,32 @@ alter table public.oauth_clients enable row level security;
 alter table public.oauth_authorizations enable row level security;
 revoke all on public.oauth_clients from public, anon, authenticated, service_role;
 revoke all on public.oauth_authorizations from public, anon, authenticated, service_role;
-grant select, insert on public.oauth_clients to service_role;
+grant select, insert, update, delete on public.oauth_clients to service_role;
 grant select, insert, update, delete on public.oauth_authorizations to service_role;
 -- No user-facing policies: only the backend reads and writes these tables.
+
+-- The rolling limit is shared by every API replica. Serialize the count and
+-- insert so simultaneous registrations cannot each spend the last slot.
+create function public.limit_oauth_client_registration()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform pg_catalog.pg_advisory_xact_lock(1868653668, 1);
+  if (
+    select count(*) from public.oauth_clients
+    where created_at > pg_catalog.clock_timestamp() - interval '1 minute'
+  ) >= 60 then
+    raise sqlstate 'PT429' using message = 'oauth_registration_rate_limited';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.limit_oauth_client_registration()
+  from public, anon, authenticated;
+grant execute on function public.limit_oauth_client_registration() to service_role;
+create trigger oauth_clients_registration_limit
+  before insert on public.oauth_clients
+  for each row execute function public.limit_oauth_client_registration();

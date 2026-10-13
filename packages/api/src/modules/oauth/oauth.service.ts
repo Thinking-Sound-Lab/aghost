@@ -24,6 +24,10 @@ import {
 import type { OAuthRepository } from "./oauth.repository"
 
 const CONSENT_LIFETIME_MS = 10 * 60_000
+// A registration that never completes a sign-in is removed after this.
+const UNUSED_CLIENT_LIFETIME_MS = 24 * 60 * 60_000
+// The parameters aghost sets on the app's redirect address.
+const RESPONSE_PARAMS = ["code", "state", "error", "error_description", "iss"]
 const CODE_LIFETIME_MS = 5 * 60_000
 const STATE_MAX_LENGTH = 2000
 const UNNAMED_CLIENT = "MCP client"
@@ -199,6 +203,9 @@ export class OAuthService {
       input.token_endpoint_auth_method === "none"
         ? null
         : randomBytes(32).toString("base64url")
+    await this.repository.deleteUnusedClients(
+      new Date(Date.now() - UNUSED_CLIENT_LIFETIME_MS).toISOString()
+    )
     const client = await this.repository.insertClient({
       name: clientName(input.client_name),
       redirectUris: input.redirect_uris,
@@ -376,6 +383,7 @@ export class OAuthService {
         "The authorization code is invalid, expired or already used."
       )
 
+    await this.repository.markClientUsed(client.id)
     const { key, token } = await this.apiKeys.create(workspace, {
       name: client.name,
       scopes: [...API_KEY_SCOPES],
@@ -440,6 +448,8 @@ export class OAuthService {
   /** The app's redirect address with the outcome, naming the issuer (RFC 9207). */
   private callback(redirectUri: string, params: Record<string, string>) {
     const url = new URL(redirectUri)
+    // A registered address may carry its own; only this outcome's remain.
+    for (const name of RESPONSE_PARAMS) url.searchParams.delete(name)
     for (const [name, value] of Object.entries({
       ...params,
       iss: this.endpoints.issuer,

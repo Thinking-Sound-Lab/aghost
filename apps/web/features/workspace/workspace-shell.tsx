@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { billingChoice, billingLoginPath } from "@workspace/api/contract"
+import {
+  authorizePath,
+  billingChoice,
+  billingLoginPath,
+} from "@workspace/api/contract"
 import {
   House,
   Inbox,
@@ -36,6 +40,7 @@ import { Paywall } from "@/features/billing/paywall"
 import { useAuthStore } from "@/stores/auth-store"
 import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
+import { usePendingConnectionStore } from "@/stores/pending-connection-store"
 
 const ITEM =
   "flex h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8"
@@ -211,6 +216,18 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
     router,
     pathname,
   ])
+  // An app waited to connect while the owner chose a plan.
+  const pendingRequestId = usePendingConnectionStore((state) => state.requestId)
+  const forgetConnection = usePendingConnectionStore((state) => state.forget)
+  const canConnect =
+    auth.status === "signed_in" &&
+    workspace.status === "ready" &&
+    hasPlan(workspace.billing)
+  useEffect(() => {
+    if (!pendingRequestId || !canConnect) return
+    forgetConnection()
+    router.replace(authorizePath(pendingRequestId))
+  }, [pendingRequestId, canConnect, forgetConnection, router])
 
   if (auth.status === "error")
     return (
