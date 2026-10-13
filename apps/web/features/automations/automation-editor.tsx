@@ -29,6 +29,7 @@ import {
 } from "@/components/interface"
 import { Instagram } from "@/components/instagram-icon"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
+import { FollowUpEditor, ProductCarouselEditor } from "./automation-extras"
 import { LAST_STEP, useEditorStore } from "@/stores/editor-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
@@ -96,9 +97,31 @@ export function AutomationEditor({ id }: { id?: string }) {
     else void save("active")
   }
 
+  const preview = (
+    <InstagramPreview
+      screen={editor.preview}
+      account={{
+        username: account?.username ?? "",
+        picture: account?.profilePictureUrl ?? null,
+      }}
+      post={
+        draft.trigger.postScope === "specific_post"
+          ? selectedPost
+          : (editor.posts[0] ?? null)
+      }
+      keyword={editor.anyWord ? null : (keywords[0] ?? null)}
+      commentReply={draft.commentReply}
+      openingDm={draft.openingDm}
+      dmMessage={draft.dmMessage}
+      buttons={draft.dmButtons.map((item) => item.label)}
+      productCarousel={draft.productCarousel ?? null}
+      followUp={draft.followUp ?? null}
+    />
+  )
+
   return (
     <div className="flex min-h-0 flex-1">
-      <Panel className="w-[560px] shrink-0">
+      <Panel className="min-w-0 flex-1 xl:w-[560px] xl:flex-none">
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <header className="flex shrink-0 items-center gap-2 px-10 pt-10 pb-8">
             <Link
@@ -282,114 +305,119 @@ export function AutomationEditor({ id }: { id?: string }) {
                   )}
                 </Card>
 
-                <Card title="a DM with the link">
-                  <Field error={fields.dmMessage}>
-                    <Textarea
-                      aria-label="Message"
-                      placeholder="Here's your link!"
-                      maxLength={AUTOMATION_LIMITS.dmMessageMaxLength}
-                      value={draft.dmMessage}
-                      onChange={(event) =>
-                        editor.patch({ dmMessage: event.target.value })
-                      }
-                    />
-                  </Field>
-                  <div className="flex gap-1.5">
-                    {PERSONALIZATION_TOKENS.map((item) => (
-                      <button
-                        key={item.token}
-                        type="button"
-                        className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() =>
-                          editor.patch({
-                            dmMessage: `${draft.dmMessage}${item.token}`,
-                          })
+                <ProductCarouselEditor />
+                {!draft.productCarousel && (
+                  <Card title="a DM with the link">
+                    <Field error={fields.dmMessage}>
+                      <Textarea
+                        aria-label="Message"
+                        placeholder="Here's your link!"
+                        maxLength={AUTOMATION_LIMITS.dmMessageMaxLength}
+                        value={draft.dmMessage}
+                        onChange={(event) =>
+                          editor.patch({ dmMessage: event.target.value })
                         }
-                      >
-                        + {item.label}
-                      </button>
-                    ))}
-                  </div>
-                  {draft.dmButtons.map((button, index) => (
-                    <div key={index} className="grid gap-1.5">
-                      <div className="flex gap-1.5">
+                      />
+                    </Field>
+                    <div className="flex gap-1.5">
+                      {PERSONALIZATION_TOKENS.map((item) => (
+                        <button
+                          key={item.token}
+                          type="button"
+                          className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() =>
+                            editor.patch({
+                              dmMessage: `${draft.dmMessage}${item.token}`,
+                            })
+                          }
+                        >
+                          + {item.label}
+                        </button>
+                      ))}
+                    </div>
+                    {draft.dmButtons.map((button, index) => (
+                      <div key={index} className="grid gap-1.5">
+                        <div className="flex gap-1.5">
+                          <Input
+                            aria-label={`Link ${index + 1}`}
+                            placeholder="https://"
+                            inputMode="url"
+                            value={button.url}
+                            aria-invalid={!!fields[`dmButtons.${index}.url`]}
+                            onChange={(event) =>
+                              editor.patch({
+                                dmButtons: draft.dmButtons.map((item, i) =>
+                                  i === index
+                                    ? { ...item, url: event.target.value }
+                                    : item
+                                ),
+                              })
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Remove link ${index + 1}`}
+                            onClick={() =>
+                              editor.patch({
+                                dmButtons: draft.dmButtons.filter(
+                                  (_, i) => i !== index
+                                ),
+                              })
+                            }
+                          >
+                            <X />
+                          </Button>
+                        </div>
                         <Input
-                          aria-label={`Link ${index + 1}`}
-                          placeholder="https://"
-                          inputMode="url"
-                          value={button.url}
-                          aria-invalid={!!fields[`dmButtons.${index}.url`]}
+                          aria-label={`Button label ${index + 1}`}
+                          placeholder="Button label"
+                          maxLength={AUTOMATION_LIMITS.dmButtonLabelMaxLength}
+                          value={button.label}
+                          aria-invalid={!!fields[`dmButtons.${index}.label`]}
                           onChange={(event) =>
                             editor.patch({
                               dmButtons: draft.dmButtons.map((item, i) =>
                                 i === index
-                                  ? { ...item, url: event.target.value }
+                                  ? { ...item, label: event.target.value }
                                   : item
                               ),
                             })
                           }
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove link ${index + 1}`}
-                          onClick={() =>
-                            editor.patch({
-                              dmButtons: draft.dmButtons.filter(
-                                (_, i) => i !== index
-                              ),
-                            })
-                          }
-                        >
-                          <X />
-                        </Button>
+                        {(fields[`dmButtons.${index}.url`] ??
+                          fields[`dmButtons.${index}.label`]) && (
+                          <p className="text-xs text-destructive">
+                            {fields[`dmButtons.${index}.url`] ??
+                              fields[`dmButtons.${index}.label`]}
+                          </p>
+                        )}
                       </div>
-                      <Input
-                        aria-label={`Button label ${index + 1}`}
-                        placeholder="Button label"
-                        maxLength={AUTOMATION_LIMITS.dmButtonLabelMaxLength}
-                        value={button.label}
-                        aria-invalid={!!fields[`dmButtons.${index}.label`]}
-                        onChange={(event) =>
+                    ))}
+                    {draft.dmButtons.length <
+                      AUTOMATION_LIMITS.maxDmButtons && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="justify-self-start"
+                        onClick={() =>
                           editor.patch({
-                            dmButtons: draft.dmButtons.map((item, i) =>
-                              i === index
-                                ? { ...item, label: event.target.value }
-                                : item
-                            ),
+                            dmButtons: [
+                              ...draft.dmButtons,
+                              { label: "", url: "" },
+                            ],
                           })
                         }
-                      />
-                      {(fields[`dmButtons.${index}.url`] ??
-                        fields[`dmButtons.${index}.label`]) && (
-                        <p className="text-xs text-destructive">
-                          {fields[`dmButtons.${index}.url`] ??
-                            fields[`dmButtons.${index}.label`]}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                  {draft.dmButtons.length < AUTOMATION_LIMITS.maxDmButtons && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="justify-self-start"
-                      onClick={() =>
-                        editor.patch({
-                          dmButtons: [
-                            ...draft.dmButtons,
-                            { label: "", url: "" },
-                          ],
-                        })
-                      }
-                    >
-                      <Plus />
-                      Add link
-                    </Button>
-                  )}
-                </Card>
+                      >
+                        <Plus />
+                        Add link
+                      </Button>
+                    )}
+                  </Card>
+                )}
+                <FollowUpEditor />
 
                 <Card
                   title="a reply to their comment"
@@ -424,6 +452,24 @@ export function AutomationEditor({ id }: { id?: string }) {
           </div>
           <footer className="flex shrink-0 items-center gap-2 px-10 pt-4 pb-8">
             <ErrorBanner message={editor.error} className="mr-auto py-1.5" />
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="xl:hidden"
+                  />
+                }
+              >
+                Preview
+              </DialogTrigger>
+              <DialogContent className="grid max-h-[90dvh] justify-items-center overflow-auto sm:max-w-sm">
+                <DialogTitle>Instagram preview</DialogTitle>
+                {preview}
+              </DialogContent>
+            </Dialog>
             {editor.step < LAST_STEP ? (
               <Button type="submit" className="ml-auto">
                 Next
@@ -447,24 +493,8 @@ export function AutomationEditor({ id }: { id?: string }) {
           </footer>
         </form>
       </Panel>
-      <Panel className="flex-1 items-center justify-center overflow-auto bg-muted p-10">
-        <InstagramPreview
-          screen={editor.preview}
-          account={{
-            username: account?.username ?? "",
-            picture: account?.profilePictureUrl ?? null,
-          }}
-          post={
-            draft.trigger.postScope === "specific_post"
-              ? selectedPost
-              : (editor.posts[0] ?? null)
-          }
-          keyword={editor.anyWord ? null : (keywords[0] ?? null)}
-          commentReply={draft.commentReply}
-          openingDm={draft.openingDm}
-          dmMessage={draft.dmMessage}
-          buttons={draft.dmButtons.map((item) => item.label)}
-        />
+      <Panel className="hidden flex-1 items-center justify-center overflow-auto bg-muted p-10 xl:flex">
+        {preview}
       </Panel>
     </div>
   )

@@ -4,6 +4,8 @@ import type {
   DmButton,
   MatchMode,
   OpeningDm,
+  ProductCard,
+  FollowUp,
 } from "../../contract/automation"
 
 export type AutomationRecord = {
@@ -21,6 +23,8 @@ export type AutomationRecord = {
   dmButtons: DmButton[]
   commentReply: string | null
   requireFollow: boolean
+  productCarousel: ProductCard[] | null
+  followUp: FollowUp | null
   createdAt: string
   updatedAt: string
 }
@@ -37,6 +41,8 @@ export type AutomationConfig = Pick<
   | "dmButtons"
   | "commentReply"
   | "requireFollow"
+  | "productCarousel"
+  | "followUp"
 >
 
 export type NewAutomation = AutomationConfig &

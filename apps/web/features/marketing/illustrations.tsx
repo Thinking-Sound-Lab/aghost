@@ -208,6 +208,39 @@ export const featureScenes = [
     />
     <Sent text="I'm following" />
   </>,
+  <div className="flex gap-2 overflow-hidden">
+    {["The creator kit", "The template pack"].map((title, index) => (
+      <div
+        key={title}
+        className="w-36 shrink-0 overflow-hidden rounded-xl bg-white text-[12px] shadow-sm ring-1 ring-black/10"
+      >
+        <div
+          className={cn(
+            "grid h-20 place-items-center",
+            index === 0 ? "bg-brand/20" : "bg-brand-orange/20"
+          )}
+        >
+          <span className="rotate-[-8deg] rounded bg-white px-3 py-2 text-lg font-bold">
+            {index === 0 ? "✦" : "↗"}
+          </span>
+        </div>
+        <p className="p-2 font-semibold">{title}</p>
+        <p className="border-t border-black/10 p-2 text-center">Shop now</p>
+      </div>
+    ))}
+  </div>,
+  <>
+    <p className="text-center text-[11px] text-black/50">
+      1 hour later · no reply or click
+    </p>
+    <Received
+      text="Still interested? Here's your link again 👇"
+      buttons={["Get the guide"]}
+    />
+    <p className="flex items-center justify-center gap-1 text-[11px] text-black/50">
+      <Check className="size-3" /> Stops when the conversation continues
+    </p>
+  </>,
 ]
 
 /** An agent building an automation, sized to stand in the demo's phone slot. */

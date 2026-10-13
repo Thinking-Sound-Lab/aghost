@@ -7,6 +7,7 @@ import type {
   AutomationTriggerInput,
   CreateAutomationInput,
   UpdateAutomationInput,
+  FollowUpActivity,
 } from "../../contract/automation"
 import {
   AccountDisconnectedError,
@@ -28,6 +29,8 @@ import type {
   AutomationProvider,
 } from "./automation.provider"
 import type { AutomationRepository } from "./automation.repository"
+import type { Plan } from "../../contract/billing"
+import { supportsAutomation } from "../billing/plan-entitlements"
 
 /** Looks up the accounts automations run on. */
 export interface AutomationAccounts {
@@ -42,6 +45,14 @@ export interface PostCatalog {
 /** Checks that the workspace's plan lets automations run. */
 export interface AutomationPlan {
   assertCanRunAutomations(workspace: WorkspaceRecord): Promise<void>
+  assertCanUseAutomationFeatures(
+    workspace: WorkspaceRecord,
+    config: AutomationConfig
+  ): Promise<void>
+}
+
+export interface FollowUpActivityReader {
+  list(workspaceId: string, automationId: string): Promise<FollowUpActivity[]>
 }
 
 export class AutomationService {
@@ -52,7 +63,8 @@ export class AutomationService {
     private readonly posts: PostCatalog,
     private readonly plan: AutomationPlan,
     private readonly operations: WorkspaceOperations,
-    private readonly analytics: ProductAnalytics
+    private readonly analytics: ProductAnalytics,
+    private readonly followUps?: FollowUpActivityReader
   ) {}
 
   list(workspace: WorkspaceRecord): Promise<AutomationRecord[]> {
@@ -100,7 +112,11 @@ export class AutomationService {
       dmButtons: input.dmButtons,
       commentReply: input.commentReply,
       requireFollow: input.requireFollow,
+      productCarousel: input.productCarousel ?? null,
+      followUp: input.followUp ?? null,
     }
+    assertMessageFormat(config)
+    await this.plan.assertCanUseAutomationFeatures(workspace, config)
 
     const providerAutomationId = await this.provider.create(
       {
@@ -168,7 +184,17 @@ export class AutomationService {
       dmButtons: input.dmButtons,
       commentReply: input.commentReply,
       requireFollow: input.requireFollow,
+      productCarousel:
+        input.productCarousel === undefined
+          ? current.productCarousel
+          : input.productCarousel,
+      followUp:
+        input.followUp === undefined ? current.followUp : input.followUp,
     }
+    assertMessageFormat(config)
+    // Pausing remains available after a downgrade, even to an older client.
+    if (input.status === "active" || input.productCarousel || input.followUp)
+      await this.plan.assertCanUseAutomationFeatures(workspace, config)
 
     await this.provider.update(
       current.providerAutomationId,
@@ -207,6 +233,7 @@ export class AutomationService {
     if (status === "active") {
       assertConnected(await this.getAccount(workspace.id, current.accountId))
       await this.plan.assertCanRunAutomations(workspace)
+      await this.plan.assertCanUseAutomationFeatures(workspace, current)
     }
 
     await this.provider.setStatus(current.providerAutomationId, status)
@@ -276,6 +303,27 @@ export class AutomationService {
     })
   }
 
+  async pauseUnsupported(workspace: WorkspaceOwner, plan: Plan): Promise<void> {
+    return this.operations.run(workspace.id, async () => {
+      for (const automation of await this.automations.listByWorkspace(
+        workspace.id
+      )) {
+        if (
+          automation.status !== "active" ||
+          supportsAutomation(plan, automation)
+        )
+          continue
+        await this.provider.setStatus(automation.providerAutomationId, "paused")
+        const paused = await this.automations.updateStatus(
+          workspace.id,
+          automation.id,
+          "paused"
+        )
+        this.recordStatus(workspace, automation, paused, "plan")
+      }
+    })
+  }
+
   async listStats(workspace: WorkspaceRecord): Promise<AutomationStatsById> {
     // Without a provider profile the workspace has never connected an account,
     // so it has no automations to report on.
@@ -308,7 +356,11 @@ export class AutomationService {
   ): Promise<AutomationActivityPage> {
     const automation = await this.get(workspace, id)
 
-    return this.provider.listActivity(automation.providerAutomationId, page)
+    const [activity, followUps] = await Promise.all([
+      this.provider.listActivity(automation.providerAutomationId, page),
+      this.followUps?.list(workspace.id, id) ?? Promise.resolve([]),
+    ])
+    return { ...activity, followUps }
   }
 
   private record(workspace: WorkspaceOwner, event: ProductEvent): void {
@@ -399,6 +451,14 @@ function assertConnected(account: AccountRecord): void {
   if (account.status !== "connected") {
     throw new AccountDisconnectedError(account.username)
   }
+}
+
+function assertMessageFormat(config: AutomationConfig): void {
+  if (config.productCarousel && config.dmButtons.length > 0)
+    throw new ValidationError({
+      dmButtons:
+        "Choose link buttons or a product carousel for this DM. Reload the editor if the automation changed in another tab.",
+    })
 }
 
 function requireProviderProfile(workspace: WorkspaceRecord): string {

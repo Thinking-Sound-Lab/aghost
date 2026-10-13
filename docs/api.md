@@ -55,6 +55,12 @@ curl --fail-with-body http://localhost:3000/api/v1/automations \
 
 Activity pagination defaults to `limit=25&offset=0`. The maximum limit is 50. Contacts use `search` and `offset` and return up to 50 per page. URL-encode opaque conversation IDs when putting them in a path.
 
+Growth and Business can set `productCarousel` to 1–10 cards. Each card has `title` (up to 80 characters), `subtitle` (up to 80), an HTTPS `imageUrl`, `buttonLabel` (up to 20), and an HTTPS `url`. Set `dmButtons: []`: the carousel replaces the main text bubble. `dmMessage` remains the fallback when the carousel is cleared.
+
+Business can set `followUp` to `{ "message": "Still interested?", "delayMinutes": 60, "button": { "label": "View offer", "url": "https://example.com/offer" } }`. `button` is optional or null; the message is at most 640 characters and the delay is 30–1200 minutes. Replies, tracked clicks, conversation activity and Instagram's messaging window determine whether the reminder is sent. An opening DM lets commenters opt in before the offer arrives. Apply the feature migration and subscribe to message webhooks as described in [billing](billing.md#carousel-and-follow-up-rollout).
+
+Both fields are optional on create and update. Omitted fields on an update keep the current settings; explicit `null` clears them. Feature permissions are enforced before provider writes; unavailable features return 403 `plan_limit_reached`. Activity also returns `followUps`, the latest 50 reminder outcomes with status, due/sent time and skip reason.
+
 Errors have the shape `{ "error": { "code": "...", "message": "...", "fields": { ... } } }`, with `fields` present for validation errors. Missing, invalid, revoked, or expired keys return 401 with a Bearer challenge. A valid key whose workspace has no active plan returns 402 `plan_required` on every request, including the OpenAPI document, until the owner chooses a plan in the app. Insufficient permissions return 403; another workspace's resource returns 404. Validation errors return 422. Provider rate limits and failures preserve the existing API's 429 and 502 responses.
 
 Activating an automation can deliver real DMs and public replies. `send_message` sends a real inbox reply and is subject to the provider's messaging restrictions. Writes do not provide an idempotency-key contract: inspect state after an uncertain response instead of automatically retrying creation or message delivery.

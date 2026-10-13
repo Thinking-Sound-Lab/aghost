@@ -52,6 +52,8 @@ function emptyDraft(): CreateAutomationInput {
     dmButtons: [{ label: "", url: "" }],
     commentReply: null,
     requireFollow: false,
+    productCarousel: null,
+    followUp: null,
     status: "paused",
   }
 }
@@ -83,7 +85,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       keywordText: "",
       anyWord: false,
       step: id ? LAST_STEP : 0,
-      preview: "post",
+      preview: id ? "dm" : "post",
       posts: [],
       status: "loading",
       error: null,
@@ -95,6 +97,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const item = await api.automations.get(id)
         const draft: CreateAutomationInput = {
           ...item,
+          productCarousel: item.productCarousel ?? null,
+          followUp: item.followUp ?? null,
           trigger:
             item.trigger.postScope === "any_post"
               ? { postScope: "any_post" }

@@ -1204,16 +1204,25 @@
   text-transform: uppercase;
   font-size: 36px;
 }
-.notebook-plan-grid > section > p > span:first-child {
+.notebook-plan-grid .plan-card-price > span:first-child {
   font-family: var(--font-notebook-display), Impact, sans-serif;
   font-size: 46px;
   font-weight: 400;
 }
-.notebook-plan-grid > section > div:last-child a {
+.notebook-plan-grid .plan-card-action a {
   display: flex;
   justify-content: center;
   border-radius: 0;
   font-size: 13px;
+}
+.notebook-plan-grid .plan-card-purpose {
+  font-family: var(--font-notebook-hand), cursive;
+  font-size: 20px;
+  line-height: 1.3;
+  color: #191916;
+}
+.notebook-plan-grid > section ul {
+  border-color: #19191630;
 }
 .notebook-pricing-terms {
   margin-top: 30px;

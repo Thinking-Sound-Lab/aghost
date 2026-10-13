@@ -63,6 +63,7 @@ export type Database = {
           created_at: string
           dm_buttons: NonNullable<Json>
           dm_message: string
+          follow_up: Json | null
           id: string
           instagram_account_id: string
           keywords: string[]
@@ -74,6 +75,7 @@ export type Database = {
           post_caption: string | null
           post_permalink: string | null
           post_scope: string
+          product_carousel: Json | null
           require_follow: boolean
           status: string
           updated_at: string
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string
           dm_buttons?: NonNullable<Json>
           dm_message: string
+          follow_up?: Json | null
           id?: string
           instagram_account_id: string
           keywords?: string[]
@@ -97,6 +100,7 @@ export type Database = {
           post_caption?: string | null
           post_permalink?: string | null
           post_scope: string
+          product_carousel?: Json | null
           require_follow?: boolean
           status: string
           updated_at?: string
@@ -108,6 +112,7 @@ export type Database = {
           created_at?: string
           dm_buttons?: NonNullable<Json>
           dm_message?: string
+          follow_up?: Json | null
           id?: string
           instagram_account_id?: string
           keywords?: string[]
@@ -119,6 +124,7 @@ export type Database = {
           post_caption?: string | null
           post_permalink?: string | null
           post_scope?: string
+          product_carousel?: Json | null
           require_follow?: boolean
           status?: string
           updated_at?: string
@@ -142,6 +148,94 @@ export type Database = {
           },
           {
             foreignKeyName: "automations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      follow_up_jobs: {
+        Row: {
+          attempts: number
+          automation_id: string
+          automation_updated_at: string
+          conversation_id: string
+          created_at: string
+          due_at: string
+          follow_up: NonNullable<Json>
+          id: string
+          lease_owner: string | null
+          lease_until: string | null
+          provider_account_id: string
+          provider_log_id: string | null
+          provider_message_id: string
+          reason: string | null
+          recipient_id: string
+          recipient_name: string | null
+          retry_after: string
+          sent_at: string | null
+          source_sent_at: string
+          status: string
+          workspace_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          attempts?: number
+          automation_id: string
+          automation_updated_at: string
+          conversation_id: string
+          created_at?: string
+          due_at: string
+          follow_up: NonNullable<Json>
+          id?: string
+          lease_owner?: string | null
+          lease_until?: string | null
+          provider_account_id: string
+          provider_log_id?: string | null
+          provider_message_id: string
+          reason?: string | null
+          recipient_id: string
+          recipient_name?: string | null
+          retry_after: string
+          sent_at?: string | null
+          source_sent_at: string
+          status?: string
+          workspace_id: string
+        }
+        Update: {
+          attempts?: number
+          automation_id?: string
+          automation_updated_at?: string
+          conversation_id?: string
+          created_at?: string
+          due_at?: string
+          follow_up?: NonNullable<Json>
+          id?: string
+          lease_owner?: string | null
+          lease_until?: string | null
+          provider_account_id?: string
+          provider_log_id?: string | null
+          provider_message_id?: string
+          reason?: string | null
+          recipient_id?: string
+          recipient_name?: string | null
+          retry_after?: string
+          sent_at?: string | null
+          source_sent_at?: string
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_jobs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_jobs_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -357,6 +451,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_follow_up_jobs: {
+        Args: { p_limit?: number; p_owner: string }
+        Returns: {
+          attempts: number
+          automation_id: string
+          automation_updated_at: string
+          conversation_id: string
+          created_at: string
+          due_at: string
+          follow_up: NonNullable<Json>
+          id: string
+          lease_owner: string | null
+          lease_until: string | null
+          provider_account_id: string
+          provider_log_id: string | null
+          provider_message_id: string
+          reason: string | null
+          recipient_id: string
+          recipient_name: string | null
+          retry_after: string
+          sent_at: string | null
+          source_sent_at: string
+          status: string
+          workspace_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "follow_up_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_workspace_operation: {
         Args: { p_owner: string; p_workspace_id: string }
         Returns: boolean
@@ -367,6 +493,21 @@ export type Database = {
           p_id: string
           p_kind: string
           p_payload: Json
+          p_type: string
+        }
+        Returns: string
+      }
+      process_follow_up_webhook: {
+        Args: {
+          p_account_id: string
+          p_automation_id: string
+          p_conversation_id: string
+          p_id: string
+          p_message_id: string
+          p_payload: Json
+          p_profile_id: string
+          p_recipient_id: string
+          p_sent_at: string
           p_type: string
         }
         Returns: string

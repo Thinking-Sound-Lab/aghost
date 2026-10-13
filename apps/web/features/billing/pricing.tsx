@@ -16,8 +16,8 @@ export function Pricing() {
     <MarketingPage>
       <PageIntro
         category="Pricing"
-        title="One little ghost. One flat price."
-        description="Pick how many Instagram accounts you need. Every plan includes MCP and REST API access. More contacts and DMs don’t increase your price."
+        title="Start a conversation. Grow from there."
+        description="Automate the replies, showcase your products, then bring people back with a gentle nudge. Every plan has a flat price, with MCP and REST API access included."
       />
       <div className="notebook-section notebook-pricing">
         <BillingIntervalToggle

@@ -2,6 +2,17 @@ import { isEntitled, PLANS, type Plan } from "../../contract/billing"
 import { PlanLimitError, PlanRequiredError } from "../../shared/errors"
 import type { WorkspaceRecord } from "../workspaces/workspace"
 import type { BillingRepository } from "./billing.repository"
+import type { AutomationConfig } from "../automations/automation"
+
+export function supportsAutomation(
+  plan: Plan,
+  config: AutomationConfig
+): boolean {
+  return (
+    (!config.productCarousel || plan.features.productCarousel) &&
+    (!config.followUp || plan.features.followUpNudge)
+  )
+}
 
 /** Counts the Instagram accounts a plan's limit applies to. */
 export interface ConnectedAccounts {
@@ -44,6 +55,21 @@ export class PlanEntitlements {
         `${plan.name} includes ${accountCount(plan.instagramAccounts)} and ${connected} are connected. Disconnect one or upgrade to turn automations on.`
       )
     }
+  }
+
+  async assertCanUseAutomationFeatures(
+    workspace: WorkspaceRecord,
+    config: AutomationConfig
+  ): Promise<void> {
+    const plan = await this.currentPlan(workspace, "configure automations")
+    if (config.productCarousel && !plan.features.productCarousel)
+      throw new PlanLimitError(
+        "Product carousels are included on Growth and Business. Upgrade to use them."
+      )
+    if (config.followUp && !plan.features.followUpNudge)
+      throw new PlanLimitError(
+        "Follow-up nudges are included on Business. Upgrade to use them."
+      )
   }
 
   private async currentPlan(

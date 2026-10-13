@@ -1,16 +1,27 @@
 # Pricing and billing
 
-Every plan includes MCP and REST API access, the dashboard, and the current Instagram automation features, with unlimited automations, contacts and DMs within Instagram's limits and fair use. Plans differ by connected Instagram accounts, never by contacts or messages. There is no free plan or trial in the billing catalog; free periods are given with discount codes (see [free periods](#free-periods)).
+Every plan includes MCP and REST API access, the dashboard, core comment-to-DM automation, inbox, click tracking, and unlimited automations, contacts and DMs within Instagram's limits and fair use. Growth adds product carousels; Business adds follow-up nudges. There is no free plan or trial in the billing catalog; free periods are given with discount codes (see [free periods](#free-periods)).
 
 A workspace needs an active plan to use the product. Without one, a signed-in owner sees only the paywall, where they choose a plan, and the workspace's API keys are refused over REST and MCP. See [the paywall](#the-paywall).
 
-| Plan     | Accounts | Monthly | Yearly |
-| -------- | -------- | ------- | ------ |
-| Pro      | 1        | $9      | $108   |
-| Growth   | 2        | $19     | $228   |
-| Business | 5        | $49     | $588   |
+| Plan     | Accounts | Monthly | Yearly | Added features                                              |
+| -------- | -------- | ------- | ------ | ----------------------------------------------------------- |
+| Pro      | 1        | $9      | $108   | Core automation tools                                       |
+| Growth   | 2        | $19     | $228   | Everything in Pro, plus up to 10 product cards per carousel |
+| Business | 5        | $49     | $588   | Everything in Growth, plus automatic follow-up nudges       |
 
 All countries, including India, pay in US dollars. Prices include tax. Yearly billing costs twelve months, paid upfront. The plan definitions in `packages/api/src/contract/billing.ts` are shared with the UI; the backend validates Dodo's catalog against them before checkout.
+
+## Carousel and follow-up rollout
+
+1. Apply `20261013090000_carousels_and_follow_ups.sql`. It adds nullable carousel/reminder configuration and a workspace-scoped reminder queue; existing text automations are preserved.
+2. Release the API before the dashboard. New request fields are optional: older clients preserve stored carousel/reminder settings when they omit them. Explicit `null` removes the feature. Feature access is checked by the shared domain services for dashboard, REST and MCP. Downgrades pause running automations that need a higher plan, and pending reminders recheck the plan before sending.
+3. Add `message.sent` and `message.received` to the existing signed Zernio webhook at `<ApiUrl>/api/webhooks/zernio`. Keep `account.connected` and `account.disconnected`. `pnpm local:tunnel` configures all four for local use. No new keys, services or Dodo products are needed.
+4. Release the dashboard and pricing page, then verify a carousel and nudge with a controlled Instagram account. Local tests use provider fixtures and are not proof of live Instagram delivery.
+
+The API process polls durable reminder jobs every 15 seconds. Only successful main automation DMs create jobs; opening/follower postback gates are ignored. Select one reminder from 30 minutes to 20 hours, optionally with a link button. Before sending, the worker verifies the conversation and original DM, checks tracked clicks and later messages, and requires proof of a recent incoming message or resolved opt-in gate inside Instagram's 24-hour window. A comment alone never grants that permission. A reply cancels a pending reminder; clicks and newer conversation messages skip it at delivery time. Pausing, editing, deleting, disconnecting, or losing feature access prevents the old reminder from sending.
+
+Claims survive process restarts and concurrent API replicas. Sends use a stable provider idempotency key derived from the original DM log; transport errors retry up to five times. Failed sends remain visible in automation activity. The worker does not reclaim the existing workspace mutex automatically; use the documented operator recovery for an API crash that leaves workspace ownership behind.
 
 ## Dodo setup
 

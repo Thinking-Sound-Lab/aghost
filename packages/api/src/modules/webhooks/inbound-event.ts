@@ -26,6 +26,21 @@ export type InboundEvent = {
       }
     }
   | { kind: "unhandled" }
+  | {
+      kind: "automation_dm_sent" | "dm_received"
+      account: {
+        providerAccountId: string
+        providerProfileId: string
+        platform: string
+      }
+      message: {
+        providerMessageId: string
+        providerAutomationId: string | null
+        conversationId: string
+        recipientId: string
+        sentAt: string
+      }
+    }
 )
 
 export type InboundEventKind = InboundEvent["kind"]

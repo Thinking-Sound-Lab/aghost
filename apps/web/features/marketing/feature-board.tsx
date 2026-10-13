@@ -10,7 +10,7 @@ export function FeatureBoard() {
       {features.map((feature, index) => (
         <li key={feature.title} className="notebook-feature-card">
           <div
-            className={`notebook-feature-picture notebook-feature-${colors[index]}`}
+            className={`notebook-feature-picture notebook-feature-${colors[index % colors.length]}`}
           >
             <Scene>{featureScenes[index]}</Scene>
           </div>
