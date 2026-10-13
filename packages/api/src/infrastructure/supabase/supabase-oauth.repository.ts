@@ -85,11 +85,9 @@ export class SupabaseOAuthRepository implements OAuthRepository {
 
   async deleteUnusedClients(registeredBefore: string): Promise<void> {
     completed(
-      await this.admin
-        .from("oauth_clients")
-        .delete()
-        .is("last_used_at", null)
-        .lt("created_at", registeredBefore),
+      await this.admin.rpc("delete_unused_oauth_clients", {
+        registered_before: registeredBefore,
+      }),
       "delete unused OAuth clients"
     )
   }

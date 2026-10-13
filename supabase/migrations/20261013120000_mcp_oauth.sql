@@ -70,3 +70,39 @@ grant execute on function public.limit_oauth_client_registration() to service_ro
 create trigger oauth_clients_registration_limit
   before insert on public.oauth_clients
   for each row execute function public.limit_oauth_client_registration();
+
+-- An old registration can still be in its first sign-in. Preserve its pending
+-- consent or approved code until that request's own deadline has passed.
+create function public.delete_unused_oauth_clients(registered_before timestamptz)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+  candidate_ids uuid[];
+begin
+  -- Foreign-key inserts lock the client too. Skip those in flight and take
+  -- a fresh request snapshot after locking the remaining candidates, so a
+  -- concurrently started sign-in cannot be cascaded away by cleanup.
+  select pg_catalog.array_agg(candidate.id) into candidate_ids
+  from (
+    select id from public.oauth_clients
+    where last_used_at is null and created_at < registered_before
+    for update skip locked
+  ) as candidate;
+
+  delete from public.oauth_clients as client
+  where client.id = any(candidate_ids)
+    and client.last_used_at is null
+    and client.created_at < registered_before
+    and not exists (
+      select 1 from public.oauth_authorizations as request
+      where request.client_id = client.id
+        and request.expires_at > now()
+    );
+end;
+$$;
+
+revoke all on function public.delete_unused_oauth_clients(timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.delete_unused_oauth_clients(timestamptz) to service_role;

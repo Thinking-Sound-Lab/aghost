@@ -664,6 +664,13 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
       )
       for (const table of ["oauth_clients", "oauth_authorizations"] as const)
         expect((await direct.from(table).select()).error?.code).toBe("42501")
+      expect(
+        (
+          await direct.rpc("delete_unused_oauth_clients", {
+            registered_before: new Date().toISOString(),
+          })
+        ).error?.code
+      ).toBe("42501")
     }
   })
 
@@ -694,10 +701,18 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
     })
   })
 
-  it("removes day-old unused clients and their requests, retaining clients that signed in", async () => {
+  it("removes old unused clients while preserving live consent, approved codes and completed sign-ins", async () => {
     const unusedId = await publicClient()
     const usedId = await publicClient()
-    const pendingId = await startSignIn(unusedId, pkce().challenge)
+    const pendingClientId = await publicClient()
+    const approvedClientId = await publicClient()
+    const pendingId = await startSignIn(pendingClientId, pkce().challenge)
+    const activeCodePkce = pkce()
+    const activeCode = (
+      await approve(
+        await startSignIn(approvedClientId, activeCodePkce.challenge)
+      )
+    ).searchParams.get("code")!
     const { verifier, challenge } = pkce()
     const code = (
       await approve(await startSignIn(usedId, challenge))
@@ -717,32 +732,67 @@ describe("MCP clients sign in with OAuth against PostgreSQL", () => {
     const aged = await admin
       .from("oauth_clients")
       .update({ created_at: old })
-      .in("id", [unusedId, usedId])
+      .in("id", [unusedId, usedId, pendingClientId, approvedClientId])
     expect(aged.error).toBeNull()
     await publicClient()
     const retained = await admin
       .from("oauth_clients")
       .select("id,last_used_at")
-      .in("id", [unusedId, usedId])
+      .in("id", [unusedId, usedId, pendingClientId, approvedClientId])
     expect(retained.error).toBeNull()
-    expect(retained.data).toEqual([
-      { id: usedId, last_used_at: expect.any(String) },
-    ])
+    expect(retained.data?.map((client) => client.id).sort()).toEqual(
+      [usedId, pendingClientId, approvedClientId].sort()
+    )
+    expect(
+      retained.data?.find((client) => client.id === usedId)?.last_used_at
+    ).not.toBeNull()
     const pending = await admin
       .from("oauth_authorizations")
       .select("id")
       .eq("id", pendingId)
     expect(pending.error).toBeNull()
-    expect(pending.data).toEqual([])
+    expect(pending.data).toEqual([{ id: pendingId }])
+    // An unrelated registration cannot invalidate an already approved code.
+    expect(
+      (
+        await token({
+          grant_type: "authorization_code",
+          client_id: approvedClientId,
+          code: activeCode,
+          redirect_uri: CALLBACK,
+          code_verifier: activeCodePkce.verifier,
+        })
+      ).statusCode
+    ).toBe(200)
+    const expired = await admin
+      .from("oauth_authorizations")
+      .update({ expires_at: new Date(Date.now() - 60_000).toISOString() })
+      .eq("id", pendingId)
+    expect(expired.error).toBeNull()
+    await publicClient()
+    expect(
+      (await admin.from("oauth_clients").select("id").eq("id", pendingClientId))
+        .data
+    ).toEqual([])
+    expect(
+      (
+        await admin
+          .from("oauth_authorizations")
+          .select("id")
+          .eq("id", pendingId)
+      ).data
+    ).toEqual([])
   })
 
   it("shares the registration budget across API replicas and rejects simultaneous excess requests", async () => {
-    const recent = await admin
+    // Earlier tests may take any amount of time. Give this test its entire
+    // budget using fresh fixtures, outside the window of our existing rows.
+    const aged = await admin
       .from("oauth_clients")
-      .select("id", { count: "exact", head: true })
-      .gt("created_at", new Date(Date.now() - 60_000).toISOString())
-    expect(recent.error).toBeNull()
-    const padding = Array.from({ length: 59 - recent.count! }, () => ({
+      .update({ created_at: new Date(Date.now() - 120_000).toISOString() })
+      .in("id", [...registeredClientIds])
+    expect(aged.error).toBeNull()
+    const padding = Array.from({ length: 59 }, () => ({
       id: randomUUID(),
       name: "Registration limit fixture",
       redirect_uris: [CALLBACK],

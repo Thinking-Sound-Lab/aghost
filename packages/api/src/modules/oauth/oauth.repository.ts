@@ -12,7 +12,7 @@ export interface OAuthRepository {
   findClient(id: string): Promise<OAuthClientRecord | null>
   /** Records that the client completed a sign-in, which keeps it registered. */
   markClientUsed(id: string): Promise<void>
-  /** Removes clients registered before then that never completed a sign-in. */
+  /** Removes old unused clients, preserving any unexpired consent or code. */
   deleteUnusedClients(registeredBefore: string): Promise<void>
   insertAuthorization(
     authorization: NewAuthorization

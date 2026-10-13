@@ -441,6 +441,10 @@ export type Database = {
         Args: { p_owner: string; p_workspace_id: string }
         Returns: boolean
       }
+      delete_unused_oauth_clients: {
+        Args: { registered_before: string }
+        Returns: undefined
+      }
       process_account_webhook: {
         Args: {
           p_account: Json
