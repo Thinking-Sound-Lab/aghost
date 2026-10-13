@@ -6,7 +6,7 @@ import { agentOpenApi } from "./agent.openapi"
 
 export function agentRoutes(authenticate: AuthenticateAgent) {
   return async (app: FastifyInstance) => {
-    app.addHook("onRequest", requireApiKey(authenticate, "api"))
+    app.addHook("onRequest", requireApiKey(authenticate, "api", null))
 
     app.get("/openapi.json", { config: { agent: true } }, agentOpenApi)
 

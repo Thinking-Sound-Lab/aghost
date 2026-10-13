@@ -4,7 +4,7 @@ import type { Services } from "../container"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
 import type { ApiKey } from "../contract/api-key"
 
-export type RequestIdentity = { services: Services; workspace: WorkspaceRecord }
+type RequestIdentity = { services: Services; workspace: WorkspaceRecord }
 export type Authenticate = (accessToken: string) => Promise<RequestIdentity>
 export type AgentIdentity = RequestIdentity & { apiKey: ApiKey }
 /** How the agent reached the API: REST or MCP. */
@@ -28,6 +28,8 @@ declare module "fastify" {
   interface FastifyContextConfig {
     /** These routes require an API key, never a browser session. */
     agent?: boolean
+    /** OAuth endpoints that apps call from their servers, never with cookies. */
+    oauth?: boolean
     /** Reachable without a plan, so that a workspace can subscribe. */
     withoutPlan?: boolean
   }

@@ -8,6 +8,7 @@
     "lint": "turbo lint",
     "format": "turbo format",
     "format:check": "prettier --check .",
+    "check:unused": "knip --include files,dependencies,exports,types,enumMembers,namespaceMembers,duplicates",
     "typecheck": "turbo typecheck",
     "test": "node --test scripts/local-env.test.mjs && turbo test",
     "db:start": "supabase start",
@@ -24,12 +25,12 @@
     "local:logs": "node scripts/local-compose.mjs logs --follow server",
     "local:tunnel": "node scripts/local-tunnel.mjs",
     "local:status": "node scripts/local-compose.mjs ps",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "verify": "pnpm check:unused && pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "verify:local": "node scripts/verify-local.mjs"
   },
   "devDependencies": {
-    "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "knip": "6.41.0",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "supabase": "2.120.0",

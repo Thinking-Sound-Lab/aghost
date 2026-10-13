@@ -22,6 +22,8 @@ import { choosePlanSchema } from "../contract/billing"
 import type { ApiErrorBody } from "../contract/errors"
 import { createSessionClientFactory } from "../infrastructure/supabase/session-client"
 import type { WebhookService } from "../modules/webhooks/webhook.service"
+import { oauthEndpoints } from "../modules/oauth/oauth"
+import type { OAuthService } from "../modules/oauth/oauth.service"
 import type { BillingWebhookService } from "../modules/billing/billing-webhook"
 import type { Payer } from "../modules/billing/billing.service"
 import {
@@ -41,6 +43,7 @@ import { authRoutes } from "./auth.routes"
 import type { Authenticate, AuthenticateAgent } from "./context"
 import { agentRoutes } from "./agent.routes"
 import { mcpRoutes } from "../mcp/routes"
+import { oauthDiscoveryRoutes, oauthRoutes } from "./oauth.routes"
 import {
   presentAccount,
   presentAutomation,
@@ -133,7 +136,7 @@ function isRejection(error: FastifyError): error is FastifyError & {
 function sourceOf(request: FastifyRequest): EventSource {
   const route = request.routeOptions.url ?? ""
   if (WEBHOOK_PATHS.has(route)) return "webhook"
-  if (route === "/api/mcp") return "mcp"
+  if (route === "/api/mcp" || request.routeOptions.config?.oauth) return "mcp"
   return request.routeOptions.config?.agent ? "api" : "dashboard"
 }
 
@@ -196,6 +199,7 @@ export function createApp({
   authenticateAgent,
   webhooks,
   billingWebhooks,
+  oauth,
   analytics,
   config,
 }: {
@@ -203,6 +207,7 @@ export function createApp({
   authenticateAgent: AuthenticateAgent
   webhooks: WebhookService
   billingWebhooks: BillingWebhookService
+  oauth: OAuthService
   analytics: Analytics
   config: ApiConfig
 }) {
@@ -240,6 +245,8 @@ export function createApp({
     reply.header("X-Content-Type-Options", "nosniff")
     const method = request.method
     const agent = request.routeOptions.config.agent === true
+    // OAuth clients call from their own servers and send form bodies.
+    const oauthClient = request.routeOptions.config.oauth === true
     if (
       agent &&
       request.headers.origin !== undefined &&
@@ -249,7 +256,8 @@ export function createApp({
     }
     if (
       !["GET", "HEAD", "OPTIONS"].includes(method) &&
-      !WEBHOOK_PATHS.has(request.routeOptions.url ?? "")
+      !WEBHOOK_PATHS.has(request.routeOptions.url ?? "") &&
+      !oauthClient
     ) {
       if (!agent && request.headers.origin !== appOrigin)
         throw new BadRequestError("Request origin is not allowed.")
@@ -262,11 +270,15 @@ export function createApp({
         )
     }
   })
+  app.register(oauthDiscoveryRoutes(oauthEndpoints(config.appUrl)))
   app.register(
     async (api) => {
       api.get("/health", async () => ({ status: "ok" }))
       api.register(agentRoutes(authenticateAgent), { prefix: "/v1" })
       api.register(mcpRoutes(authenticateAgent, config.appUrl))
+      api.register(oauthRoutes(oauth, config.appUrl, sendError), {
+        prefix: "/oauth",
+      })
       api.register(async (hooks) => {
         // The signature covers the exact bytes sent, so the body stays text.
         hooks.removeAllContentTypeParsers()
@@ -350,6 +362,21 @@ export function createApp({
           )
           return reply.code(204).send()
         })
+        routes.get<IdParams>("/oauth/requests/:id", async (request) =>
+          oauth.describe(validate(z.uuid(), request.params.id))
+        )
+        routes.post<IdParams>("/oauth/requests/:id/approve", async (request) =>
+          oauth.approve(
+            validate(z.uuid(), request.params.id),
+            request.identity.workspace
+          )
+        )
+        // Without a plan the owner cannot approve, but can still send the app back.
+        routes.post<IdParams>(
+          "/oauth/requests/:id/deny",
+          withoutPlan,
+          async (request) => oauth.deny(validate(z.uuid(), request.params.id))
+        )
         routes.patch("/workspace", async (request) => {
           const { services, workspace } = request.identity
           const input = validate(renameWorkspaceSchema, request.body)

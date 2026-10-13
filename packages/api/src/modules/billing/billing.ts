@@ -32,7 +32,7 @@ export type BillingRecord = {
 export type CheckoutSession = { providerSessionId: string; url: string }
 
 /** A reservation with no session means creation needs operator reconciliation. */
-export type ReservedCheckout = ChoosePlanInput & {
+type ReservedCheckout = ChoosePlanInput & {
   requestedAt: string
   session: CheckoutSession | null
 }

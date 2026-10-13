@@ -6,7 +6,25 @@ Use **Copy skill** to give your agent setup instructions. The copied text includ
 
 `GET /api/mcp/skill.md` is a public Markdown download containing setup instructions only. It includes no workspace data or secrets. The maintained source is `packages/api/src/mcp/skills/aghost/SKILL.md`; the backend substitutes the configured app URL when serving it.
 
-The endpoint is `<APP_URL>/api/mcp`. It uses the [official MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), serves the current per-request protocol and the 2025 stateless HTTP handshake, and needs no sticky sessions. Use a client that supports HTTP MCP and Bearer tokens or custom headers. OAuth-based MCP account linking is not implemented.
+The endpoint is `<APP_URL>/api/mcp`. It uses the [official MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), serves the current per-request protocol and the 2025 stateless HTTP handshake, and needs no sticky sessions. Clients either sign in with OAuth or send an API key as a Bearer token.
+
+## Connect with sign-in
+
+Apps that sign in to MCP servers, such as Claude (**Customize → Connectors → Add custom connector**), need only the URL `<APP_URL>/api/mcp`. Leave the OAuth client ID and secret empty. The app registers itself, the browser opens aghost, and the owner chooses **Allow** for their workspace. The app then receives a full-access workspace API key named after it. It appears in **Settings → API**, and revoking it there disconnects the app.
+
+aghost is the app's OAuth 2.1 authorization server:
+
+- An unauthenticated MCP request is answered `401` with `WWW-Authenticate: Bearer resource_metadata="<APP_URL>/.well-known/oauth-protected-resource/api/mcp"`. That document (RFC 9728) names `<APP_URL>` as the issuer, whose metadata is at `/.well-known/oauth-authorization-server` (RFC 8414). The web app forwards both paths to the API.
+- `POST /api/oauth/register` is dynamic client registration (RFC 7591). Public clients use `token_endpoint_auth_method: "none"`; others receive a secret for `client_secret_basic` or `client_secret_post`. Redirect addresses must use https, an app's own scheme, or http on `localhost`, `127.0.0.1` or `[::1]`, where any port matches the registered address (RFC 8252).
+- Registration is limited to 60 clients per rolling minute across all API replicas. Excess requests receive `429` with `Retry-After: 60`. Each registration also removes clients older than a day that never completed sign-in and have no unexpired consent request or approved code; clients that have signed in remain registered.
+- `GET /api/oauth/authorize` requires S256 PKCE and a registered redirect address. It sends the browser to the consent page at `/authorize`, through Google sign-in when needed. A workspace without a plan cannot approve, but can send the app back with `access_denied`.
+- Choosing a plan preserves the pending connection in the current tab through checkout, then returns to consent after the plan activates. Consent requests expire after ten minutes; an expired return asks the owner to restart connecting from the app.
+- `POST /api/oauth/token` accepts form-encoded `authorization_code` grants. A code works once, within five minutes of approval. The response has no `refresh_token` or `expires_in`: the key works until the owner revokes it, and the app signs in again after a `401`.
+- An optional `resource` parameter (RFC 8707) must be the MCP endpoint. Responses to the app carry `iss` (RFC 9207).
+
+## Connect with an API key
+
+Use a client that supports HTTP MCP and Bearer tokens or custom headers.
 
 For JSON-configured clients that support this format:
 
@@ -51,6 +69,6 @@ Activating automations and sending inbox replies can deliver real messages. Writ
 
 ## Deployment and verification
 
-The MCP module (`packages/api/src/mcp/`) registers its own routes on the same server as the REST API. Its tool definitions use shared workspace operations and key authentication, independently of REST paths and request conversion. No additional service or environment variables are required. Apply the [API key migration](api.md#key-management-and-deployment) before deploying.
+The MCP module (`packages/api/src/mcp/`) registers its own routes on the same server as the REST API. Its tool definitions use shared workspace operations and key authentication, independently of REST paths and request conversion. Sign-in lives in `packages/api/src/modules/oauth/`, with its clients and pending approvals in the `oauth_clients` and `oauth_authorizations` tables, which only the backend can reach. No additional service or environment variables are required. Apply the [API key migration](api.md#key-management-and-deployment) and the OAuth migration before deploying the API, and deploy the web app for the discovery rewrites in `next.config.ts`.
 
-Integration tests use a real MCP SDK client and verify tool permissions, workspace isolation, automation workflows, expiry, revocation, and the 2025 handshake. Provider writes use a local fixture; they send no real Instagram messages.
+Integration tests use a real MCP SDK client and verify tool permissions, workspace isolation, automation workflows, expiry, revocation, and the 2025 handshake. The OAuth tests have the same client discover, register, sign in and call a tool, and check redirect, PKCE, code reuse and client authentication rules. Provider writes use a local fixture; they send no real Instagram messages.

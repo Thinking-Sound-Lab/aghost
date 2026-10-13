@@ -1,320 +1,499 @@
 import Link from "next/link"
-import { ArrowUpRight, Check, Plus } from "lucide-react"
-import { Mascot } from "@/components/brand"
+import { ChevronDown, Code2, ShoppingBag, Smile } from "lucide-react"
+import { cn } from "@workspace/ui/lib/utils"
+import { Instagram } from "@/components/instagram-icon"
+import { InstagramPreview } from "@/features/automations/instagram-preview"
 import { site } from "@/lib/site"
-import { agentAbilities, faqs, facts, steps } from "./content"
-import { agentLinks } from "./navigation"
-import { Demo } from "./demo"
-import { FeatureBoard } from "./feature-board"
-import { AgentScene, InboxScene, StatsScene } from "./illustrations"
 import {
+  ClaudeCodeApp,
+  CodexApp,
+  CursorApp,
+  McpSettingsApp,
+} from "./agent-apps"
+import {
+  ClaudeLogo,
+  CodexLogo,
+  CursorLogo,
+  DotsLogo,
+  GrokBotLogo,
+  McpLogo,
+  MuseLogo,
+} from "./agent-logos"
+import { contactHref } from "./contact"
+import {
+  agentClients,
+  audiences,
+  faqs,
+  heroSummary,
+  steps,
+  useCases,
+} from "./content"
+import { Demo, demoAccount } from "./demo"
+import { FeatureBoard, gradients, mascotTones } from "./feature-board"
+import { LaunchVideo } from "./launch-video"
+import {
+  AgentWindow,
+  BuilderWindow,
+  RestScene,
+  Screen,
+  stepScenes,
+} from "./illustrations"
+import {
+  CtaBand,
+  Doodles,
+  GetStarted,
   MarketingCta,
   MarketingPage,
-  marketingButton,
-  marketingLink,
+  Pill,
+  Scribble,
+  SectionHeading,
+  outlineButton,
+  textLink,
 } from "./shell"
 
-function GetStarted() {
+/** The agents the headline cycles through. */
+const agents = [
+  { name: "Claude", Logo: ClaudeLogo },
+  { name: "Codex", Logo: CodexLogo },
+  { name: "Grok Bot", Logo: GrokBotLogo },
+  { name: "Muse", Logo: MuseLogo },
+  { name: "OpenAI dots", Logo: DotsLogo },
+]
+
+/** One agent at a time; the list ends with the first again, so it loops. */
+function AgentNames() {
   return (
-    <Link href="/login" className={marketingButton}>
-      <span className="notebook-button-icon">
-        <ArrowUpRight aria-hidden="true" className="size-4" />
+    <span aria-hidden="true" className="block h-[1.2em] overflow-hidden">
+      <span className="marketing-rotate block">
+        {[...agents, ...agents.slice(0, 1)].map(({ name, Logo }, index) => (
+          <span
+            key={index}
+            className="flex h-[1.2em] items-center justify-center gap-[0.22em]"
+          >
+            <Logo className="size-[0.9em]" />
+            {name}
+          </span>
+        ))}
       </span>
-      Get started
-    </Link>
+    </span>
+  )
+}
+
+function Hero() {
+  return (
+    <section aria-labelledby="hero-heading" className="group relative">
+      <Doodles />
+      <div className="relative mx-auto max-w-7xl px-5 pt-14 sm:px-8 sm:pt-20">
+        <div className="mx-auto max-w-5xl text-center">
+          <h1
+            id="hero-heading"
+            className="text-[clamp(2.5rem,6.2vw,4.75rem)] leading-[1.08] font-extrabold tracking-[-0.045em] text-balance"
+          >
+            Turn Instagram comments into DMs on autopilot with
+            <span className="sr-only"> your AI agent</span>
+            <AgentNames />
+          </h1>
+          <p className="mx-auto mt-7 max-w-2xl text-lg text-pretty text-white/70 sm:text-xl">
+            {heroSummary}
+          </p>
+          <div className="mt-9 flex justify-center">
+            <GetStarted className="px-8 py-4 text-base" />
+          </div>
+        </div>
+        <fieldset className="mt-14 flex justify-center">
+          <legend className="sr-only">How do you want to set it up?</legend>
+          <div className="inline-flex rounded-full bg-white/10 p-1 text-sm font-semibold whitespace-nowrap sm:text-[15px]">
+            <input
+              type="radio"
+              name="hero-mode"
+              id="hero-agent"
+              defaultChecked
+              className="peer/agent sr-only"
+            />
+            <label
+              htmlFor="hero-agent"
+              className="cursor-pointer rounded-full px-4 py-2.5 text-white/70 peer-checked/agent:bg-white peer-checked/agent:text-black peer-focus-visible/agent:ring-2 peer-focus-visible/agent:ring-brand sm:px-5"
+            >
+              My agent sets it up
+            </label>
+            <input
+              type="radio"
+              name="hero-mode"
+              id="hero-classic"
+              className="peer/classic sr-only"
+            />
+            <label
+              htmlFor="hero-classic"
+              className="cursor-pointer rounded-full px-4 py-2.5 text-white/70 peer-checked/classic:bg-white peer-checked/classic:text-black peer-focus-visible/classic:ring-2 peer-focus-visible/classic:ring-brand sm:px-5"
+            >
+              I’ll do it myself
+            </label>
+          </div>
+        </fieldset>
+        <div className="mt-8 rounded-[2rem] bg-linear-to-br from-brand-blue via-[#1f6bff] to-brand-cyan p-4 sm:p-10">
+          <div className="flex items-center justify-center gap-10 group-has-[#hero-classic:checked]:hidden">
+            <AgentWindow className="w-full max-w-xl" />
+            <div className="max-lg:hidden">
+              <InstagramPreview
+                account={demoAccount}
+                screen="dm"
+                post={null}
+                keyword={null}
+                commentReply={null}
+                openingDm={null}
+                dmMessage="Hey {{first_name}}! Here's the free guide you asked for ✨"
+                buttons={["Get the guide"]}
+              />
+            </div>
+          </div>
+          <div className="hidden items-center justify-center gap-10 group-has-[#hero-classic:checked]:flex">
+            <BuilderWindow className="w-full max-w-xl" />
+            <div className="max-lg:hidden">
+              <InstagramPreview
+                account={demoAccount}
+                screen="post"
+                post={{
+                  thumbnailUrl: "/mascot.png",
+                  caption: "Comment GUIDE for the guide 👇",
+                  likeCount: null,
+                }}
+                keyword="GUIDE"
+                commentReply="Sent you a DM, {{first_name}} ✨"
+                openingDm={null}
+                dmMessage=""
+                buttons={[]}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function UseCaseRow({
+  items,
+  reverse = false,
+}: {
+  items: typeof useCases
+  reverse?: boolean
+}) {
+  const tones = [gradients.blue, gradients.teal, gradients.ocean]
+  return (
+    <div className="overflow-hidden">
+      <ul
+        className={cn(
+          "marketing-marquee flex w-max gap-4",
+          reverse && "marketing-marquee-reverse"
+        )}
+      >
+        {[...items, ...items].map((item, index) => (
+          <li
+            key={index}
+            aria-hidden={index >= items.length}
+            className={cn(
+              "grid w-72 gap-1 rounded-3xl p-6",
+              tones[index % tones.length]
+            )}
+          >
+            <p className="text-4xl font-extrabold tracking-[-0.04em]">
+              “{item.keyword}”
+            </p>
+            <p className="text-lg font-semibold">{item.sends}</p>
+            <p className="mt-3 flex items-center gap-2 text-sm text-white/75">
+              <Instagram size={16} />
+              Comment on a {item.where.toLowerCase()}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function UseCases() {
+  const half = Math.ceil(useCases.length / 2)
+  return (
+    <section aria-labelledby="use-cases-heading" className="mt-32">
+      <SectionHeading
+        id="use-cases-heading"
+        title="Comment a word. Get the link."
+        description="Pick a keyword and write the DM. Everyone who comments it gets your link in their inbox, day or night. A few ideas:"
+        className="px-5"
+      />
+      <div className="mt-12 grid gap-4 [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
+        <UseCaseRow items={useCases.slice(0, half)} />
+        <UseCaseRow items={useCases.slice(half)} reverse />
+      </div>
+    </section>
+  )
+}
+
+const audienceIcons = [
+  <Smile key="creators" className="size-14 text-brand" strokeWidth={1.5} />,
+  <ShoppingBag
+    key="brands"
+    className="size-14 text-brand-cyan"
+    strokeWidth={1.5}
+  />,
+  <Code2
+    key="developers"
+    className="size-14 text-brand-orange"
+    strokeWidth={1.5}
+  />,
+]
+
+function Audiences() {
+  return (
+    <section
+      aria-labelledby="audiences-heading"
+      className="mx-auto mt-32 max-w-7xl px-5 sm:px-8"
+    >
+      <SectionHeading id="audiences-heading" title="Who is aghost for?" />
+      <ul className="mt-14 grid gap-12 text-center md:grid-cols-3">
+        {audiences.map((audience, index) => (
+          <li
+            key={audience.title}
+            className="grid content-start justify-items-center gap-4"
+          >
+            <span aria-hidden="true">{audienceIcons[index]}</span>
+            <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+              {audience.title}
+            </h3>
+            <p className="max-w-sm text-lg text-white/70">{audience.text}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function HowItWorks() {
+  return (
+    <section
+      id="how-it-works"
+      aria-labelledby="how-heading"
+      className="mx-auto mt-32 max-w-7xl scroll-mt-24 px-5 sm:px-8"
+    >
+      <SectionHeading
+        id="how-heading"
+        title={
+          <>
+            Live in <Scribble>three steps</Scribble>
+          </>
+        }
+        description="Your dashboard is always there. Bring an agent if you want a hand."
+      />
+      <ol className="mt-14 grid gap-4 md:grid-cols-3">
+        {steps.map((step, index) => (
+          <li
+            key={step.title}
+            className="grid content-start gap-5 rounded-[2rem] bg-[#161616] p-7 ring-1 ring-white/10"
+          >
+            <Pill className="bg-brand text-black">Step {index + 1}</Pill>
+            <Screen className="min-h-40 bg-black">{stepScenes[index]}</Screen>
+            <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+              {step.title}
+            </h3>
+            <p className="text-white/70">{step.text}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function Agents() {
+  const clients = [
+    {
+      name: "Claude Code",
+      Logo: ClaudeLogo,
+      text: "Build and switch on automations from your terminal, in plain words.",
+      tone: "orange",
+      picture: <ClaudeCodeApp />,
+    },
+    {
+      name: "Codex",
+      Logo: CodexLogo,
+      text: "Ask how an automation is doing, then ask your agent to improve it.",
+      tone: "blue",
+      picture: <CodexApp />,
+    },
+    {
+      name: "Cursor",
+      Logo: CursorLogo,
+      text: "Read the inbox and answer DMs without leaving your editor.",
+      tone: "cyan",
+      picture: <CursorApp />,
+    },
+    {
+      name: "any MCP client",
+      Logo: McpLogo,
+      text: "Anything that speaks MCP over HTTP with a Bearer token can connect.",
+      tone: "green",
+      picture: <McpSettingsApp endpoint={`${site.url}/api/mcp`} />,
+    },
+  ] as const
+  return (
+    <section
+      id="agents"
+      aria-labelledby="agents-heading"
+      className="mx-auto mt-32 max-w-7xl scroll-mt-24 px-5 sm:px-8"
+    >
+      <SectionHeading
+        id="agents-heading"
+        title={
+          <>
+            Let your <Scribble>AI agent</Scribble> run your DMs
+          </>
+        }
+        description={`Give ${agentClients.join(", ")}, or any MCP client an API key. It builds automations, reads their stats, and answers your inbox. You review it all in the dashboard.`}
+      />
+      <ul className="mt-14 grid gap-4 lg:grid-cols-2">
+        {clients.map(({ name, Logo, text, tone, picture }, index) => (
+          <li
+            key={name}
+            className={cn(
+              "flex min-w-0 flex-col gap-8 rounded-[2rem] p-6 sm:p-10",
+              mascotTones[tone],
+              index % 2 === 1 && "lg:flex-col-reverse lg:justify-end"
+            )}
+          >
+            <div className="grid gap-3">
+              <h3 className="flex items-center gap-3 text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">
+                <Logo className="size-10 shadow-lg shadow-black/15" />
+                Via {name}
+              </h3>
+              <p
+                className={cn(
+                  "text-lg",
+                  tone === "blue" ? "text-white/85" : "text-black/75"
+                )}
+              >
+                {text}
+              </p>
+            </div>
+            {picture}
+          </li>
+        ))}
+        <li
+          className={cn(
+            "grid min-w-0 items-center gap-10 rounded-[2rem] p-6 sm:p-10 lg:col-span-2 lg:grid-cols-[2fr_3fr]",
+            mascotTones.red
+          )}
+        >
+          <div className="grid content-start gap-4">
+            <Code2 aria-hidden="true" className="size-10" />
+            <h3 className="text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
+              Automate everything
+            </h3>
+            <p className="text-lg text-black/75">
+              Not using MCP? The same API key works with the REST API from
+              scripts and your own apps. An OpenAPI document describes every
+              endpoint.
+            </p>
+            <Link
+              href="/agents#rest-api"
+              className="w-fit underline decoration-black/40 underline-offset-4 hover:decoration-black"
+            >
+              REST API setup
+            </Link>
+          </div>
+          <RestScene endpoint={`${site.url}/api/v1/automations`} />
+        </li>
+      </ul>
+      <div className="mt-10 text-center">
+        <Link href="/agents" className={outlineButton}>
+          Connect your agent
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function Features() {
+  return (
+    <section id="features" aria-labelledby="features-heading" className="mt-32">
+      <SectionHeading
+        id="features-heading"
+        title={
+          <>
+            Everything you need to turn comments into{" "}
+            <Scribble>conversations</Scribble>
+          </>
+        }
+        className="px-5"
+      />
+      <div className="mt-14">
+        <FeatureBoard />
+      </div>
+      <div className="mt-10 text-center">
+        <Link href="/features" className={outlineButton}>
+          Explore all features
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function Faq() {
+  return (
+    <section
+      id="faq"
+      aria-labelledby="faq-heading"
+      className="mx-auto mt-32 grid max-w-7xl scroll-mt-24 gap-10 px-5 sm:px-8 lg:grid-cols-[1fr_2fr]"
+    >
+      <div>
+        <h2
+          id="faq-heading"
+          className="text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl lg:sticky lg:top-28"
+        >
+          Frequently asked questions
+        </h2>
+        <p className="mt-5 text-lg text-white/70">
+          Something else?{" "}
+          <a href={contactHref()} className={textLink}>
+            Email us
+          </a>
+          .
+        </p>
+      </div>
+      <div className="grid content-start gap-3">
+        {faqs.map((faq) => (
+          <details
+            key={faq.question}
+            className="group rounded-2xl bg-[#161616] ring-1 ring-white/10"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 rounded-2xl px-6 py-5 outline-none focus-visible:ring-2 focus-visible:ring-brand [&::-webkit-details-marker]:hidden">
+              <h3 className="text-lg font-bold">{faq.question}</h3>
+              <ChevronDown
+                aria-hidden="true"
+                className="size-5 shrink-0 transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <p className="px-6 pb-6 text-white/70">{faq.answer}</p>
+          </details>
+        ))}
+      </div>
+    </section>
   )
 }
 
 export function Landing() {
   return (
     <MarketingPage>
-      <section className="notebook-hero" aria-label="Instagram DM automation">
-        <span className="notebook-sticker notebook-sticker-mint notebook-hero-sticker">
-          Made for creators
-        </span>
-        <span className="notebook-sticker notebook-hero-sticker notebook-hero-sticker-right">
-          Built for AI agents
-        </span>
-        <p className="notebook-hand notebook-hero-note">
-          Meet your new Instagram sidekick.
-        </p>
-        <h1 className="notebook-title notebook-wordmark">
-          aghost<span className="sr-only"> — Instagram DM automation</span>
-        </h1>
-        <div className="notebook-hero-examples" aria-hidden="true">
-          <div className="notebook-hero-slip notebook-comment-slip">
-            <div className="notebook-slip-person">
-              <span className="notebook-slip-avatar">J</span>jules.creates{" "}
-              <span className="ml-auto">♡</span>
-            </div>
-            <p className="notebook-slip-comment">
-              This is so good!
-              <br />
-              GUIDE please 🙌
-            </p>
-            <p className="notebook-hand notebook-slip-caption">
-              It starts with a comment.
-            </p>
-          </div>
-          <div className="notebook-hero-slip notebook-dm-slip">
-            <div className="notebook-slip-person">
-              <Mascot size={23} />
-              aghost <span className="ml-auto">↗</span>
-            </div>
-            <p className="notebook-dm-bubble">
-              Hey Jules! Here’s the guide you asked for ✨
-            </p>
-            <p className="notebook-dm-link">Get the guide ↗</p>
-            <p className="notebook-hand notebook-slip-caption">
-              And lands in their inbox.
-            </p>
-          </div>
-        </div>
-        <Mascot size={65} className="notebook-hero-ghost" />
-        <p className="notebook-hand notebook-hero-doodle" aria-hidden="true">
-          the helpful kind of ghost ↖
-        </p>
-        <p className="notebook-hero-headline">
-          You make the content.
-          <br />
-          We’ll handle the DMs.
-        </p>
-        <p className="notebook-hero-description">
-          Turn Instagram comments into personal DMs with the right link. Set it
-          up yourself, or let Claude Code, Codex, or Cursor do it with you.
-        </p>
-        <div className="notebook-hero-actions">
-          <GetStarted />
-          <a href="#demo" className="notebook-button notebook-button-quiet">
-            See it in action{" "}
-            <ArrowUpRight aria-hidden="true" className="size-4" />
-          </a>
-        </div>
-        <p className="notebook-hero-footnote">
-          Instagram professional account required ·{" "}
-          <Link href="/pricing" className={marketingLink}>
-            View plans and pricing
-          </Link>
-        </p>
-      </section>
-      <section className="notebook-intro" id="about">
-        <div className="notebook-section notebook-intro-layout">
-          <div>
-            <p className="notebook-hand notebook-section-kicker">
-              A little less busywork.
-            </p>
-            <h2 className="notebook-title">
-              Good content
-              <br />
-              deserves a reply.
-            </h2>
-            <p className="notebook-body mt-5">
-              For the guide you made, the product you love, and the next person
-              asking for a link.
-            </p>
-            <Link
-              href="/about"
-              className={`${marketingLink} mt-5 inline-block text-xs`}
-            >
-              A little about aghost
-            </Link>
-          </div>
-          <div className="notebook-intro-copy notebook-hand">
-            <p>
-              You’ve already done the hard part.
-              <br />
-              You made something worth sharing.
-            </p>
-            <p>
-              Let your little ghost turn “send me the link” into an actual
-              conversation. No more sending the same DM all afternoon.
-            </p>
-            <div className="notebook-stickers">
-              <span className="notebook-sticker">Comment → DM</span>
-              <span className="notebook-sticker notebook-sticker-mint">
-                Followers first
-              </span>
-              <span className="notebook-sticker notebook-sticker-blue">
-                Agent friendly
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Hero />
+      <UseCases />
+      <Audiences />
+      <LaunchVideo />
+      <HowItWorks />
       <Demo cta={<GetStarted />} />
-      <section className="notebook-section" id="features">
-        <div className="notebook-section-head">
-          <div>
-            <p className="notebook-hand notebook-section-kicker">
-              A few things your ghost can do.
-            </p>
-            <h2 className="notebook-title notebook-section-heading">
-              The good stuff.
-            </h2>
-          </div>
-          <p className="notebook-body">
-            Choose your trigger. Write your message. Make every interested
-            comment a useful next step.
-          </p>
-        </div>
-        <FeatureBoard />
-        <div className="mt-10 text-center">
-          <Link
-            href="/features"
-            className="notebook-button notebook-button-quiet"
-          >
-            Explore all features{" "}
-            <ArrowUpRight aria-hidden="true" className="size-4" />
-          </Link>
-        </div>
-      </section>
-      <section className="notebook-agent-block" id="agents">
-        <div className="notebook-section notebook-agent-layout">
-          <div>
-            <p className="notebook-hand notebook-section-kicker">
-              Yep, your agent can do this.
-            </p>
-            <h2 className="notebook-title notebook-section-heading">
-              Your agent.
-              <br />
-              Our tools.
-            </h2>
-            <p>
-              Give your AI agent access to aghost over MCP or the REST API. Tell
-              it what you want, then review the automation in your dashboard.
-            </p>
-            <ul className="notebook-agent-list">
-              {agentAbilities.map((ability) => (
-                <li key={ability}>
-                  <Check aria-hidden="true" className="size-3.5" />
-                  {ability}
-                </li>
-              ))}
-            </ul>
-            <Link href="/agents" className={marketingButton}>
-              Connect your agent{" "}
-              <ArrowUpRight aria-hidden="true" className="size-4" />
-            </Link>
-            <nav
-              aria-label="Agent integrations"
-              className="notebook-stickers mt-7"
-            >
-              {agentLinks.slice(0, 3).map((agent, index) => (
-                <Link
-                  key={agent.href}
-                  href={agent.href}
-                  className={`notebook-sticker ${index === 1 ? "notebook-sticker-mint" : index === 2 ? "notebook-sticker-pink" : ""}`}
-                >
-                  {agent.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="notebook-agent-picture">
-            <div className="notebook-illustration">
-              <AgentScene endpoint={`${site.url}/api/mcp`} />
-            </div>
-            <p className="notebook-hand">One prompt. A lot less clicking.</p>
-          </div>
-        </div>
-      </section>
-      <section className="notebook-section" id="how-it-works">
-        <div className="notebook-section-head">
-          <div>
-            <p className="notebook-hand notebook-section-kicker">
-              Here’s how we get along.
-            </p>
-            <h2 className="notebook-title notebook-section-heading">
-              Three little steps.
-            </h2>
-          </div>
-          <p className="notebook-body">
-            Your dashboard is always there. Bring an agent if you want a hand.
-          </p>
-        </div>
-        <ol className="notebook-steps">
-          {steps.map((step, index) => (
-            <li key={step.title} className="notebook-step">
-              <span className="notebook-hand notebook-step-number">
-                Step {index + 1}
-              </span>
-              <h3 className="notebook-title">{step.title}</h3>
-              <p>{step.text}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <section className="notebook-section border-t border-black/20">
-        <div className="notebook-section-head">
-          <div>
-            <p className="notebook-hand notebook-section-kicker">
-              You’re still in the loop.
-            </p>
-            <h2 className="notebook-title notebook-section-heading">
-              See the whole story.
-            </h2>
-          </div>
-          <p className="notebook-body">
-            Replies, clicks, and real conversations. Keep an eye on what happens
-            after the comment.
-          </p>
-        </div>
-        <div className="notebook-insights">
-          <div>
-            <div className="notebook-preview-frame">
-              <StatsScene />
-              <p className="notebook-hand">Example automation stats</p>
-            </div>
-            <h3 className="notebook-title">Know what got the click.</h3>
-            <p>
-              See comments, DMs sent, and link clicks for each automation. Check
-              its activity log for sent, waiting, and failed messages.
-            </p>
-          </div>
-          <div>
-            <div
-              className="notebook-preview-frame"
-              style={{ transform: "rotate(1deg)" }}
-            >
-              <InboxScene />
-              <p className="notebook-hand">Example inbox view</p>
-            </div>
-            <h3 className="notebook-title">Keep the conversation going.</h3>
-            <p>
-              Read and answer Instagram DMs in one inbox. Find your contacts,
-              search a conversation, and pick up where the automation leaves
-              off.
-            </p>
-          </div>
-        </div>
-        <dl className="notebook-facts">
-          {facts.map((fact) => (
-            <div className="notebook-fact" key={fact.label}>
-              <dd className="notebook-title">{fact.value}</dd>
-              <dt>{fact.label}</dt>
-            </div>
-          ))}
-        </dl>
-      </section>
-      <section className="notebook-section notebook-faq" id="faq">
-        <p className="notebook-hand notebook-section-kicker">
-          Before you ask...
-        </p>
-        <h2 className="notebook-title notebook-section-heading">
-          A few good questions.
-        </h2>
-        <div className="notebook-faq-list">
-          {faqs.map((faq) => (
-            <details key={faq.question}>
-              <summary>
-                <h3>{faq.question}</h3>
-                <Plus className="size-4" aria-hidden="true" />
-              </summary>
-              <p>{faq.answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+      <Agents />
+      <Features />
+      <div className="mt-28">
+        <CtaBand />
+      </div>
+      <Faq />
       <MarketingCta />
     </MarketingPage>
   )

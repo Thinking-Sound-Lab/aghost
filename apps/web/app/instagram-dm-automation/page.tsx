@@ -6,7 +6,12 @@ import {
   MarketingCta,
   MarketingPage,
   PageIntro,
-  marketingLink,
+  Pill,
+  SectionHeading,
+  card,
+  prose,
+  section,
+  textLink,
 } from "@/features/marketing/shell"
 import { openGraph, site } from "@/lib/site"
 
@@ -63,6 +68,23 @@ const structuredData = {
   ],
 }
 
+const steps = [
+  {
+    title: "Connect your account",
+    text: "Sign in with Google, choose a plan, and connect an Instagram Business or Creator account through Instagram’s authorization flow.",
+  },
+  {
+    title: "Choose the trigger",
+    text: `Select one post or reel, or all of them. Match any comment or use up to ${AUTOMATION_LIMITS.maxKeywords} keywords with contains, whole-word, or exact matching.`,
+  },
+  {
+    title: "Write your reply",
+    text: `Add your DM and up to ${AUTOMATION_LIMITS.maxDmButtons} link buttons. Choose an optional public reply, opening message, or follower rule, then activate the automation.`,
+  },
+]
+
+const link = `${textLink} w-fit text-white`
+
 export default function Page() {
   return (
     <MarketingPage>
@@ -74,26 +96,35 @@ export default function Page() {
       />
       <PageIntro
         category={title}
-        title="Instagram DM automation."
+        title="Instagram DM automation"
         description={productSummary}
       />
       <nav
         aria-label="More Instagram guides"
-        className="notebook-section notebook-prose pt-0"
+        className="mx-auto mb-12 max-w-3xl px-5 text-center text-lg text-white/70 sm:px-8"
       >
         <p>
           Planning your next campaign? Learn about{" "}
-          <Link href="/blog/instagram-auto-reply">Instagram auto replies</Link>,{" "}
-          <Link href="/blog/instagram-dm-limits">Meta’s DM limits</Link>, or{" "}
-          <Link href="/blog/best-instagram-dm-automation-tools">
+          <Link href="/blog/instagram-auto-reply" className={link}>
+            Instagram auto replies
+          </Link>
+          ,{" "}
+          <Link href="/blog/instagram-dm-limits" className={link}>
+            Meta’s DM limits
+          </Link>
+          , or{" "}
+          <Link
+            href="/blog/best-instagram-dm-automation-tools"
+            className={link}
+          >
             compare automation tools
           </Link>
           .
         </p>
       </nav>
-      <section className="notebook-section notebook-two-column border-t border-black/20">
-        <div id="what-is-comment-to-dm" className="notebook-prose">
-          <h2 className="notebook-title">What is comment-to-DM automation?</h2>
+      <section className={`${section} mt-0! grid gap-4 lg:grid-cols-2`}>
+        <div id="what-is-comment-to-dm" className={`${card} ${prose}`}>
+          <h2>What is comment-to-DM automation?</h2>
           <p>
             Comment-to-DM automation sends a private Instagram message when
             someone comments on your post or reel. You choose the trigger and
@@ -106,10 +137,8 @@ export default function Page() {
             reply lets the commenter know to check their inbox.
           </p>
         </div>
-        <div className="notebook-paper-note notebook-prose">
-          <h2 className="notebook-title">
-            A small part of your social media workflow.
-          </h2>
+        <div className={`${card} ${prose}`}>
+          <h2>A small part of your social media workflow</h2>
           <p>
             Social media management includes planning content, publishing,
             answering your audience, and measuring results. aghost focuses on
@@ -125,42 +154,31 @@ export default function Page() {
       </section>
       <section
         id="how-it-works"
-        className="notebook-section border-t border-black/20"
+        aria-labelledby="how-heading"
+        className={`${section} scroll-mt-24`}
       >
-        <p className="notebook-hand notebook-section-kicker">
-          From a comment to the next step.
-        </p>
-        <h2 className="notebook-title notebook-section-heading mb-10">
-          How to automate Instagram DMs with aghost.
-        </h2>
-        <ol className="notebook-note-grid">
-          {[
-            {
-              title: "1. Connect your account",
-              text: "Sign in with Google, choose a plan, and connect an Instagram Business or Creator account through Instagram’s authorization flow.",
-            },
-            {
-              title: "2. Choose the trigger",
-              text: `Select one post or reel, or all of them. Match any comment or use up to ${AUTOMATION_LIMITS.maxKeywords} keywords with contains, whole-word, or exact matching.`,
-            },
-            {
-              title: "3. Write your reply",
-              text: `Add your DM and up to ${AUTOMATION_LIMITS.maxDmButtons} link buttons. Choose an optional public reply, opening message, or follower rule, then activate the automation.`,
-            },
-          ].map((step) => (
-            <li key={step.title} className="notebook-paper-note">
-              <h3 className="notebook-title">{step.title}</h3>
-              <p>{step.text}</p>
+        <SectionHeading
+          id="how-heading"
+          title="How to automate Instagram DMs with aghost"
+        />
+        <ol className="mt-12 grid gap-4 md:grid-cols-3">
+          {steps.map((step, index) => (
+            <li key={step.title} className={`${card} grid content-start gap-4`}>
+              <Pill className="bg-brand text-black">Step {index + 1}</Pill>
+              <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+                {step.title}
+              </h3>
+              <p className="text-white/70">{step.text}</p>
             </li>
           ))}
         </ol>
       </section>
       <section
         id="use-cases"
-        className="notebook-section notebook-two-column border-t border-black/20"
+        className={`${section} grid scroll-mt-24 gap-12 lg:grid-cols-2`}
       >
-        <div className="notebook-prose">
-          <h2 className="notebook-title">What can you send?</h2>
+        <div className={prose}>
+          <h2>What can you send?</h2>
           <p>
             Creators can send a guide, checklist, or course sign-up link when
             someone asks for it in a comment. A shop can share a product page or
@@ -173,28 +191,25 @@ export default function Page() {
             answer their follow-up questions.
           </p>
         </div>
-        <div className="notebook-prose">
-          <h2 className="notebook-title">What can you measure?</h2>
+        <div className={prose}>
+          <h2>What can you measure?</h2>
           <p>
             Each automation shows comments, DMs sent, and link clicks. Its
             activity log shows messages that were sent, are waiting for a tap,
             or failed. These are automation metrics; a link click by itself does
             not tell you whether someone bought or signed up.
           </p>
-          <Link
-            href="/features"
-            className={`${marketingLink} mt-5 inline-block text-sm`}
-          >
+          <Link href="/features" className={link}>
             Explore triggers, messages, and inbox features
           </Link>
         </div>
       </section>
       <section
         id="requirements"
-        className="notebook-section notebook-two-column border-t border-black/20"
+        className={`${section} grid scroll-mt-24 gap-4 lg:grid-cols-2`}
       >
-        <div className="notebook-prose">
-          <h2 className="notebook-title">What do you need to get started?</h2>
+        <div className={`${card} ${prose}`}>
+          <h2>What do you need to get started?</h2>
           <p>
             You need an Instagram Business or Creator account and an active
             aghost plan. Your account connects through Instagram’s own login;
@@ -206,15 +221,12 @@ export default function Page() {
             follow status Instagram cannot confirm receive a request to follow
             first. You can pause an automation whenever you need to.
           </p>
-          <Link
-            href="/pricing"
-            className={`${marketingLink} mt-5 inline-block text-sm`}
-          >
+          <Link href="/pricing" className={link}>
             Compare monthly and yearly plans
           </Link>
         </div>
-        <div className="notebook-paper-note notebook-prose">
-          <h2 className="notebook-title">Can an AI agent manage your DMs?</h2>
+        <div className={`${card} ${prose}`}>
+          <h2>Can an AI agent manage your DMs?</h2>
           <p>
             Yes. Connect Claude Code, Codex, Cursor, or another HTTP MCP client
             with a workspace API key. Agents can create and update automations,
@@ -226,10 +238,7 @@ export default function Page() {
             MCP and REST API access are included on every plan. The account
             owner creates and revokes keys in Settings.
           </p>
-          <Link
-            href="/agents"
-            className={`${marketingLink} mt-5 inline-block text-sm`}
-          >
+          <Link href="/agents" className={link}>
             Set up your AI agent
           </Link>
         </div>
