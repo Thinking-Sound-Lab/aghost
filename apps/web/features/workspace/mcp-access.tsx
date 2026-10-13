@@ -16,12 +16,13 @@ export function McpAccess() {
     return reset
   }, [load, reset])
 
+  const url = `${origin}/api/mcp`
   const config = JSON.stringify(
     {
       mcpServers: {
         aghost: {
           type: "http",
-          url: `${origin}/api/mcp`,
+          url,
           headers: { Authorization: "Bearer YOUR_API_KEY" },
         },
       },
@@ -32,6 +33,19 @@ export function McpAccess() {
 
   return (
     <section className="grid gap-8">
+      <div className="grid gap-3">
+        <h2 className="text-sm font-medium">Connect with sign-in</h2>
+        <p className="text-sm text-muted-foreground">
+          Apps that sign in, such as Claude, need only this address. In Claude,
+          add it under Customize → Connectors → Add custom connector, then
+          choose Allow in aghost.
+        </p>
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+          <pre className="min-w-0 flex-1 overflow-auto text-xs">{url}</pre>
+          <CopyButton value={url} label="Copy URL" />
+        </div>
+      </div>
+
       <div className="grid gap-3">
         <h2 className="text-sm font-medium">Let your agent set this up</h2>
         <p className="text-sm text-muted-foreground">

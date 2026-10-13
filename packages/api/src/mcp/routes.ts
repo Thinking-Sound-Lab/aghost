@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify"
 import type { AuthenticateAgent } from "../http/context"
 import { requireApiKey } from "../http/agent-auth"
+import { oauthEndpoints } from "../modules/oauth/oauth"
 import { serveMcp } from "./server"
 import { agentSkill } from "./skill"
 
@@ -14,7 +15,14 @@ export function mcpRoutes(authenticate: AuthenticateAgent, appUrl: string) {
     )
 
     app.register(async (protectedRoutes) => {
-      protectedRoutes.addHook("onRequest", requireApiKey(authenticate, "mcp"))
+      protectedRoutes.addHook(
+        "onRequest",
+        requireApiKey(
+          authenticate,
+          "mcp",
+          oauthEndpoints(appUrl).resourceMetadata
+        )
+      )
       protectedRoutes.route({
         method: ["POST", "GET", "DELETE"],
         url: "/mcp",

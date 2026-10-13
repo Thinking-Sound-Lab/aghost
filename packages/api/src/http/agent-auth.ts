@@ -5,18 +5,26 @@ import { InvalidApiKeyError } from "../shared/errors"
 /**
  * REST and MCP each authenticate every request with the same key policy. A
  * valid key works only while its workspace has a plan.
+ *
+ * @param resourceMetadata Where an MCP client finds out how to sign in for a
+ *   key (RFC 9728); REST clients bring their own.
  */
 export function requireApiKey(
   authenticate: AuthenticateAgent,
-  source: AgentSource
+  source: AgentSource,
+  resourceMetadata: string | null
 ) {
+  const challenge = resourceMetadata
+    ? `Bearer realm="aghost", resource_metadata="${resourceMetadata}"`
+    : 'Bearer realm="aghost"'
+
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const match = /^Bearer (\S+)$/i.exec(request.headers.authorization ?? "")
     try {
       if (!match?.[1]) throw new InvalidApiKeyError()
       request.agentIdentity = await authenticate(match[1], source)
     } catch (error) {
-      reply.header("WWW-Authenticate", 'Bearer realm="aghost"')
+      reply.header("WWW-Authenticate", challenge)
       throw error
     }
     const { services, workspace } = request.agentIdentity

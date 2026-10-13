@@ -28,6 +28,8 @@ declare module "fastify" {
   interface FastifyContextConfig {
     /** These routes require an API key, never a browser session. */
     agent?: boolean
+    /** OAuth endpoints that apps call from their servers, never with cookies. */
+    oauth?: boolean
     /** Reachable without a plan, so that a workspace can subscribe. */
     withoutPlan?: boolean
   }

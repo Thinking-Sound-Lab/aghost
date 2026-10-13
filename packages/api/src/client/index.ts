@@ -23,6 +23,8 @@ import {
   type BillingRedirect,
   type ChoosePlanInput,
   type PlanChangeResult,
+  type AuthorizationRequest,
+  type AuthorizationDecision,
 } from "../contract"
 
 export class ApiClientError extends Error {
@@ -109,6 +111,24 @@ export function createApiClient(
       googleSignInUrl: `${baseUrl}/auth/google`,
       session: () => request<{ user: SessionUser }>("/auth/session"),
       signOut: () => request<void>("/auth/sign-out", "POST", {}),
+    },
+    oauth: {
+      request: (id: string) =>
+        request<AuthorizationRequest>(
+          `/oauth/requests/${encodeURIComponent(id)}`
+        ),
+      approve: (id: string) =>
+        request<AuthorizationDecision>(
+          `/oauth/requests/${encodeURIComponent(id)}/approve`,
+          "POST",
+          {}
+        ),
+      deny: (id: string) =>
+        request<AuthorizationDecision>(
+          `/oauth/requests/${encodeURIComponent(id)}/deny`,
+          "POST",
+          {}
+        ),
     },
     workspace: {
       get: () => request<Workspace>("/workspace"),

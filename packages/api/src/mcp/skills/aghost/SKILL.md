@@ -29,7 +29,7 @@ Keep the key in a private secret store or environment variable accessible to the
 
 ## Configure MCP
 
-The HTTP endpoint is {{AGHOST_APP_URL}}/api/mcp. Authentication is an Authorization: Bearer header; Aghost does not implement MCP OAuth login. Inspect the installed client's help and existing configuration before editing it. Prefer project scope when supported and preserve unrelated servers. If an aghost entry already points elsewhere, ask before replacing it.
+The HTTP endpoint is {{AGHOST_APP_URL}}/api/mcp. Configure it with an Authorization: Bearer header. Clients that sign in to MCP servers with OAuth, such as custom connectors in the Claude apps, need only the URL: the user approves the connection in Aghost and the client receives its own key. Inspect the installed client's help and existing configuration before editing it. Prefer project scope when supported and preserve unrelated servers. If an aghost entry already points elsewhere, ask before replacing it.
 
 ### Codex
 

@@ -197,6 +197,83 @@ export type Database = {
           },
         ]
       }
+      oauth_authorizations: {
+        Row: {
+          client_id: string
+          code_challenge: string
+          code_hash: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_uri: string
+          state: string | null
+          workspace_id: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          client_id: string
+          code_challenge: string
+          code_hash?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_uri: string
+          state?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          code_challenge?: string
+          code_hash?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_uri?: string
+          state?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_authorizations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "oauth_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oauth_authorizations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oauth_clients: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          redirect_uris: string[]
+          secret_hash: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          redirect_uris: string[]
+          secret_hash?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          redirect_uris?: string[]
+          secret_hash?: string | null
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           error: string | null

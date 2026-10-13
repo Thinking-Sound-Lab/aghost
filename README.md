@@ -161,7 +161,7 @@ Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full a
 
 ## MCP
 
-Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool.
+Open **Settings → MCP** for your endpoint and client configuration. **Copy skill** gives Claude Code, Codex, Cursor, or another agent instructions to configure the connection. Use `<APP_URL>/api/mcp` with an HTTP MCP client and a key created in the API tab. New keys can use every Aghost agent tool. Apps that sign in to MCP servers, such as Claude's custom connectors, need only the URL: the owner approves the app in aghost, and it receives its own key.
 
 MCP has its own backend route module on the same server as the API. See the [MCP guide](docs/mcp.md) for client setup, available tools, and examples.
 

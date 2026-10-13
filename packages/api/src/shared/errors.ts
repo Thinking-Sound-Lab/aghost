@@ -60,6 +60,16 @@ export class NotFoundError extends AppError {
   }
 }
 
+/** An agent app's request to connect was decided already, or waited too long. */
+export class AuthorizationExpiredError extends AppError {
+  constructor() {
+    super(
+      "not_found",
+      "This request to connect has expired. Start again from your app."
+    )
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(message: string, cause?: unknown) {
     super("conflict", message, { cause })

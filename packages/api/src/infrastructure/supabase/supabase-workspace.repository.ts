@@ -26,7 +26,7 @@ export class SupabaseWorkspaceRepository implements WorkspaceRepository {
         .select()
         .eq("id", id)
         .maybeSingle(),
-      "load the API key's workspace"
+      "load a workspace"
     )
     return row ? toRecord(row) : null
   }
