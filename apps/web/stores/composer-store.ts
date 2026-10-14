@@ -2,7 +2,6 @@ import { create } from "zustand"
 import {
   AUTOMATION_LIMITS,
   POST_LIMITS,
-  createAutomationSchema,
   createMediaUploadSchema,
   schedulePostSchema,
   updateScheduledPostSchema,
@@ -34,6 +33,8 @@ type Draft = {
 type Upload = { key: string; name: string }
 
 type ComposerState = {
+  /** Changes whenever a draft is opened or left; late requests are ignored. */
+  revision: number
   id: string | null
   /** The post as stored, when editing one. */
   post: ScheduledPost | null
@@ -51,6 +52,7 @@ type ComposerState = {
   fields: Record<string, string>
   busy: boolean
   initialize: (id: string | null, day: string | null) => Promise<void>
+  leave: () => void
   patch: (patch: Partial<Draft>) => void
   selectAccount: (id: string) => Promise<void>
   addFiles: (files: File[]) => Promise<void>
@@ -107,6 +109,7 @@ function fieldsOf(issues: { path: PropertyKey[]; message: string }[]) {
 }
 
 export const useComposerStore = create<ComposerState>((set, get) => ({
+  revision: 0,
   id: null,
   post: null,
   draft: {
@@ -127,7 +130,9 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   fields: {},
   busy: false,
   initialize: async (id, day) => {
+    const revision = get().revision + 1
     set({
+      revision,
       id,
       post: null,
       draft: {
@@ -146,12 +151,13 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       status: "loading",
       error: null,
       fields: {},
+      busy: false,
     })
     try {
       if (id) {
         const post = await api.scheduledPosts.get(id)
         // The owner opened another post, or a new one, meanwhile.
-        if (get().id !== id) return
+        if (get().revision !== revision) return
         set({
           post,
           draft: {
@@ -173,12 +179,21 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
         .accounts.find((item) => item.status === "connected")
       if (account) await get().selectAccount(account.id)
     } catch (error) {
-      if (get().id === id) set({ status: "error", error: errorMessage(error) })
+      if (get().revision === revision)
+        set({ status: "error", error: errorMessage(error) })
     }
   },
+  leave: () =>
+    set({
+      revision: get().revision + 1,
+      uploads: [],
+      busy: false,
+      status: "idle",
+    }),
   patch: (patch) =>
     set({ draft: { ...get().draft, ...patch }, fields: {}, error: null }),
   selectAccount: async (id) => {
+    const revision = get().revision
     set({
       draft: { ...get().draft, instagramAccountId: id },
       canPublish: null,
@@ -186,14 +201,20 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     })
     try {
       const { canPublish } = await api.accounts.publishing(id)
-      if (get().draft.instagramAccountId === id) set({ canPublish })
+      if (get().revision === revision && get().draft.instagramAccountId === id)
+        set({ canPublish })
     } catch (error) {
-      if (get().draft.instagramAccountId === id)
+      if (get().revision === revision && get().draft.instagramAccountId === id)
         set({ error: errorMessage(error) })
     }
   },
   addFiles: async (files) => {
-    const { draft, uploads } = get()
+    const { draft, uploads, revision, busy } = get()
+    // A batch keeps selection order; the next batch waits for its slots.
+    if (uploads.length > 0 || busy) {
+      set({ error: "Wait for the current uploads or save to finish." })
+      return
+    }
     const room =
       (draft.kind === "story" ? 1 : POST_LIMITS.maxMediaItems) -
       draft.media.length -
@@ -225,6 +246,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     set({ uploads: [...get().uploads, ...started], error: null, fields: {} })
     // Uploads run together; the files keep the order they were chosen in.
     const results = await Promise.allSettled(files.map(api.media.upload))
+    if (get().revision !== revision) return
     const added = results.flatMap((result) =>
       result.status === "fulfilled" ? [result.value] : []
     )
@@ -283,78 +305,59 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       automation,
     }
     const parsed = state.id
-      ? updateScheduledPostSchema.safeParse(content)
+      ? updateScheduledPostSchema.safeParse({ ...content, automation })
       : schedulePostSchema.safeParse(input)
-    // An automation added to a post that is already scheduled is checked on
-    // its own; its fields read as the post's automation fields.
-    const added =
-      state.id && automation
-        ? createAutomationSchema.safeParse({
-            ...automation,
-            instagramAccountId: state.draft.instagramAccountId,
-            trigger: { postScope: "scheduled_post", scheduledPostId: state.id },
-          })
-        : null
-    if (!parsed.success || (added && !added.success)) {
+    if (!parsed.success) {
       set({
-        fields: {
-          ...(parsed.success ? {} : fieldsOf(parsed.error.issues)),
-          ...(added?.success === false &&
-            fieldsOf(
-              added.error.issues.map((issue) => ({
-                ...issue,
-                path: ["automation", ...issue.path],
-              }))
-            )),
-        },
+        fields: fieldsOf(parsed.error.issues),
         error: "Check the highlighted fields.",
       })
       return null
     }
     set({ busy: true, fields: {}, error: null })
-    // Field errors from the automation request name its own fields.
-    let prefix = ""
+    const ownsDraft = () => get().revision === state.revision
+    const workspaceId = useWorkspaceStore.getState().workspace?.id
     try {
-      let post = state.id
-        ? await api.scheduledPosts.update(state.id, content)
+      const post = state.id
+        ? await api.scheduledPosts.update(state.id, { ...content, automation })
         : await api.scheduledPosts.create(input)
+      if (!ownsDraft()) return null
       useCalendarStore.getState().applySaved(post)
-      set({ post })
-      if (added?.success) {
-        prefix = "automation."
-        const created = await api.automations.create(added.data)
-        useWorkspaceStore.getState().applySaved(created)
-        post = { ...post, automationIds: [created.id] }
-        useCalendarStore.getState().applySaved(post)
-        set({ post })
-      } else if (!state.id && post.automationIds[0]) {
-        useWorkspaceStore
-          .getState()
-          .applySaved(await api.automations.get(post.automationIds[0]))
+      // The server has saved both. A cache refresh cannot turn that success
+      // into another creation attempt or leave Delete without a post id.
+      set({ id: post.id, post })
+      if (automation && post.automationIds[0]) {
+        void api.automations
+          .get(post.automationIds[0])
+          .then((item) => {
+            // This cache belongs to the workspace, including after navigation.
+            const workspace = useWorkspaceStore.getState()
+            if (workspaceId && workspace.workspace?.id === workspaceId)
+              workspace.applySaved(item)
+          })
+          .catch(() => {
+            // This optional cache read does not change the saved post.
+          })
       }
       return post
     } catch (error) {
-      const fields = error instanceof ApiClientError ? (error.fields ?? {}) : {}
-      set({
-        error: errorMessage(error),
-        fields: Object.fromEntries(
-          Object.entries(fields).map(([path, message]) => [
-            `${prefix}${path}`,
-            message,
-          ])
-        ),
-      })
+      if (ownsDraft())
+        set({
+          error: errorMessage(error),
+          fields: error instanceof ApiClientError ? (error.fields ?? {}) : {},
+        })
       return null
     } finally {
-      set({ busy: false })
+      if (ownsDraft()) set({ busy: false })
     }
   },
   remove: async () => {
-    const { id, busy } = get()
+    const { id, busy, revision } = get()
     if (!id || busy) return false
     set({ busy: true, error: null })
     try {
       await api.scheduledPosts.remove(id)
+      if (get().revision !== revision) return false
       useCalendarStore.getState().applyRemoved(id)
       // Its automations were deleted with it.
       const workspace = useWorkspaceStore.getState()
@@ -367,10 +370,10 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       })
       return true
     } catch (error) {
-      set({ error: errorMessage(error) })
+      if (get().revision === revision) set({ error: errorMessage(error) })
       return false
     } finally {
-      set({ busy: false })
+      if (get().revision === revision) set({ busy: false })
     }
   },
 }))

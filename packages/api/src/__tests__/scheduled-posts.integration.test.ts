@@ -402,6 +402,68 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     })
   })
 
+  it("restores a post's previous content and time when an added automation fails", async () => {
+    const original = await schedule({
+      caption: "Original caption",
+      scheduledFor: inHours(48),
+    })
+    const remoteId = await providerIdOf(original.id)
+    const edited = {
+      kind: original.kind,
+      caption: "Comment LINK for the guide",
+      media: [{ url: "https://media.example/temp/new.jpg", type: "image" }],
+      scheduledFor: inHours(72),
+      automation: automation(),
+    }
+    const events = recorded.events.length
+    fixture.state.automationFailureStatus = 500
+    const failed = await session(
+      `/scheduled-posts/${original.id}`,
+      "PATCH",
+      edited
+    )
+    expect(failed.statusCode).toBe(502)
+    expect(
+      (await session(`/scheduled-posts/${original.id}`)).json()
+    ).toMatchObject({
+      caption: original.caption,
+      media: original.media,
+      scheduledFor: original.scheduledFor,
+      automationIds: [],
+    })
+    expect(fixture.posts.get(remoteId)).toMatchObject({
+      content: original.caption,
+      mediaItems: original.media,
+      scheduledFor: original.scheduledFor,
+    })
+    expect(
+      recorded.events.slice(events).map(({ event }) => event.name)
+    ).not.toContain("scheduled_post_updated")
+
+    const saved = await session(
+      `/scheduled-posts/${original.id}`,
+      "PATCH",
+      edited
+    )
+    expect(saved.statusCode).toBe(200)
+    const result = saved.json<ScheduledPost>()
+    expect(result).toMatchObject({
+      caption: edited.caption,
+      media: edited.media,
+      scheduledFor: edited.scheduledFor,
+    })
+    expect(result.automationIds).toHaveLength(1)
+    expect(fixture.posts.get(remoteId)).toMatchObject({
+      content: edited.caption,
+      scheduledFor: edited.scheduledFor,
+    })
+    expect([...fixture.automations.values()]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ postId: remoteId, isActive: true }),
+      ])
+    )
+  })
+
   it("rejects posts that are too soon, malformed, or stories with an automation", async () => {
     const soon = await session(
       "/scheduled-posts",
@@ -532,11 +594,12 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
             [published.id, failed.id].includes(event.post_id)
         )
         .map(({ event }) => event.name)
+        .sort()
     ).toEqual([
       "post_scheduled",
       "post_scheduled",
-      "scheduled_post_published",
       "scheduled_post_failed",
+      "scheduled_post_published",
     ])
 
     const change = {
@@ -718,6 +781,14 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     })
     expect(scheduled.statusCode).toBe(201)
     const id = scheduled.json<ScheduledPost>().id
+    expect(
+      (
+        await rest(token, `/scheduled-posts/${id}`, "PATCH", {
+          ...post(),
+          automation: automation(),
+        })
+      ).statusCode
+    ).toBe(403)
     const range = `from=${encodeURIComponent(inHours(23))}&to=${encodeURIComponent(inHours(25))}`
     expect(
       (await rest(token, `/scheduled-posts?${range}`))
@@ -758,6 +829,17 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
         "delete_scheduled_post",
       ])
     )
+    const updated = await client.callTool({
+      name: "update_scheduled_post",
+      arguments: {
+        postId: id,
+        input: post({ automation: { ...automation(), status: "paused" } }),
+      },
+    })
+    expect(updated.isError).not.toBe(true)
+    expect(
+      (updated.structuredContent as { data: ScheduledPost }).data.automationIds
+    ).toHaveLength(1)
     const created = await client.callTool({
       name: "schedule_post",
       arguments: post({ automation: { ...automation(), status: "paused" } }),

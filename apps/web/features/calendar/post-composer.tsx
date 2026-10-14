@@ -65,6 +65,7 @@ export function PostComposer({
   const initialize = composer.initialize
   useEffect(() => {
     void initialize(id, day)
+    return () => useComposerStore.getState().leave()
   }, [id, day, initialize])
 
   if (composer.status === "idle" || composer.status === "loading")
@@ -312,6 +313,7 @@ export function PostComposer({
                       Add
                       <input
                         type="file"
+                        disabled={composer.busy || composer.uploads.length > 0}
                         accept={ACCEPT}
                         multiple={!story}
                         className="sr-only"

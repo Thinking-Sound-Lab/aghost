@@ -363,13 +363,25 @@ export class BillingService {
     workspace: WorkspaceOwner,
     subscription: SubscriptionSnapshot | null
   ): Promise<void> {
-    const connected = await this.accounts.countConnected(workspace.id)
     const ended = !subscription || !isEntitled(subscription.status)
-    if (ended || connected > PLANS[subscription.plan].instagramAccounts) {
-      await this.automations.pauseAll(workspace)
+    if (ended) {
+      // Each cleanup must run even if the other provider operation fails.
+      // Report failures after both finish so webhook retries can finish them.
+      const results = await Promise.allSettled([
+        this.automations.pauseAll(workspace),
+        this.posts.cancelAll(workspace),
+      ])
+      const failures = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : []
+      )
+      if (failures.length === 1) throw failures[0]
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Could not stop workspace activity")
+      return
     }
-    // Without a plan the owner cannot reach the calendar to stop a post.
-    if (ended) await this.posts.cancelAll(workspace)
+    const connected = await this.accounts.countConnected(workspace.id)
+    if (connected > PLANS[subscription.plan].instagramAccounts)
+      await this.automations.pauseAll(workspace)
   }
 
   private async createCustomer(

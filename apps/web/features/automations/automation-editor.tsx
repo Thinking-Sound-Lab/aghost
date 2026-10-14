@@ -4,8 +4,8 @@ import { useEffect, type FormEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
-import { AUTOMATION_LIMITS } from "@workspace/api/contract"
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
+import { AUTOMATION_LIMITS, POST_LIMITS } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import {
@@ -165,29 +165,27 @@ export function AutomationEditor({ id }: { id?: string }) {
                   </p>
                 )}
               </Option>
-              {(editor.scheduledPosts.length > 0 || scheduledPostId) && (
-                <Option
-                  name="post"
-                  label="a post scheduled in the calendar"
-                  checked={draft.trigger.postScope === "scheduled_post"}
-                  onSelect={() =>
-                    editor.patch({
-                      trigger: {
-                        postScope: "scheduled_post",
-                        scheduledPostId:
-                          scheduledPostId ?? editor.scheduledPosts[0]!.id,
-                      },
-                    })
-                  }
-                >
-                  <ScheduledPostPicker />
-                  {fields["trigger.scheduledPostId"] && (
-                    <p className="mt-2 text-xs text-destructive">
-                      {fields["trigger.scheduledPostId"]}
-                    </p>
-                  )}
-                </Option>
-              )}
+              <Option
+                name="post"
+                label="a post scheduled in the calendar"
+                checked={draft.trigger.postScope === "scheduled_post"}
+                onSelect={() =>
+                  editor.patch({
+                    trigger: {
+                      postScope: "scheduled_post",
+                      scheduledPostId:
+                        scheduledPostId ?? editor.scheduledPosts[0]?.id ?? "",
+                    },
+                  })
+                }
+              >
+                <ScheduledPostPicker />
+                {fields["trigger.scheduledPostId"] && (
+                  <p className="mt-2 text-xs text-destructive">
+                    {fields["trigger.scheduledPostId"]}
+                  </p>
+                )}
+              </Option>
               <Option
                 name="post"
                 label="any post or reel"
@@ -284,7 +282,7 @@ function PostPicker() {
     return (
       <ErrorBanner
         message={editor.postsError}
-        retry={() => void editor.selectAccount(editor.draft.instagramAccountId)}
+        retry={() => void editor.loadPosts()}
       />
     )
   if (editor.posts.length === 0)
@@ -348,32 +346,81 @@ function ScheduledPostPicker() {
       ? editor.draft.trigger.scheduledPostId
       : null
   return (
-    <div className="grid grid-cols-4 gap-1.5">
-      {editor.scheduledPosts.map((post) => (
-        <button
-          key={post.id}
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <Button
           type="button"
-          aria-pressed={post.id === selected}
-          title={post.caption ?? undefined}
-          onClick={() =>
-            editor.patch({
-              trigger: {
-                postScope: "scheduled_post",
-                scheduledPostId: post.id,
-              },
-            })
-          }
-          className={cn(
-            "relative aspect-square overflow-hidden rounded-md bg-card text-left ring-offset-2 ring-offset-muted",
-            post.id === selected && "ring-2 ring-foreground"
-          )}
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Earlier scheduled posts"
+          disabled={editor.scheduledPostsLoading}
+          onClick={() => void editor.loadScheduledPosts(-1)}
         >
-          <MediaThumb media={post.media[0]!} />
-          <span className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 text-[10px] text-white">
-            {timeLabel(post.scheduledFor)}
-          </span>
-        </button>
-      ))}
+          <ChevronLeft />
+        </Button>
+        <span className="text-xs text-muted-foreground" aria-live="polite">
+          {editor.scheduledFrom && (
+            <>
+              {new Date(editor.scheduledFrom).toLocaleDateString()} –{" "}
+              {new Date(
+                Date.parse(editor.scheduledFrom) +
+                  POST_LIMITS.maxRangeDays * 86_400_000
+              ).toLocaleDateString()}
+            </>
+          )}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Later scheduled posts"
+          disabled={editor.scheduledPostsLoading}
+          onClick={() => void editor.loadScheduledPosts(1)}
+        >
+          <ChevronRight />
+        </Button>
+      </div>
+      <ErrorBanner
+        message={editor.scheduledPostsError}
+        retry={() => void editor.loadScheduledPosts()}
+      />
+      {editor.scheduledPostsLoading ? (
+        <p className="text-sm text-muted-foreground">
+          Loading scheduled posts…
+        </p>
+      ) : editor.scheduledPosts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No posts scheduled in this period.
+        </p>
+      ) : (
+        <div className="grid grid-cols-4 gap-1.5">
+          {editor.scheduledPosts.map((post) => (
+            <button
+              key={post.id}
+              type="button"
+              aria-pressed={post.id === selected}
+              title={post.caption ?? undefined}
+              onClick={() =>
+                editor.patch({
+                  trigger: {
+                    postScope: "scheduled_post",
+                    scheduledPostId: post.id,
+                  },
+                })
+              }
+              className={cn(
+                "relative aspect-square overflow-hidden rounded-md bg-card text-left ring-offset-2 ring-offset-muted",
+                post.id === selected && "ring-2 ring-foreground"
+              )}
+            >
+              <MediaThumb media={post.media[0]!} />
+              <span className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 text-[10px] text-white">
+                {timeLabel(post.scheduledFor)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

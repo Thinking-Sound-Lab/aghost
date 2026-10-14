@@ -65,7 +65,7 @@ Read accounts first to get an `instagramAccountId`. For a specific post, read th
 - `set_automation_status` takes `{ "automationId": "...", "status": "active" }` or `paused`.
 - `list_automation_activity` takes `{ "automationId": "...", "limit": 25, "offset": 0 }`, with a maximum limit of 50. Advance the offset by the number of returned entries while `hasMore` is true.
 - `schedule_post` takes the body of the [REST example](api.md#scheduled-posts), including an optional `automation`, which also needs `automations:write`. Upload local files with `create_media_upload` first and pass its `media` objects.
-- `update_scheduled_post` takes `{ "postId": "...", "input": { "kind", "caption", "media", "scheduledFor" } }`; `kind` cannot change. `delete_scheduled_post` also needs `automations:write` when the post has automations. `list_scheduled_posts` takes `from` and `to`, up to 92 days apart.
+- `update_scheduled_post` takes `{ "postId": "...", "input": { "kind", "caption", "media", "scheduledFor" } }`; `kind` cannot change. Include an optional `automation` in `input` to add it together with the post changes; this requires `automations:write` and restores the previous post if automation creation fails. `delete_scheduled_post` also needs `automations:write` when the post has automations. `list_scheduled_posts` takes `from` and `to`, up to 92 days apart.
 - `list_contacts` takes `search` and `offset`, returning up to 50 contacts per page.
 - Message tools take `accountId` and the unchanged `conversationId` returned by `list_conversations`. `send_message` also takes `text`.
 

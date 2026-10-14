@@ -183,6 +183,7 @@ export class PostService {
     input: ParsedUpdateScheduledPostInput
   ): Promise<ScheduledPostRecord> {
     return this.operations.run(workspace.id, async () => {
+      await this.plan.assertCanUseWorkspace(workspace)
       const current = await this.get(workspace, id)
       if (current.status !== "scheduled")
         throw new ConflictError(
@@ -217,6 +218,28 @@ export class PostService {
           current
         )
         throw error
+      }
+      if (input.automation) {
+        try {
+          const automation = await this.automations.create(workspace, {
+            ...input.automation,
+            instagramAccountId: account.id,
+            trigger: { postScope: "scheduled_post", scheduledPostId: id },
+          })
+          updated = {
+            ...updated,
+            automationIds: [...updated.automationIds, automation.id],
+          }
+        } catch (error) {
+          // A caption asking for comments must not publish without its DM.
+          await this.provider.reschedule(
+            current.providerPostId,
+            account.providerAccountId,
+            current
+          )
+          await this.posts.updateContent(workspace.id, id, current)
+          throw error
+        }
       }
       this.record(workspace, {
         name: "scheduled_post_updated",

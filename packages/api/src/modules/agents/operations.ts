@@ -248,14 +248,17 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "update_scheduled_post",
     description:
-      "Replace a scheduled post's caption, media and time. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
+      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write. If that automation fails, the previous post is restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
     scope: "posts:write",
     schema: postId.extend({ input: updateScheduledPostSchema }),
     destructive: true,
-    run: async ({ workspace, services }, { postId, input }) =>
-      presentScheduledPost(
+    run: async ({ workspace, services, apiKey }, { postId, input }) => {
+      if (input.automation && !apiKey.scopes.includes("automations:write"))
+        throw new ForbiddenError("automations:write")
+      return presentScheduledPost(
         await services.posts.update(workspace, postId, input)
-      ),
+      )
+    },
   }),
   operation({
     name: "delete_scheduled_post",

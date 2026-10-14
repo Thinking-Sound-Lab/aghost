@@ -624,6 +624,46 @@ describe("billing", () => {
     )
   })
 
+  it.each(["pause", "cancel", "both"] as const)(
+    "attempts both plan-end cleanups when %s fails, then retries the failure",
+    async (failure) => {
+      const repository = memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription(),
+      })
+      const { billing, pauseAll, cancelAll } = service(
+        repository,
+        provider({
+          getSubscription: async () => subscription({ status: "on_hold" }),
+        })
+      )
+      const pauseError = new Error("Rate limited while pausing automations")
+      const cancelError = new Error("Rate limited while cancelling posts")
+      if (failure !== "cancel") pauseAll.mockRejectedValueOnce(pauseError)
+      if (failure !== "pause") cancelAll.mockRejectedValueOnce(cancelError)
+
+      const attempt = billing.refreshSubscription("sub_1")
+      if (failure === "both")
+        await expect(attempt).rejects.toMatchObject({
+          errors: [pauseError, cancelError],
+        })
+      else
+        await expect(attempt).rejects.toBe(
+          failure === "pause" ? pauseError : cancelError
+        )
+      expect(repository.record?.subscription?.status).toBe("on_hold")
+      expect(pauseAll).toHaveBeenCalledOnce()
+      expect(cancelAll).toHaveBeenCalledOnce()
+
+      await expect(billing.refreshSubscription("sub_1")).resolves.toBe(
+        "processed"
+      )
+      expect(pauseAll).toHaveBeenCalledTimes(2)
+      expect(cancelAll).toHaveBeenCalledTimes(2)
+    }
+  )
+
   it("ignores subscriptions of customers it does not know", async () => {
     const { billing, pauseAll } = service(
       memoryRepository(null),

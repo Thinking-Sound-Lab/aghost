@@ -111,7 +111,10 @@ export const schedulePostSchema = z
   .check(checkKind)
 
 export const updateScheduledPostSchema = z
-  .object(postContentShape)
+  .object({
+    ...postContentShape,
+    automation: postAutomationSchema.nullable().default(null),
+  })
   .check(checkKind)
 
 export type SchedulePostInput = z.input<typeof schedulePostSchema>

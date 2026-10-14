@@ -1,0 +1,257 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import type {
+  Automation,
+  InstagramAccount,
+  PostMedia,
+  ScheduledPost,
+} from "@workspace/api/contract"
+import { api } from "@/lib/api"
+import { localInput, useComposerStore } from "./composer-store"
+import { useWorkspaceStore } from "./workspace-store"
+import { useCalendarStore } from "./calendar-store"
+
+vi.mock("@/lib/api", () => ({
+  api: {
+    accounts: { publishing: vi.fn() },
+    scheduledPosts: {
+      get: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+    },
+    automations: { get: vi.fn(), create: vi.fn(), stats: vi.fn() },
+    media: { upload: vi.fn() },
+  },
+}))
+vi.mock("@/lib/analytics", () => ({ analytics: null }))
+vi.mock("./auth-store", () => ({
+  useAuthStore: { getState: () => ({ expire: vi.fn() }) },
+}))
+
+const account: InstagramAccount = {
+  id: "11111111-1111-4111-8111-111111111111",
+  username: "creator",
+  displayName: null,
+  profilePictureUrl: null,
+  status: "connected",
+  disconnectReason: null,
+  createdAt: "2026-10-14T00:00:00Z",
+}
+const media: PostMedia = {
+  url: "https://media.example/cover.jpg",
+  type: "image",
+}
+
+function post(automationIds: string[] = []): ScheduledPost {
+  return {
+    id: "22222222-2222-4222-8222-222222222222",
+    instagramAccountId: account.id,
+    kind: "post",
+    caption: "Original caption",
+    media: [media],
+    scheduledFor: new Date(Date.now() + 86_400_000).toISOString(),
+    status: "scheduled",
+    platformPostId: null,
+    permalink: null,
+    publishedAt: null,
+    error: null,
+    automationIds,
+    createdAt: "2026-10-14T00:00:00Z",
+    updatedAt: "2026-10-14T00:00:00Z",
+  }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((finish) => {
+    resolve = finish
+  })
+  return { promise, resolve }
+}
+
+async function draft(withAutomation = false) {
+  await useComposerStore.getState().initialize(null, null)
+  useComposerStore.getState().patch({
+    caption: "Comment LINK",
+    media: [media],
+    scheduledAt: localInput(new Date(Date.now() + 86_400_000)),
+  })
+  useComposerStore.setState({
+    automationOn: withAutomation,
+    response: {
+      openingDm: null,
+      dmMessage: "Here is the guide",
+      dmButtons: [],
+      commentReply: null,
+      requireFollow: false,
+    },
+  })
+}
+
+describe("the scheduling composer across failures and navigation", () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    useComposerStore.setState(useComposerStore.getInitialState(), true)
+    useCalendarStore.setState(useCalendarStore.getInitialState(), true)
+    useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
+    useWorkspaceStore.setState({ accounts: [account] })
+    vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
+    vi.mocked(api.automations.stats).mockResolvedValue({})
+  })
+
+  it("keeps a successful scheduling result when the optional automation refresh fails", async () => {
+    await draft(true)
+    const saved = post(["33333333-3333-4333-8333-333333333333"])
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.automations.get).mockRejectedValue(
+      new Error("Refresh failed")
+    )
+    expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(useComposerStore.getState()).toMatchObject({
+      id: saved.id,
+      post: saved,
+      error: null,
+    })
+    vi.mocked(api.scheduledPosts.update).mockResolvedValue(saved)
+    await useComposerStore.getState().save()
+    expect(api.scheduledPosts.create).toHaveBeenCalledOnce()
+    expect(api.scheduledPosts.update).toHaveBeenCalledExactlyOnceWith(
+      saved.id,
+      expect.objectContaining({ automation: null })
+    )
+    vi.mocked(api.scheduledPosts.remove).mockResolvedValue()
+    expect(await useComposerStore.getState().remove()).toBe(true)
+    expect(api.scheduledPosts.remove).toHaveBeenCalledExactlyOnceWith(saved.id)
+  })
+
+  it.each([true, false])(
+    "refreshes the automation after leaving only for the same workspace (%s)",
+    async (sameWorkspace) => {
+      await draft(true)
+      useWorkspaceStore.setState({
+        workspace: { id: "workspace", name: "Workspace" },
+      })
+      const saved = post(["automation"])
+      const refreshing = deferred<Automation>()
+      vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+      vi.mocked(api.automations.get).mockReturnValue(refreshing.promise)
+      expect(await useComposerStore.getState().save()).toEqual(saved)
+      useComposerStore.getState().leave()
+      if (!sameWorkspace) useWorkspaceStore.getState().clear()
+      const automation: Automation = {
+        id: "automation",
+        instagramAccountId: account.id,
+        name: "Guide",
+        status: "active",
+        trigger: {
+          postScope: "scheduled_post",
+          scheduledPost: { id: saved.id, caption: saved.caption },
+        },
+        keywords: [],
+        matchMode: "word",
+        openingDm: null,
+        dmMessage: "Guide",
+        dmButtons: [],
+        commentReply: null,
+        requireFollow: false,
+        createdAt: saved.createdAt,
+        updatedAt: saved.updatedAt,
+      }
+      refreshing.resolve(automation)
+      await refreshing.promise
+      expect(useWorkspaceStore.getState().automations).toEqual(
+        sameWorkspace ? [automation] : []
+      )
+    }
+  )
+
+  it("discards uploads from a previous draft even when both drafts are new posts", async () => {
+    await draft()
+    const upload = deferred<PostMedia>()
+    vi.mocked(api.media.upload).mockReturnValueOnce(upload.promise)
+    const uploading = useComposerStore
+      .getState()
+      .addFiles([new File(["photo"], "old.jpg", { type: "image/jpeg" })])
+    await useComposerStore.getState().initialize(null, null)
+    useComposerStore.getState().patch({ caption: "Another post" })
+    upload.resolve(media)
+    await uploading
+    expect(useComposerStore.getState()).toMatchObject({
+      draft: { caption: "Another post", media: [] },
+      uploads: [],
+      error: null,
+    })
+  })
+
+  it("preserves selection order and refuses a second batch until the first completes", async () => {
+    await useComposerStore.getState().initialize(null, null)
+    const video = deferred<PostMedia>()
+    const clip: PostMedia = {
+      type: "video",
+      url: "https://media.example/clip.mp4",
+    }
+    vi.mocked(api.media.upload)
+      .mockReturnValueOnce(video.promise)
+      .mockResolvedValueOnce(media)
+    const uploading = useComposerStore
+      .getState()
+      .addFiles([
+        new File(["video"], "clip.mp4", { type: "video/mp4" }),
+        new File(["photo"], "cover.jpg", { type: "image/jpeg" }),
+      ])
+    await useComposerStore
+      .getState()
+      .addFiles([new File(["other"], "other.jpg", { type: "image/jpeg" })])
+    expect(api.media.upload).toHaveBeenCalledTimes(2)
+    video.resolve(clip)
+    await uploading
+    expect(useComposerStore.getState().draft.media).toEqual([clip, media])
+  })
+
+  it("sends an existing post and its new automation through one update request", async () => {
+    const original = post()
+    vi.mocked(api.scheduledPosts.get).mockResolvedValue(original)
+    await useComposerStore.getState().initialize(original.id, null)
+    useComposerStore.setState({
+      automationOn: true,
+      response: {
+        openingDm: null,
+        dmMessage: "Guide",
+        dmButtons: [],
+        commentReply: null,
+        requireFollow: false,
+      },
+    })
+    useComposerStore.getState().patch({ caption: "Comment LINK" })
+    vi.mocked(api.scheduledPosts.update).mockRejectedValueOnce(
+      new Error("Automation refused")
+    )
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(api.scheduledPosts.update).toHaveBeenCalledExactlyOnceWith(
+      original.id,
+      expect.objectContaining({
+        caption: "Comment LINK",
+        automation: expect.objectContaining({ dmMessage: "Guide" }),
+      })
+    )
+    expect(api.automations.create).not.toHaveBeenCalled()
+    expect(useComposerStore.getState().post).toEqual(original)
+    expect(useCalendarStore.getState().posts).toEqual([])
+  })
+
+  it("ignores a save that completes after the composer has been left", async () => {
+    await draft()
+    const saving = deferred<ScheduledPost>()
+    vi.mocked(api.scheduledPosts.create).mockReturnValueOnce(saving.promise)
+    const pending = useComposerStore.getState().save()
+    useComposerStore.getState().leave()
+    saving.resolve(post())
+    expect(await pending).toBeNull()
+    expect(useComposerStore.getState()).toMatchObject({
+      id: null,
+      post: null,
+      status: "idle",
+      busy: false,
+    })
+  })
+})
