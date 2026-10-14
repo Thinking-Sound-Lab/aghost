@@ -24,6 +24,11 @@ export function hasStatus(error: unknown, status: number): boolean {
   return error instanceof ZernioApiError && error.statusCode === status
 }
 
+/** The Zernio error behind an application error from `request`. */
+export function causeOf(error: unknown): unknown {
+  return error instanceof Error ? error.cause : undefined
+}
+
 /**
  * Turns a failed Zernio call into an application error. `action` completes the
  * sentence "Couldn't ...", for example "create the automation".

@@ -8,10 +8,18 @@ import {
   updateAutomationSchema,
 } from "../../contract/automation"
 import { sendMessageSchema } from "../../contract/inbox"
+import {
+  POST_LIMITS,
+  createMediaUploadSchema,
+  schedulePostSchema,
+  scheduledPostRangeSchema,
+  updateScheduledPostSchema,
+} from "../../contract/post"
 import type { AgentIdentity } from "../../http/context"
 import {
   presentAccount,
   presentAutomation,
+  presentScheduledPost,
   presentWorkspace,
 } from "../../http/presenters"
 import { validate } from "../../http/validation"
@@ -73,6 +81,7 @@ function operation<Schema extends z.ZodObject, Name extends string>(
 
 const noInput = z.object({})
 const automationId = z.object({ automationId: z.uuid() })
+const postId = z.object({ postId: z.uuid() })
 const accountId = z.object({ accountId: z.uuid() })
 const thread = accountId.extend({
   conversationId: z
@@ -143,7 +152,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_automation",
     description:
-      "Create an Instagram comment-to-DM automation. Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment.",
+      "Create an Instagram comment-to-DM automation. Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
     scope: "automations:write",
     schema: createAutomationSchema,
     run: async ({ workspace, services }, input) =>
@@ -197,6 +206,74 @@ export const AGENT_OPERATIONS = [
         limit,
         offset,
       }),
+  }),
+  operation({
+    name: "list_scheduled_posts",
+    description: `List posts scheduled through aghost whose time falls in [from, to), earliest first, with their publishing status. Periods can be up to ${POST_LIMITS.maxRangeDays} days.`,
+    scope: "posts:read",
+    schema: scheduledPostRangeSchema,
+    run: async ({ workspace, services }, range) =>
+      (await services.posts.list(workspace, range)).map(presentScheduledPost),
+  }),
+  operation({
+    name: "get_scheduled_post",
+    description:
+      "Get a scheduled post's content, time, publishing status and the automations that answer its comments. Once published it has a platformPostId and permalink; a failed post has an error.",
+    scope: "posts:read",
+    schema: postId,
+    run: async ({ workspace, services }, { postId }) =>
+      presentScheduledPost(await services.posts.get(workspace, postId)),
+  }),
+  operation({
+    name: "create_media_upload",
+    description:
+      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post. Media already at a public https URL needs no upload.",
+    scope: "posts:write",
+    schema: createMediaUploadSchema,
+    run: ({ services }, input) => services.posts.createUpload(input),
+  }),
+  operation({
+    name: "schedule_post",
+    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. A post with one video publishes as a reel, and 2-10 items as a carousel. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
+    scope: "posts:write",
+    schema: schedulePostSchema,
+    run: async ({ workspace, services, apiKey }, input) => {
+      if (input.automation && !apiKey.scopes.includes("automations:write"))
+        throw new ForbiddenError("automations:write")
+      return presentScheduledPost(
+        await services.posts.schedule(workspace, input)
+      )
+    },
+  }),
+  operation({
+    name: "update_scheduled_post",
+    description:
+      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write. If that automation fails, the previous post is restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
+    scope: "posts:write",
+    schema: postId.extend({ input: updateScheduledPostSchema }),
+    destructive: true,
+    run: async ({ workspace, services, apiKey }, { postId, input }) => {
+      if (input.automation && !apiKey.scopes.includes("automations:write"))
+        throw new ForbiddenError("automations:write")
+      return presentScheduledPost(
+        await services.posts.update(workspace, postId, input)
+      )
+    },
+  }),
+  operation({
+    name: "delete_scheduled_post",
+    description:
+      "Cancel a scheduled or failed post and delete the automations attached to it, which also requires automations:write. Published posts stay on Instagram and cannot be deleted here.",
+    scope: "posts:write",
+    destructive: true,
+    schema: postId,
+    run: async ({ workspace, services, apiKey }, { postId }) => {
+      await services.posts.delete(
+        workspace,
+        postId,
+        apiKey.scopes.includes("automations:write")
+      )
+    },
   }),
   operation({
     name: "list_contacts",

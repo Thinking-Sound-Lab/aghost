@@ -15,6 +15,7 @@ import {
   ValidationError,
 } from "../../shared/errors"
 import type { AccountRecord } from "../accounts/account"
+import type { ScheduledPostRecord } from "../posts/post"
 import {
   actorOf,
   type ProductAnalytics,
@@ -26,6 +27,7 @@ import type { AutomationConfig, AutomationRecord } from "./automation"
 import type {
   ActivityPageRequest,
   AutomationProvider,
+  PostBinding,
 } from "./automation.provider"
 import type { AutomationRepository } from "./automation.repository"
 
@@ -39,6 +41,17 @@ export interface PostCatalog {
   listRecentPosts(providerAccountId: string): Promise<InstagramPost[]>
 }
 
+/** Looks up the posts scheduled in a workspace. */
+export interface ScheduledPosts {
+  findById(workspaceId: string, id: string): Promise<ScheduledPostRecord | null>
+}
+
+/** A trigger ready to store, and the post the provider should watch for it. */
+type ResolvedTrigger<Binding extends PostBinding | null> = {
+  trigger: AutomationTrigger
+  binding: Binding
+}
+
 /** Checks that the workspace's plan lets automations run. */
 export interface AutomationPlan {
   assertCanRunAutomations(workspace: WorkspaceRecord): Promise<void>
@@ -50,6 +63,7 @@ export class AutomationService {
     private readonly provider: AutomationProvider,
     private readonly accounts: AutomationAccounts,
     private readonly posts: PostCatalog,
+    private readonly scheduledPosts: ScheduledPosts,
     private readonly plan: AutomationPlan,
     private readonly operations: WorkspaceOperations,
     private readonly analytics: ProductAnalytics
@@ -90,9 +104,15 @@ export class AutomationService {
     if (input.status === "active")
       await this.plan.assertCanRunAutomations(workspace)
 
+    const { trigger, binding } = await this.resolveTrigger(
+      workspace.id,
+      account,
+      input.trigger,
+      null
+    )
     const config: AutomationConfig = {
       name: input.name,
-      trigger: await this.resolveTrigger(account, input.trigger, null),
+      trigger,
       keywords: input.keywords,
       matchMode: input.matchMode,
       openingDm: input.openingDm,
@@ -108,7 +128,8 @@ export class AutomationService {
         providerAccountId: account.providerAccountId,
       },
       config,
-      input.status
+      input.status,
+      binding
     )
 
     let created: AutomationRecord
@@ -154,13 +175,15 @@ export class AutomationService {
       await this.plan.assertCanRunAutomations(workspace)
     }
 
+    const { trigger, binding } = await this.resolveTrigger(
+      workspace.id,
+      account,
+      input.trigger,
+      current.trigger
+    )
     const config: AutomationConfig = {
       name: input.name,
-      trigger: await this.resolveTrigger(
-        account,
-        input.trigger,
-        current.trigger
-      ),
+      trigger,
       keywords: input.keywords,
       matchMode: input.matchMode,
       openingDm: input.openingDm,
@@ -173,7 +196,8 @@ export class AutomationService {
     await this.provider.update(
       current.providerAutomationId,
       config,
-      input.status
+      input.status,
+      binding
     )
 
     const updated = await this.automations.updateConfig(
@@ -240,22 +264,43 @@ export class AutomationService {
     workspace: WorkspaceOwner,
     accountId: string
   ): Promise<void> {
-    return this.operations.run(workspace.id, async () => {
-      const automations = await this.automations.listByAccount(
-        workspace.id,
-        accountId
+    return this.operations.run(workspace.id, async () =>
+      this.removeAll(
+        workspace,
+        await this.automations.listByAccount(workspace.id, accountId),
+        "account_removed"
       )
+    )
+  }
 
-      for (const automation of automations) {
-        await this.provider.delete(automation.providerAutomationId)
-        await this.automations.delete(workspace.id, automation.id)
-        this.record(workspace, {
-          name: "automation_deleted",
-          automation_id: automation.id,
-          reason: "account_removed",
-        })
-      }
-    })
+  /** Deletes the automations that answer a scheduled post being deleted. */
+  async deleteAllForScheduledPost(
+    workspace: WorkspaceOwner,
+    postId: string
+  ): Promise<void> {
+    return this.operations.run(workspace.id, async () =>
+      this.removeAll(
+        workspace,
+        await this.automations.listByScheduledPost(workspace.id, postId),
+        "post_deleted"
+      )
+    )
+  }
+
+  private async removeAll(
+    workspace: WorkspaceOwner,
+    automations: AutomationRecord[],
+    reason: "account_removed" | "post_deleted"
+  ): Promise<void> {
+    for (const automation of automations) {
+      await this.provider.delete(automation.providerAutomationId)
+      await this.automations.delete(workspace.id, automation.id)
+      this.record(workspace, {
+        name: "automation_deleted",
+        automation_id: automation.id,
+        reason,
+      })
+    }
   }
 
   /** Pauses every running automation, for a workspace whose plan has ended. */
@@ -352,15 +397,42 @@ export class AutomationService {
   /**
    * Turns the requested trigger into one the product can store. A post is
    * looked up on the account itself, which both confirms it belongs there and
-   * supplies its caption and link. An unchanged post keeps what is stored.
+   * supplies its caption and link. An unchanged trigger keeps what is stored,
+   * and its binding is null so the provider keeps watching the same post.
    */
   private async resolveTrigger(
+    workspaceId: string,
+    account: AccountRecord,
+    requested: AutomationTriggerInput,
+    current: null
+  ): Promise<ResolvedTrigger<PostBinding>>
+  private async resolveTrigger(
+    workspaceId: string,
+    account: AccountRecord,
+    requested: AutomationTriggerInput,
+    current: AutomationTrigger
+  ): Promise<ResolvedTrigger<PostBinding | null>>
+  private async resolveTrigger(
+    workspaceId: string,
     account: AccountRecord,
     requested: AutomationTriggerInput,
     current: AutomationTrigger | null
-  ): Promise<AutomationTrigger> {
+  ): Promise<ResolvedTrigger<PostBinding | null>> {
     if (requested.postScope === "any_post") {
-      return { postScope: "any_post" }
+      return {
+        trigger: { postScope: "any_post" },
+        binding:
+          current?.postScope === "any_post" ? null : { scope: "any_post" },
+      }
+    }
+
+    if (requested.postScope === "scheduled_post") {
+      return this.resolveScheduledPost(
+        workspaceId,
+        account,
+        requested.scheduledPostId,
+        current
+      )
     }
 
     const unchanged =
@@ -368,7 +440,7 @@ export class AutomationService {
       current.post.platformPostId === requested.platformPostId
 
     if (unchanged) {
-      return current
+      return { trigger: current, binding: null }
     }
 
     assertConnected(account)
@@ -385,11 +457,64 @@ export class AutomationService {
     }
 
     return {
-      postScope: "specific_post",
-      post: {
+      trigger: {
+        postScope: "specific_post",
+        post: {
+          platformPostId: post.platformPostId,
+          caption: post.caption,
+          permalink: post.permalink,
+        },
+      },
+      binding: {
+        scope: "platform_post",
         platformPostId: post.platformPostId,
         caption: post.caption,
-        permalink: post.permalink,
+      },
+    }
+  }
+
+  /** A post scheduled in aghost that has yet to publish. */
+  private async resolveScheduledPost(
+    workspaceId: string,
+    account: AccountRecord,
+    scheduledPostId: string,
+    current: AutomationTrigger | null
+  ): Promise<ResolvedTrigger<PostBinding | null>> {
+    if (
+      current?.postScope === "scheduled_post" &&
+      current.scheduledPost.id === scheduledPostId
+    ) {
+      return { trigger: current, binding: null }
+    }
+
+    const post = await this.scheduledPosts.findById(
+      workspaceId,
+      scheduledPostId
+    )
+    const invalid = (message: string) =>
+      new ValidationError({ "trigger.scheduledPostId": message })
+
+    if (!post || post.accountId !== account.id) {
+      throw invalid("Choose one of this account's scheduled posts.")
+    }
+    if (post.kind === "story") {
+      throw invalid("Stories have no comments to answer.")
+    }
+    if (post.status !== "scheduled") {
+      throw invalid(
+        "This post is no longer waiting to publish. Choose it from the account's posts instead."
+      )
+    }
+
+    return {
+      trigger: {
+        postScope: "scheduled_post",
+        scheduledPost: { id: post.id, caption: post.caption },
+      },
+      binding: {
+        scope: "scheduled_post",
+        providerPostId: post.providerPostId,
+        caption: post.caption,
       },
     }
   }

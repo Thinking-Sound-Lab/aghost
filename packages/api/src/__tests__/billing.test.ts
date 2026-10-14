@@ -136,15 +136,18 @@ function service(
   connected = 0
 ) {
   const pauseAll = vi.fn(async () => {})
+  const cancelAll = vi.fn(async () => {})
   const recorded = recordingAnalytics()
   return {
     pauseAll,
+    cancelAll,
     recorded,
     billing: new BillingService(
       repository,
       billingProvider,
       { countConnected: async () => connected },
       { pauseAll },
+      { cancelAll },
       pages,
       { run: (_workspaceId, work) => work() },
       recorded.source("webhook")
@@ -563,7 +566,7 @@ describe("billing", () => {
       providerCustomerId: "cus_1",
       subscription: subscription({ plan: "business" }),
     })
-    const { billing, pauseAll } = service(
+    const { billing, pauseAll, cancelAll } = service(
       repository,
       provider({ getSubscription: async () => subscription({ plan: "pro" }) }),
       3
@@ -572,16 +575,18 @@ describe("billing", () => {
     expect(pauseAll).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ id: workspace.id, ownerId: workspace.ownerId })
     )
+    // The plan continues, so its owner can still manage scheduled posts.
+    expect(cancelAll).not.toHaveBeenCalled()
   })
 
-  it("applies the subscription Dodo reports and pauses automations when the plan ends", async () => {
+  it("applies the subscription Dodo reports and stops automations and posts when the plan ends", async () => {
     const repository = memoryRepository({
       workspaceId: workspace.id,
       providerCustomerId: "cus_1",
       subscription: subscription(),
     })
     const onHold = subscription({ status: "on_hold" })
-    const { billing, pauseAll, recorded } = service(
+    const { billing, pauseAll, cancelAll, recorded } = service(
       repository,
       provider({ getSubscription: async () => onHold })
     )
@@ -614,7 +619,50 @@ describe("billing", () => {
     expect(pauseAll).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ id: workspace.id, ownerId: workspace.ownerId })
     )
+    expect(cancelAll).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: workspace.id, ownerId: workspace.ownerId })
+    )
   })
+
+  it.each(["pause", "cancel", "both"] as const)(
+    "attempts both plan-end cleanups when %s fails, then retries the failure",
+    async (failure) => {
+      const repository = memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription(),
+      })
+      const { billing, pauseAll, cancelAll } = service(
+        repository,
+        provider({
+          getSubscription: async () => subscription({ status: "on_hold" }),
+        })
+      )
+      const pauseError = new Error("Rate limited while pausing automations")
+      const cancelError = new Error("Rate limited while cancelling posts")
+      if (failure !== "cancel") pauseAll.mockRejectedValueOnce(pauseError)
+      if (failure !== "pause") cancelAll.mockRejectedValueOnce(cancelError)
+
+      const attempt = billing.refreshSubscription("sub_1")
+      if (failure === "both")
+        await expect(attempt).rejects.toMatchObject({
+          errors: [pauseError, cancelError],
+        })
+      else
+        await expect(attempt).rejects.toBe(
+          failure === "pause" ? pauseError : cancelError
+        )
+      expect(repository.record?.subscription?.status).toBe("on_hold")
+      expect(pauseAll).toHaveBeenCalledOnce()
+      expect(cancelAll).toHaveBeenCalledOnce()
+
+      await expect(billing.refreshSubscription("sub_1")).resolves.toBe(
+        "processed"
+      )
+      expect(pauseAll).toHaveBeenCalledTimes(2)
+      expect(cancelAll).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it("ignores subscriptions of customers it does not know", async () => {
     const { billing, pauseAll } = service(

@@ -29,6 +29,11 @@ export interface WorkspaceAutomations {
   pauseAll(workspace: WorkspaceOwner): Promise<void>
 }
 
+/** Cancels the posts of a workspace whose plan has ended. */
+export interface WorkspacePosts {
+  cancelAll(workspace: WorkspaceOwner): Promise<void>
+}
+
 /** The signed-in person paying for the workspace. */
 export type Payer = { email: string; name: string }
 
@@ -47,6 +52,7 @@ export class BillingService {
     private readonly provider: BillingProvider,
     private readonly accounts: ConnectedAccounts,
     private readonly automations: WorkspaceAutomations,
+    private readonly posts: WorkspacePosts,
     private readonly pages: BillingPages,
     private readonly operations: WorkspaceOperations,
     private readonly analytics: ProductAnalytics
@@ -357,14 +363,25 @@ export class BillingService {
     workspace: WorkspaceOwner,
     subscription: SubscriptionSnapshot | null
   ): Promise<void> {
-    const connected = await this.accounts.countConnected(workspace.id)
-    if (
-      !subscription ||
-      !isEntitled(subscription.status) ||
-      connected > PLANS[subscription.plan].instagramAccounts
-    ) {
-      await this.automations.pauseAll(workspace)
+    const ended = !subscription || !isEntitled(subscription.status)
+    if (ended) {
+      // Each cleanup must run even if the other provider operation fails.
+      // Report failures after both finish so webhook retries can finish them.
+      const results = await Promise.allSettled([
+        this.automations.pauseAll(workspace),
+        this.posts.cancelAll(workspace),
+      ])
+      const failures = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : []
+      )
+      if (failures.length === 1) throw failures[0]
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Could not stop workspace activity")
+      return
     }
+    const connected = await this.accounts.countConnected(workspace.id)
+    if (connected > PLANS[subscription.plan].instagramAccounts)
+      await this.automations.pauseAll(workspace)
   }
 
   private async createCustomer(

@@ -48,6 +48,8 @@ type WorkspaceState = {
   loadStats: () => Promise<void>
   applySaved: (automation: Automation) => void
   connect: () => Promise<void>
+  /** Authorizes an account again, to grant the permissions it lacks. */
+  reconnect: (id: string) => Promise<void>
   sync: () => Promise<void>
   toggle: (automation: Automation) => Promise<void>
   removeAutomation: (id: string) => Promise<void>
@@ -138,6 +140,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ busy: true, error: null })
     try {
       const { authUrl } = await api.accounts.connect()
+      window.location.assign(authUrl)
+    } catch (error) {
+      set({ error: errorMessage(error), busy: false })
+    }
+  },
+  reconnect: async (id) => {
+    if (get().busy) return
+    set({ busy: true, error: null })
+    try {
+      const { authUrl } = await api.accounts.reconnect(id)
       window.location.assign(authUrl)
     } catch (error) {
       set({ error: errorMessage(error), busy: false })
