@@ -79,6 +79,12 @@ export const useUploadLinkStore = create<UploadLinkState>((set, get) => {
     addFiles: async (files) => {
       const { link, media, uploads, sending } = get()
       if (link?.status !== "waiting") return
+      // The page may have stayed open past the time the link stops taking
+      // files, which the upload would only find out after sending them.
+      if (Date.parse(link.expiresAt) <= Date.now()) {
+        set({ link: { ...link, status: "expired" } })
+        return
+      }
       // A batch keeps selection order; the next batch waits for it.
       if (uploads.length > 0 || sending) {
         set({ error: "Wait for the current uploads to finish." })

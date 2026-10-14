@@ -109,6 +109,23 @@ describe("the page where the owner uploads files for an agent", () => {
     expect(api.media.upload).not.toHaveBeenCalled()
   })
 
+  it("shows a link that expired while the page was open instead of uploading to it", async () => {
+    // Loaded while it still took files; its time has passed since.
+    const opened = link({
+      expiresAt: new Date(Date.now() - 1_000).toISOString(),
+    })
+    vi.mocked(api.uploadLinks.get).mockResolvedValue(opened)
+    await useUploadLinkStore.getState().load(LINK_ID)
+    await useUploadLinkStore
+      .getState()
+      .addFiles([new File(["video"], "clip.mp4", { type: "video/mp4" })])
+    expect(api.media.upload).not.toHaveBeenCalled()
+    expect(useUploadLinkStore.getState()).toMatchObject({
+      link: { ...opened, status: "expired" },
+      uploads: [],
+    })
+  })
+
   it("keeps the uploads that finished and reports the one that failed", async () => {
     vi.mocked(api.uploadLinks.get).mockResolvedValue(link())
     await useUploadLinkStore.getState().load(LINK_ID)
