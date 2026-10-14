@@ -61,6 +61,28 @@ function post(automationIds: string[] = []): ScheduledPost {
   }
 }
 
+function automationFor(saved: ScheduledPost): Automation {
+  return {
+    id: saved.automationIds[0]!,
+    instagramAccountId: account.id,
+    name: "Guide",
+    status: "active",
+    trigger: {
+      postScope: "scheduled_post",
+      scheduledPost: { id: saved.id, caption: saved.caption },
+    },
+    keywords: [],
+    matchMode: "word",
+    openingDm: null,
+    dmMessage: "Guide",
+    dmButtons: [],
+    commentReply: null,
+    requireFollow: false,
+    createdAt: saved.createdAt,
+    updatedAt: saved.updatedAt,
+  }
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((finish) => {
@@ -94,7 +116,10 @@ describe("the scheduling composer across failures and navigation", () => {
     useComposerStore.setState(useComposerStore.getInitialState(), true)
     useCalendarStore.setState(useCalendarStore.getInitialState(), true)
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
-    useWorkspaceStore.setState({ accounts: [account] })
+    useWorkspaceStore.setState({
+      workspace: { id: "workspace", name: "Workspace" },
+      accounts: [account],
+    })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
     vi.mocked(api.automations.stats).mockResolvedValue({})
   })
@@ -107,6 +132,9 @@ describe("the scheduling composer across failures and navigation", () => {
       new Error("Refresh failed")
     )
     expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(api.automations.get).toHaveBeenCalledExactlyOnceWith(
+      saved.automationIds[0]
+    )
     expect(useComposerStore.getState()).toMatchObject({
       id: saved.id,
       post: saved,
@@ -128,35 +156,14 @@ describe("the scheduling composer across failures and navigation", () => {
     "refreshes the automation after leaving only for the same workspace (%s)",
     async (sameWorkspace) => {
       await draft(true)
-      useWorkspaceStore.setState({
-        workspace: { id: "workspace", name: "Workspace" },
-      })
-      const saved = post(["automation"])
+      const saved = post(["33333333-3333-4333-8333-333333333333"])
       const refreshing = deferred<Automation>()
       vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
       vi.mocked(api.automations.get).mockReturnValue(refreshing.promise)
       expect(await useComposerStore.getState().save()).toEqual(saved)
       useComposerStore.getState().leave()
       if (!sameWorkspace) useWorkspaceStore.getState().clear()
-      const automation: Automation = {
-        id: "automation",
-        instagramAccountId: account.id,
-        name: "Guide",
-        status: "active",
-        trigger: {
-          postScope: "scheduled_post",
-          scheduledPost: { id: saved.id, caption: saved.caption },
-        },
-        keywords: [],
-        matchMode: "word",
-        openingDm: null,
-        dmMessage: "Guide",
-        dmButtons: [],
-        commentReply: null,
-        requireFollow: false,
-        createdAt: saved.createdAt,
-        updatedAt: saved.updatedAt,
-      }
+      const automation = automationFor(saved)
       refreshing.resolve(automation)
       await refreshing.promise
       expect(useWorkspaceStore.getState().automations).toEqual(
@@ -239,13 +246,14 @@ describe("the scheduling composer across failures and navigation", () => {
     expect(useCalendarStore.getState().posts).toEqual([])
   })
 
-  it("ignores a save that completes after the composer has been left", async () => {
+  it("adds a save that completes after the composer has been left to the calendar only", async () => {
     await draft()
     const saving = deferred<ScheduledPost>()
     vi.mocked(api.scheduledPosts.create).mockReturnValueOnce(saving.promise)
     const pending = useComposerStore.getState().save()
     useComposerStore.getState().leave()
-    saving.resolve(post())
+    const saved = post()
+    saving.resolve(saved)
     expect(await pending).toBeNull()
     expect(useComposerStore.getState()).toMatchObject({
       id: null,
@@ -253,5 +261,41 @@ describe("the scheduling composer across failures and navigation", () => {
       status: "idle",
       busy: false,
     })
+    expect(useCalendarStore.getState().posts).toEqual([saved])
+  })
+
+  it("removes a post deleted after the composer has been left from both lists", async () => {
+    const saved = post(["33333333-3333-4333-8333-333333333333"])
+    const automation = automationFor(saved)
+    useCalendarStore.setState({ posts: [saved] })
+    useWorkspaceStore.setState({ automations: [automation] })
+    vi.mocked(api.scheduledPosts.get).mockResolvedValue(saved)
+    await useComposerStore.getState().initialize(saved.id, null)
+    const removing = deferred<void>()
+    vi.mocked(api.scheduledPosts.remove).mockReturnValueOnce(removing.promise)
+    const pending = useComposerStore.getState().remove()
+    useComposerStore.getState().leave()
+    removing.resolve()
+    expect(await pending).toBe(false)
+    expect(useCalendarStore.getState().posts).toEqual([])
+    expect(useWorkspaceStore.getState().automations).toEqual([])
+  })
+
+  it("drops an automation refresh that lands after its post was deleted", async () => {
+    await draft(true)
+    const saved = post(["33333333-3333-4333-8333-333333333333"])
+    const refreshing = deferred<Automation>()
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.automations.get).mockReturnValueOnce(refreshing.promise)
+    expect(await useComposerStore.getState().save()).toEqual(saved)
+    useComposerStore.getState().leave()
+    vi.mocked(api.scheduledPosts.get).mockResolvedValue(saved)
+    await useComposerStore.getState().initialize(saved.id, null)
+    vi.mocked(api.scheduledPosts.remove).mockResolvedValue()
+    expect(await useComposerStore.getState().remove()).toBe(true)
+    refreshing.resolve(automationFor(saved))
+    await refreshing.promise
+    expect(useWorkspaceStore.getState().automations).toEqual([])
+    expect(useCalendarStore.getState().posts).toEqual([])
   })
 })

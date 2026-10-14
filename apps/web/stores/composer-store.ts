@@ -51,6 +51,8 @@ type ComposerState = {
   error: string | null
   fields: Record<string, string>
   busy: boolean
+  /** Posts deleted since the app opened; late results must not restore them. */
+  removed: string[]
   initialize: (id: string | null, day: string | null) => Promise<void>
   leave: () => void
   patch: (patch: Partial<Draft>) => void
@@ -108,6 +110,14 @@ function fieldsOf(issues: { path: PropertyKey[]; message: string }[]) {
   return fields
 }
 
+/** Whether the workspace a request started in is still the one open. */
+function inWorkspace(workspaceId: string | undefined): boolean {
+  return (
+    workspaceId !== undefined &&
+    useWorkspaceStore.getState().workspace?.id === workspaceId
+  )
+}
+
 export const useComposerStore = create<ComposerState>((set, get) => ({
   revision: 0,
   id: null,
@@ -129,6 +139,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   error: null,
   fields: {},
   busy: false,
+  removed: [],
   initialize: async (id, day) => {
     const revision = get().revision + 1
     set({
@@ -321,24 +332,27 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       const post = state.id
         ? await api.scheduledPosts.update(state.id, { ...content, automation })
         : await api.scheduledPosts.create(input)
+      // The lists belong to the workspace, so they take the change even after
+      // the owner has left this draft.
+      const current = () =>
+        inWorkspace(workspaceId) && !get().removed.includes(post.id)
+      if (current()) {
+        useCalendarStore.getState().applySaved(post)
+        if (automation && post.automationIds[0])
+          void api.automations
+            .get(post.automationIds[0])
+            .then((item) => {
+              // Deleting the post meanwhile took its automation with it.
+              if (current()) useWorkspaceStore.getState().applySaved(item)
+            })
+            .catch(() => {
+              // This optional cache read does not change the saved post.
+            })
+      }
       if (!ownsDraft()) return null
-      useCalendarStore.getState().applySaved(post)
       // The server has saved both. A cache refresh cannot turn that success
       // into another creation attempt or leave Delete without a post id.
       set({ id: post.id, post })
-      if (automation && post.automationIds[0]) {
-        void api.automations
-          .get(post.automationIds[0])
-          .then((item) => {
-            // This cache belongs to the workspace, including after navigation.
-            const workspace = useWorkspaceStore.getState()
-            if (workspaceId && workspace.workspace?.id === workspaceId)
-              workspace.applySaved(item)
-          })
-          .catch(() => {
-            // This optional cache read does not change the saved post.
-          })
-      }
       return post
     } catch (error) {
       if (ownsDraft())
@@ -354,21 +368,24 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   remove: async () => {
     const { id, busy, revision } = get()
     if (!id || busy) return false
+    const workspaceId = useWorkspaceStore.getState().workspace?.id
     set({ busy: true, error: null })
     try {
       await api.scheduledPosts.remove(id)
-      if (get().revision !== revision) return false
-      useCalendarStore.getState().applyRemoved(id)
-      // Its automations were deleted with it.
-      const workspace = useWorkspaceStore.getState()
-      useWorkspaceStore.setState({
-        automations: workspace.automations.filter(
-          (item) =>
-            item.trigger.postScope !== "scheduled_post" ||
-            item.trigger.scheduledPost.id !== id
-        ),
-      })
-      return true
+      set({ removed: [...get().removed, id] })
+      if (inWorkspace(workspaceId)) {
+        useCalendarStore.getState().applyRemoved(id)
+        // Its automations were deleted with it.
+        const workspace = useWorkspaceStore.getState()
+        useWorkspaceStore.setState({
+          automations: workspace.automations.filter(
+            (item) =>
+              item.trigger.postScope !== "scheduled_post" ||
+              item.trigger.scheduledPost.id !== id
+          ),
+        })
+      }
+      return get().revision === revision
     } catch (error) {
       if (get().revision === revision) set({ error: errorMessage(error) })
       return false
