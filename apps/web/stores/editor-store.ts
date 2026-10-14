@@ -1,13 +1,16 @@
 import { create } from "zustand"
 import {
+  POST_LIMITS,
   createAutomationSchema,
   updateAutomationSchema,
   type Automation,
   type AutomationActivityPage,
   type CreateAutomationInput,
   type InstagramPost,
+  type ScheduledPost,
 } from "@workspace/api/contract"
 import { ApiClientError } from "@workspace/api/client"
+import { keywordsOf } from "@/features/automations/automation-fields"
 import { api } from "@/lib/api"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
@@ -21,6 +24,8 @@ type EditorState = {
   step: number
   preview: "post" | "dm"
   posts: InstagramPost[]
+  /** The account's posts still waiting to publish, which can trigger it too. */
+  scheduledPosts: ScheduledPost[]
   status: "idle" | "loading" | "ready" | "error"
   postsLoading: boolean
   postsError: string | null
@@ -64,6 +69,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   step: 0,
   preview: "post",
   posts: [],
+  scheduledPosts: [],
   status: "idle",
   postsLoading: false,
   postsError: null,
@@ -85,6 +91,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       step: id ? LAST_STEP : 0,
       preview: "post",
       posts: [],
+      scheduledPosts: [],
       status: "loading",
       error: null,
       fields: {},
@@ -98,10 +105,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           trigger:
             item.trigger.postScope === "any_post"
               ? { postScope: "any_post" }
-              : {
-                  postScope: "specific_post",
-                  platformPostId: item.trigger.post.platformPostId,
-                },
+              : item.trigger.postScope === "scheduled_post"
+                ? {
+                    postScope: "scheduled_post",
+                    scheduledPostId: item.trigger.scheduledPost.id,
+                  }
+                : {
+                    postScope: "specific_post",
+                    platformPostId: item.trigger.post.platformPostId,
+                  },
         }
         set({
           draft,
@@ -125,12 +137,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({
       draft: { ...get().draft, instagramAccountId: id },
       posts: [],
+      scheduledPosts: [],
       postsLoading: true,
       postsError: null,
     })
     try {
-      const posts = await api.accounts.posts(id)
-      if (get().draft.instagramAccountId === id) set({ posts })
+      const { trigger } = get().draft
+      const chosen =
+        trigger.postScope === "scheduled_post" ? trigger.scheduledPostId : null
+      const now = Date.now()
+      const [posts, upcoming, current] = await Promise.all([
+        api.accounts.posts(id),
+        api.scheduledPosts.list({
+          from: new Date(now).toISOString(),
+          to: new Date(
+            now + POST_LIMITS.maxRangeDays * 86_400_000
+          ).toISOString(),
+        }),
+        // The chosen post may have published since, or be further ahead.
+        chosen ? api.scheduledPosts.get(chosen) : null,
+      ])
+      const scheduledPosts = upcoming.filter(
+        (post) =>
+          post.instagramAccountId === id &&
+          post.status === "scheduled" &&
+          post.kind === "post" &&
+          post.id !== current?.id
+      )
+      if (current?.instagramAccountId === id) scheduledPosts.unshift(current)
+      if (get().draft.instagramAccountId === id) set({ posts, scheduledPosts })
     } catch (error) {
       if (get().draft.instagramAccountId === id)
         set({ postsError: errorMessage(error) })
@@ -140,16 +175,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   save: async (status) => {
     if (get().busy) return null
-    const input = {
-      ...get().draft,
-      status,
-      keywords: get().anyWord
-        ? []
-        : get()
-            .keywordText.split(",")
-            .map((item) => item.trim())
-            .filter(Boolean),
-    }
+    const input = { ...get().draft, status, keywords: keywordsOf(get()) }
     const result = createAutomationSchema.safeParse(input)
     if (!result.success) {
       const fields: Record<string, string> = {}

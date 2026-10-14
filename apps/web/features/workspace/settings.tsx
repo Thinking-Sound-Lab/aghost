@@ -221,9 +221,18 @@ function Channels() {
               >
                 {account.status === "connected" ? "Connected" : "Disconnected"}
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={store.busy}
+                title="Authorize again, including permission to publish posts"
+                onClick={() => void store.reconnect(account.id)}
+              >
+                Reconnect
+              </Button>
               <ConfirmButton
                 title={`Disconnect @${account.username}?`}
-                description="Its automations are deleted too."
+                description="Its automations and scheduled posts are deleted too."
                 confirmLabel="Disconnect"
                 busy={store.busy}
                 onConfirm={() => store.removeAccount(account.id)}

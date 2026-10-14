@@ -142,12 +142,13 @@ export default function Page() {
           <p>
             Social media management includes planning content, publishing,
             answering your audience, and measuring results. aghost focuses on
-            Instagram engagement after you publish: delivering requested links,
-            managing DM conversations, and tracking automation activity.
+            Instagram engagement: scheduling a post together with the automation
+            that answers its comments, delivering requested links, managing DM
+            conversations, and tracking automation activity.
           </p>
           <p>
-            Use it alongside the tools you use to plan and publish your posts.
-            Your dashboard and AI agent work with the same automations,
+            Use it alongside the tools you use for other networks. Your
+            dashboard and AI agent work with the same posts, automations,
             contacts, inbox, and stats.
           </p>
         </div>

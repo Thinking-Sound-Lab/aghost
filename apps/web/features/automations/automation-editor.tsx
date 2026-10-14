@@ -4,11 +4,8 @@ import { useEffect, type FormEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, X } from "lucide-react"
-import {
-  AUTOMATION_LIMITS,
-  PERSONALIZATION_TOKENS,
-} from "@workspace/api/contract"
+import { ArrowLeft } from "lucide-react"
+import { AUTOMATION_LIMITS } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import {
@@ -17,22 +14,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
-import { Input } from "@workspace/ui/components/input"
-import { Switch } from "@workspace/ui/components/switch"
-import { Textarea } from "@workspace/ui/components/textarea"
-import {
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  Panel,
-} from "@/components/interface"
+import { EmptyState, ErrorBanner, Loading, Panel } from "@/components/interface"
 import { Instagram } from "@/components/instagram-icon"
+import {
+  AutomationFields,
+  keywordsOf,
+  Option,
+  Step,
+} from "@/features/automations/automation-fields"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
+import {
+  MediaThumb,
+  previewOf,
+  timeLabel,
+} from "@/features/calendar/post-media"
 import { LAST_STEP, useEditorStore } from "@/stores/editor-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-
-const KEYWORD_EXAMPLES = ["Price", "Link", "Shop"]
 
 export function AutomationEditor({ id }: { id?: string }) {
   const editor = useEditorStore()
@@ -81,10 +78,13 @@ export function AutomationEditor({ id }: { id?: string }) {
       : null
   const selectedPost =
     editor.posts.find((post) => post.platformPostId === selectedPostId) ?? null
-  const keywords = editor.keywordText
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)
+  const scheduledPostId =
+    draft.trigger.postScope === "scheduled_post"
+      ? draft.trigger.scheduledPostId
+      : null
+  const scheduledPost =
+    editor.scheduledPosts.find((post) => post.id === scheduledPostId) ?? null
+  const keywords = keywordsOf(editor)
   const show = (step: number) => editor.step >= step
 
   async function save(status: "active" | "paused") {
@@ -165,6 +165,29 @@ export function AutomationEditor({ id }: { id?: string }) {
                   </p>
                 )}
               </Option>
+              {(editor.scheduledPosts.length > 0 || scheduledPostId) && (
+                <Option
+                  name="post"
+                  label="a post scheduled in the calendar"
+                  checked={draft.trigger.postScope === "scheduled_post"}
+                  onSelect={() =>
+                    editor.patch({
+                      trigger: {
+                        postScope: "scheduled_post",
+                        scheduledPostId:
+                          scheduledPostId ?? editor.scheduledPosts[0]!.id,
+                      },
+                    })
+                  }
+                >
+                  <ScheduledPostPicker />
+                  {fields["trigger.scheduledPostId"] && (
+                    <p className="mt-2 text-xs text-destructive">
+                      {fields["trigger.scheduledPostId"]}
+                    </p>
+                  )}
+                </Option>
+              )}
               <Option
                 name="post"
                 label="any post or reel"
@@ -176,250 +199,18 @@ export function AutomationEditor({ id }: { id?: string }) {
             </Step>
 
             {show(1) && (
-              <Step
-                title="And this comment has"
-                onFocus={() => useEditorStore.setState({ preview: "post" })}
-              >
-                <Option
-                  name="words"
-                  label="a specific word or words"
-                  checked={!editor.anyWord}
-                  onSelect={() => useEditorStore.setState({ anyWord: false })}
-                >
-                  <Field
-                    error={fields.keywords ?? fields["keywords.0"]}
-                    hint="Use commas to separate words"
-                  >
-                    <Input
-                      autoFocus={!id}
-                      placeholder="Enter a word or multiple"
-                      value={editor.keywordText}
-                      onChange={(event) =>
-                        useEditorStore.setState({
-                          keywordText: event.target.value,
-                          fields: {},
-                        })
-                      }
-                    />
-                  </Field>
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    For example:
-                    {KEYWORD_EXAMPLES.map((word) => (
-                      <button
-                        key={word}
-                        type="button"
-                        className="rounded-full bg-card px-2 py-0.5 hover:text-foreground"
-                        onClick={() =>
-                          useEditorStore.setState({
-                            keywordText: [...keywords, word].join(", "),
-                          })
-                        }
-                      >
-                        {word}
-                      </button>
-                    ))}
-                  </div>
-                </Option>
-                <Option
-                  name="words"
-                  label="any word"
-                  checked={editor.anyWord}
-                  onSelect={() => useEditorStore.setState({ anyWord: true })}
-                />
-              </Step>
-            )}
-
-            {show(2) && (
-              <Step
-                title="They will get"
-                onFocus={() => useEditorStore.setState({ preview: "dm" })}
-              >
-                <Card
-                  title="an opening DM"
-                  enabled={draft.openingDm !== null}
-                  onToggle={(on) =>
-                    editor.patch({
-                      openingDm: on
-                        ? { message: "", buttonLabel: "Send me the link" }
-                        : null,
-                    })
-                  }
-                >
-                  {draft.openingDm && (
-                    <>
-                      <Field error={fields["openingDm.message"]}>
-                        <Textarea
-                          aria-label="Opening message"
-                          placeholder="Thanks for the comment! Tap below and I'll send you the link."
-                          maxLength={AUTOMATION_LIMITS.openingDmMaxLength}
-                          value={draft.openingDm.message}
-                          onChange={(event) =>
-                            editor.patch({
-                              openingDm: {
-                                ...draft.openingDm!,
-                                message: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </Field>
-                      <Field error={fields["openingDm.buttonLabel"]}>
-                        <Input
-                          aria-label="Opening button label"
-                          maxLength={AUTOMATION_LIMITS.dmButtonLabelMaxLength}
-                          value={draft.openingDm.buttonLabel}
-                          onChange={(event) =>
-                            editor.patch({
-                              openingDm: {
-                                ...draft.openingDm!,
-                                buttonLabel: event.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </Field>
-                    </>
-                  )}
-                </Card>
-
-                <Card title="a DM with the link">
-                  <Field error={fields.dmMessage}>
-                    <Textarea
-                      aria-label="Message"
-                      placeholder="Here's your link!"
-                      maxLength={AUTOMATION_LIMITS.dmMessageMaxLength}
-                      value={draft.dmMessage}
-                      onChange={(event) =>
-                        editor.patch({ dmMessage: event.target.value })
-                      }
-                    />
-                  </Field>
-                  <div className="flex gap-1.5">
-                    {PERSONALIZATION_TOKENS.map((item) => (
-                      <button
-                        key={item.token}
-                        type="button"
-                        className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() =>
-                          editor.patch({
-                            dmMessage: `${draft.dmMessage}${item.token}`,
-                          })
-                        }
-                      >
-                        + {item.label}
-                      </button>
-                    ))}
-                  </div>
-                  {draft.dmButtons.map((button, index) => (
-                    <div key={index} className="grid gap-1.5">
-                      <div className="flex gap-1.5">
-                        <Input
-                          aria-label={`Link ${index + 1}`}
-                          placeholder="https://"
-                          inputMode="url"
-                          value={button.url}
-                          aria-invalid={!!fields[`dmButtons.${index}.url`]}
-                          onChange={(event) =>
-                            editor.patch({
-                              dmButtons: draft.dmButtons.map((item, i) =>
-                                i === index
-                                  ? { ...item, url: event.target.value }
-                                  : item
-                              ),
-                            })
-                          }
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove link ${index + 1}`}
-                          onClick={() =>
-                            editor.patch({
-                              dmButtons: draft.dmButtons.filter(
-                                (_, i) => i !== index
-                              ),
-                            })
-                          }
-                        >
-                          <X />
-                        </Button>
-                      </div>
-                      <Input
-                        aria-label={`Button label ${index + 1}`}
-                        placeholder="Button label"
-                        maxLength={AUTOMATION_LIMITS.dmButtonLabelMaxLength}
-                        value={button.label}
-                        aria-invalid={!!fields[`dmButtons.${index}.label`]}
-                        onChange={(event) =>
-                          editor.patch({
-                            dmButtons: draft.dmButtons.map((item, i) =>
-                              i === index
-                                ? { ...item, label: event.target.value }
-                                : item
-                            ),
-                          })
-                        }
-                      />
-                      {(fields[`dmButtons.${index}.url`] ??
-                        fields[`dmButtons.${index}.label`]) && (
-                        <p className="text-xs text-destructive">
-                          {fields[`dmButtons.${index}.url`] ??
-                            fields[`dmButtons.${index}.label`]}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                  {draft.dmButtons.length < AUTOMATION_LIMITS.maxDmButtons && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="justify-self-start"
-                      onClick={() =>
-                        editor.patch({
-                          dmButtons: [
-                            ...draft.dmButtons,
-                            { label: "", url: "" },
-                          ],
-                        })
-                      }
-                    >
-                      <Plus />
-                      Add link
-                    </Button>
-                  )}
-                </Card>
-
-                <Card
-                  title="a reply to their comment"
-                  enabled={draft.commentReply !== null}
-                  onToggle={(on) =>
-                    editor.patch({ commentReply: on ? "" : null })
-                  }
-                  onFocus={() => useEditorStore.setState({ preview: "post" })}
-                >
-                  {draft.commentReply !== null && (
-                    <Field error={fields.commentReply}>
-                      <Input
-                        aria-label="Public reply"
-                        placeholder="Sent you a DM!"
-                        maxLength={AUTOMATION_LIMITS.commentReplyMaxLength}
-                        value={draft.commentReply}
-                        onChange={(event) =>
-                          editor.patch({ commentReply: event.target.value })
-                        }
-                      />
-                    </Field>
-                  )}
-                </Card>
-
-                <Card
-                  title="the link only if they follow you"
-                  enabled={draft.requireFollow}
-                  onToggle={(on) => editor.patch({ requireFollow: on })}
-                />
-              </Step>
+              <AutomationFields
+                draft={draft}
+                keywords={editor}
+                fields={fields}
+                showResponse={show(2)}
+                autoFocus={!id}
+                onChange={editor.patch}
+                onKeywords={(patch) =>
+                  useEditorStore.setState({ ...patch, fields: {} })
+                }
+                onPreview={(preview) => useEditorStore.setState({ preview })}
+              />
             )}
           </div>
           <footer className="flex shrink-0 items-center gap-2 px-10 pt-4 pb-8">
@@ -457,9 +248,11 @@ export function AutomationEditor({ id }: { id?: string }) {
           post={
             draft.trigger.postScope === "specific_post"
               ? selectedPost
-              : (editor.posts[0] ?? null)
+              : draft.trigger.postScope === "scheduled_post"
+                ? scheduledPost && previewOf(scheduledPost)
+                : (editor.posts[0] ?? null)
           }
-          keyword={editor.anyWord ? null : (keywords[0] ?? null)}
+          keyword={keywords[0] ?? null}
           commentReply={draft.commentReply}
           openingDm={draft.openingDm}
           dmMessage={draft.dmMessage}
@@ -547,6 +340,44 @@ function PostPicker() {
   )
 }
 
+/** Posts waiting to publish: the automation starts once one goes out. */
+function ScheduledPostPicker() {
+  const editor = useEditorStore()
+  const selected =
+    editor.draft.trigger.postScope === "scheduled_post"
+      ? editor.draft.trigger.scheduledPostId
+      : null
+  return (
+    <div className="grid grid-cols-4 gap-1.5">
+      {editor.scheduledPosts.map((post) => (
+        <button
+          key={post.id}
+          type="button"
+          aria-pressed={post.id === selected}
+          title={post.caption ?? undefined}
+          onClick={() =>
+            editor.patch({
+              trigger: {
+                postScope: "scheduled_post",
+                scheduledPostId: post.id,
+              },
+            })
+          }
+          className={cn(
+            "relative aspect-square overflow-hidden rounded-md bg-card text-left ring-offset-2 ring-offset-muted",
+            post.id === selected && "ring-2 ring-foreground"
+          )}
+        >
+          <MediaThumb media={post.media[0]!} />
+          <span className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 text-[10px] text-white">
+            {timeLabel(post.scheduledFor)}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function Thumbnail({
   post,
   selected,
@@ -581,90 +412,5 @@ function Thumbnail({
         </span>
       )}
     </button>
-  )
-}
-
-function Step({
-  title,
-  onFocus,
-  children,
-}: {
-  title: string
-  onFocus: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <section
-      className="grid gap-3"
-      onFocusCapture={onFocus}
-      onPointerDownCapture={onFocus}
-    >
-      <h2 className="mb-1 text-base font-semibold">{title}</h2>
-      {children}
-    </section>
-  )
-}
-
-function Option({
-  name,
-  label,
-  checked,
-  onSelect,
-  children,
-}: {
-  name: string
-  label: string
-  checked: boolean
-  onSelect: () => void
-  children?: React.ReactNode
-}) {
-  return (
-    <div className="rounded-md bg-muted p-4 [&_input]:bg-card">
-      <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-        <input
-          type="radio"
-          name={name}
-          checked={checked}
-          onChange={onSelect}
-          className="size-4 accent-foreground"
-        />
-        {label}
-      </label>
-      {checked && children && <div className="mt-3">{children}</div>}
-    </div>
-  )
-}
-
-function Card({
-  title,
-  enabled,
-  onToggle,
-  onFocus,
-  children,
-}: {
-  title: string
-  enabled?: boolean
-  onToggle?: (on: boolean) => void
-  onFocus?: () => void
-  children?: React.ReactNode
-}) {
-  return (
-    <div
-      className="grid gap-3 rounded-md bg-muted p-4 [&_input]:bg-card [&_textarea]:bg-card"
-      onFocusCapture={onFocus}
-      onPointerDownCapture={onFocus}
-    >
-      <div className="flex items-center justify-between text-sm">
-        {title}
-        {onToggle && (
-          <Switch
-            checked={enabled}
-            aria-label={title}
-            onCheckedChange={(checked) => onToggle(checked)}
-          />
-        )}
-      </div>
-      {children}
-    </div>
   )
 }

@@ -29,6 +29,11 @@ export interface WorkspaceAutomations {
   pauseAll(workspace: WorkspaceOwner): Promise<void>
 }
 
+/** Cancels the posts of a workspace whose plan has ended. */
+export interface WorkspacePosts {
+  cancelAll(workspace: WorkspaceOwner): Promise<void>
+}
+
 /** The signed-in person paying for the workspace. */
 export type Payer = { email: string; name: string }
 
@@ -47,6 +52,7 @@ export class BillingService {
     private readonly provider: BillingProvider,
     private readonly accounts: ConnectedAccounts,
     private readonly automations: WorkspaceAutomations,
+    private readonly posts: WorkspacePosts,
     private readonly pages: BillingPages,
     private readonly operations: WorkspaceOperations,
     private readonly analytics: ProductAnalytics
@@ -358,13 +364,12 @@ export class BillingService {
     subscription: SubscriptionSnapshot | null
   ): Promise<void> {
     const connected = await this.accounts.countConnected(workspace.id)
-    if (
-      !subscription ||
-      !isEntitled(subscription.status) ||
-      connected > PLANS[subscription.plan].instagramAccounts
-    ) {
+    const ended = !subscription || !isEntitled(subscription.status)
+    if (ended || connected > PLANS[subscription.plan].instagramAccounts) {
       await this.automations.pauseAll(workspace)
     }
+    // Without a plan the owner cannot reach the calendar to stop a post.
+    if (ended) await this.posts.cancelAll(workspace)
   }
 
   private async createCustomer(

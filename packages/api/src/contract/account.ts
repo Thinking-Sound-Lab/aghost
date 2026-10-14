@@ -25,6 +25,9 @@ export type InstagramPost = {
   likeCount: number | null
 }
 
+/** Whether aghost may publish posts on the account. */
+export type PublishingAccess = { canPublish: boolean }
+
 export type ConnectInstagramResult = {
   /** Where to send the browser so the user can authorize the connection. */
   authUrl: string

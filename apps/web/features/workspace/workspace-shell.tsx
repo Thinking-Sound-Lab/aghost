@@ -9,6 +9,7 @@ import {
   billingLoginPath,
 } from "@workspace/api/contract"
 import {
+  CalendarDays,
   House,
   Inbox,
   PanelLeft,
@@ -49,6 +50,7 @@ const navigation = [
   { href: "/home", label: "Home", icon: House },
   { href: "/contacts", label: "Contacts", icon: UsersRound },
   { href: "/automations", label: "Automations", icon: Workflow },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ]

@@ -31,7 +31,11 @@ import { count } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
 function summary(item: Automation): string {
-  const post = item.trigger.postScope === "any_post" ? "Any post" : "One post"
+  const post = {
+    any_post: "Any post",
+    specific_post: "One post",
+    scheduled_post: "Scheduled post",
+  }[item.trigger.postScope]
   const words = item.keywords.length ? item.keywords.join(", ") : "Any word"
   return `${post} · ${words}`
 }

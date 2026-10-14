@@ -14,6 +14,7 @@ describe("automation creation compensation", () => {
       insert,
       listByWorkspace: async () => [],
       listByAccount: async () => [],
+      listByScheduledPost: async () => [],
       findById: async () => null,
       updateConfig: async () => {
         throw new Error("Unexpected update")
@@ -52,6 +53,7 @@ describe("automation creation compensation", () => {
         }),
       },
       { listRecentPosts: async () => [] },
+      { findById: async () => null },
       { assertCanRunAutomations: async () => {} },
       { run: (_workspaceId, work) => work() },
       recorded.source("dashboard")

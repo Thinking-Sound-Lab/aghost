@@ -307,12 +307,13 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     ).toBe(400)
   })
 
-  it("builds the Instagram OAuth URL with messaging scopes and persists a verified account", async () => {
+  it("builds the Instagram OAuth URL with publishing and messaging scopes and persists a verified account", async () => {
     const connect = fixture.requests.find(
       (request) => request.path === "/v1/connect/instagram"
     )!
     expect(connect.query.get("profileId")).toBe(profileId)
-    expect(connect.query.get("scopes")).toBe("comments,messaging")
+    expect(connect.query.get("scopes")).toBe("posting,comments,messaging")
+    expect(connect.query.has("reconnectAccountId")).toBe(false)
     expect(connect.query.get("redirect_url")).toBe(
       `${new URL(config.appUrl).origin}/accounts/callback`
     )

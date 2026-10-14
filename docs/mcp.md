@@ -50,6 +50,8 @@ Use your hosted app's URL in place of localhost for remote access. Store the key
 | `accounts:read`     | `list_accounts`, `list_account_posts`                                                    |
 | `automations:read`  | `list_automations`, `get_automation`, `get_automation_stats`, `list_automation_activity` |
 | `automations:write` | `create_automation`, `update_automation`, `set_automation_status`, `delete_automation`   |
+| `posts:read`        | `list_scheduled_posts`, `get_scheduled_post`                                             |
+| `posts:write`       | `create_media_upload`, `schedule_post`, `update_scheduled_post`, `delete_scheduled_post` |
 | `contacts:read`     | `list_contacts`                                                                          |
 | `inbox:read`        | `list_conversations`, `list_messages`                                                    |
 | `inbox:write`       | `send_message`                                                                           |
@@ -62,10 +64,12 @@ Read accounts first to get an `instagramAccountId`. For a specific post, read th
 - `update_automation` takes `{ "automationId": "...", "input": { ...full configuration... } }`. Read the automation first to preserve fields you are not changing. Convert a returned specific-post trigger's `trigger.post.platformPostId` to the input's `trigger.platformPostId`.
 - `set_automation_status` takes `{ "automationId": "...", "status": "active" }` or `paused`.
 - `list_automation_activity` takes `{ "automationId": "...", "limit": 25, "offset": 0 }`, with a maximum limit of 50. Advance the offset by the number of returned entries while `hasMore` is true.
+- `schedule_post` takes the body of the [REST example](api.md#scheduled-posts), including an optional `automation`, which also needs `automations:write`. Upload local files with `create_media_upload` first and pass its `media` objects.
+- `update_scheduled_post` takes `{ "postId": "...", "input": { "kind", "caption", "media", "scheduledFor" } }`; `kind` cannot change. `delete_scheduled_post` also needs `automations:write` when the post has automations. `list_scheduled_posts` takes `from` and `to`, up to 92 days apart.
 - `list_contacts` takes `search` and `offset`, returning up to 50 contacts per page.
 - Message tools take `accountId` and the unchanged `conversationId` returned by `list_conversations`. `send_message` also takes `text`.
 
-Activating automations and sending inbox replies can deliver real messages. Writes do not provide an idempotency-key contract: inspect state after an uncertain response instead of automatically retrying creation or message delivery.
+Activating automations and sending inbox replies can deliver real messages, and scheduled posts publish at their time. Writes do not provide an idempotency-key contract: inspect state after an uncertain response instead of automatically retrying creation or message delivery.
 
 ## Deployment and verification
 

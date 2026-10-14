@@ -29,6 +29,8 @@ const SAMPLE = { first_name: "Alex", name: "Alex Rivera", username: "alex" }
 type Account = { username: string; picture: string | null }
 type Post = {
   thumbnailUrl: string | null
+  /** A video to play in place of the thumbnail. */
+  videoUrl?: string | null
   caption: string | null
   likeCount: number | null
 } | null
@@ -43,7 +45,7 @@ export function InstagramPreview({
   dmMessage,
   buttons,
 }: {
-  screen: "post" | "dm"
+  screen: "post" | "dm" | "story"
   account: Account
   post: Post
   keyword: string | null
@@ -63,7 +65,9 @@ export function InstagramPreview({
             <BatteryFull />
           </span>
         </div>
-        {screen === "post" ? (
+        {screen === "story" ? (
+          <StoryScreen account={account} post={post} />
+        ) : screen === "post" ? (
           <PostScreen
             account={account}
             post={post}
@@ -113,15 +117,7 @@ function PostScreen({
           <MoreHorizontal className="ml-auto size-4" />
         </div>
         <div className="relative aspect-square bg-neutral-900">
-          {post?.thumbnailUrl ? (
-            <Image
-              src={post.thumbnailUrl}
-              alt=""
-              fill
-              unoptimized
-              className="object-cover"
-            />
-          ) : null}
+          <Media post={post} />
         </div>
         <div className="flex items-center gap-3.5 px-3 pt-2.5 [&_svg]:size-[22px]">
           <Heart />
@@ -157,6 +153,57 @@ function PostScreen({
       </div>
     </>
   )
+}
+
+function StoryScreen({ account, post }: { account: Account; post: Post }) {
+  return (
+    <>
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-neutral-900">
+        <Media post={post} />
+        <div className="absolute inset-x-0 top-0 grid gap-2 bg-linear-to-b from-black/50 to-transparent p-2.5">
+          <span className="h-0.5 rounded-full bg-white/90" />
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <Avatar account={account} small />
+            {account.username}
+            <span className="font-normal text-white/70">1m</span>
+          </span>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-3 px-3 py-2.5 [&_svg]:size-6">
+        <span className="flex-1 rounded-full border border-white/40 px-4 py-2 text-[13px] text-white/80">
+          Send message
+        </span>
+        <Heart />
+        <Send />
+      </div>
+    </>
+  )
+}
+
+/** The post's photo, or its video playing silently on a loop. */
+function Media({ post }: { post: Post }) {
+  if (post?.videoUrl)
+    return (
+      <video
+        src={post.videoUrl}
+        muted
+        loop
+        autoPlay
+        playsInline
+        className="absolute inset-0 size-full object-cover"
+      />
+    )
+  if (post?.thumbnailUrl)
+    return (
+      <Image
+        src={post.thumbnailUrl}
+        alt=""
+        fill
+        unoptimized
+        className="object-cover"
+      />
+    )
+  return null
 }
 
 function DmScreen({

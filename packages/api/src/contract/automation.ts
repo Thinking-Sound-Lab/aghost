@@ -23,7 +23,11 @@ export const PERSONALIZATION_TOKENS = [
 ] as const
 
 export const AUTOMATION_STATUSES = ["active", "paused"] as const
-export const POST_SCOPES = ["specific_post", "any_post"] as const
+export const POST_SCOPES = [
+  "specific_post",
+  "any_post",
+  "scheduled_post",
+] as const
 export const MATCH_MODES = ["contains", "word", "exact"] as const
 
 export type AutomationStatus = (typeof AUTOMATION_STATUSES)[number]
@@ -96,13 +100,19 @@ const automationTriggerInputSchema = z.discriminatedUnion("postScope", [
     postScope: z.literal("specific_post"),
     platformPostId: z.string().min(1, "Choose a post"),
   }),
+  // A post scheduled in aghost: the automation starts when it publishes.
+  z.object({
+    postScope: z.literal("scheduled_post"),
+    scheduledPostId: z.uuid("Choose a scheduled post"),
+  }),
 ])
 
 export type AutomationTriggerInput = z.infer<
   typeof automationTriggerInputSchema
 >
 
-const automationConfigShape = {
+// What an automation sends, without the post that triggers it.
+const automationResponseShape = {
   name: z
     .string()
     .trim()
@@ -111,7 +121,6 @@ const automationConfigShape = {
       AUTOMATION_LIMITS.nameMaxLength,
       atMost(AUTOMATION_LIMITS.nameMaxLength)
     ),
-  trigger: automationTriggerInputSchema,
   // No keywords means every comment triggers the automation.
   keywords: z
     .array(
@@ -159,6 +168,11 @@ const automationConfigShape = {
   requireFollow: z.boolean(),
 }
 
+const automationConfigShape = {
+  ...automationResponseShape,
+  trigger: automationTriggerInputSchema,
+}
+
 type MessageWithButtons = { dmMessage: string; dmButtons: DmButton[] }
 
 function checkMessageFitsButtons(
@@ -189,11 +203,17 @@ export const updateAutomationSchema = z
   .object({ ...automationConfigShape, status: z.enum(AUTOMATION_STATUSES) })
   .check(checkMessageFitsButtons)
 
+/** An automation created together with the scheduled post it answers on. */
+export const postAutomationSchema = z
+  .object({ ...automationResponseShape, status: z.enum(AUTOMATION_STATUSES) })
+  .check(checkMessageFitsButtons)
+
 export const setAutomationStatusSchema = z.object({
   status: z.enum(AUTOMATION_STATUSES),
 })
 
 export type CreateAutomationInput = z.infer<typeof createAutomationSchema>
+export type PostAutomationInput = z.infer<typeof postAutomationSchema>
 export type UpdateAutomationInput = z.infer<typeof updateAutomationSchema>
 
 export const ACTIVITY_PAGE_MAX_LIMIT = 50
@@ -219,6 +239,10 @@ export type AutomationTrigger =
         caption: string | null
         permalink: string | null
       }
+    }
+  | {
+      postScope: "scheduled_post"
+      scheduledPost: { id: string; caption: string | null }
     }
 
 export type Automation = {
