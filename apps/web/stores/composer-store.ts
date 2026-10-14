@@ -337,7 +337,10 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       const current = () =>
         inWorkspace(workspaceId) && !get().removed.includes(post.id)
       if (current()) {
-        useCalendarStore.getState().applySaved(post)
+        // After leaving, a late result may be older than the calendar's copy,
+        // so the calendar loads again instead.
+        if (ownsDraft()) useCalendarStore.getState().applySaved(post)
+        else void useCalendarStore.getState().load()
         if (automation && post.automationIds[0])
           void api.automations
             .get(post.automationIds[0])
@@ -374,7 +377,11 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       await api.scheduledPosts.remove(id)
       set({ removed: [...get().removed, id] })
       if (inWorkspace(workspaceId)) {
-        useCalendarStore.getState().applyRemoved(id)
+        // After leaving, a load that started before the deletion may still
+        // answer with the post, so the calendar loads again.
+        if (get().revision === revision)
+          useCalendarStore.getState().applyRemoved(id)
+        else void useCalendarStore.getState().load()
         // Its automations were deleted with it.
         const workspace = useWorkspaceStore.getState()
         useWorkspaceStore.setState({

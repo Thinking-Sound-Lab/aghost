@@ -14,6 +14,7 @@ vi.mock("@/lib/api", () => ({
   api: {
     accounts: { publishing: vi.fn() },
     scheduledPosts: {
+      list: vi.fn(),
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -246,14 +247,20 @@ describe("the scheduling composer across failures and navigation", () => {
     expect(useCalendarStore.getState().posts).toEqual([])
   })
 
-  it("adds a save that completes after the composer has been left to the calendar only", async () => {
+  it("reloads the calendar for a save that completes after leaving, so an older copy cannot replace a newer one", async () => {
     await draft()
     const saving = deferred<ScheduledPost>()
     vi.mocked(api.scheduledPosts.create).mockReturnValueOnce(saving.promise)
     const pending = useComposerStore.getState().save()
     useComposerStore.getState().leave()
-    const saved = post()
-    saving.resolve(saved)
+    const newer = {
+      ...post(),
+      caption: "Saved again from another draft",
+      updatedAt: "2026-10-14T01:00:00Z",
+    }
+    useCalendarStore.setState({ posts: [newer] })
+    vi.mocked(api.scheduledPosts.list).mockResolvedValue([newer])
+    saving.resolve(post())
     expect(await pending).toBeNull()
     expect(useComposerStore.getState()).toMatchObject({
       id: null,
@@ -261,7 +268,13 @@ describe("the scheduling composer across failures and navigation", () => {
       status: "idle",
       busy: false,
     })
-    expect(useCalendarStore.getState().posts).toEqual([saved])
+    expect(api.scheduledPosts.list).toHaveBeenCalledOnce()
+    await vi.waitFor(() =>
+      expect(useCalendarStore.getState()).toMatchObject({
+        posts: [newer],
+        status: "ready",
+      })
+    )
   })
 
   it("removes a post deleted after the composer has been left from both lists", async () => {
@@ -275,10 +288,17 @@ describe("the scheduling composer across failures and navigation", () => {
     vi.mocked(api.scheduledPosts.remove).mockReturnValueOnce(removing.promise)
     const pending = useComposerStore.getState().remove()
     useComposerStore.getState().leave()
+    vi.mocked(api.scheduledPosts.list).mockResolvedValue([])
     removing.resolve()
     expect(await pending).toBe(false)
-    expect(useCalendarStore.getState().posts).toEqual([])
     expect(useWorkspaceStore.getState().automations).toEqual([])
+    expect(api.scheduledPosts.list).toHaveBeenCalledOnce()
+    await vi.waitFor(() =>
+      expect(useCalendarStore.getState()).toMatchObject({
+        posts: [],
+        status: "ready",
+      })
+    )
   })
 
   it("drops an automation refresh that lands after its post was deleted", async () => {

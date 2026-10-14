@@ -16,10 +16,23 @@ export function daysOf(month: Date): Date[] {
   )
 }
 
+/** From a month grid's first day to the start of the day after its last. */
+function rangeOf(month: Date): { from: Date; to: Date } {
+  const days = daysOf(month)
+  const end = days.at(-1)!
+  return {
+    from: days[0]!,
+    to: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
+  }
+}
+
 function thisMonth(): Date {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), 1)
 }
+
+// Only the latest load's answer is shown, whichever month it asked for.
+let generation = 0
 
 type CalendarState = {
   /** The first day of the month on show, in local time. */
@@ -40,23 +53,17 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   status: "idle",
   error: null,
   load: async () => {
-    const month = get().month
-    const days = daysOf(month)
-    const end = days.at(-1)!
+    const current = ++generation
+    const { from, to } = rangeOf(get().month)
     set({ status: "loading", error: null })
     try {
       const posts = await api.scheduledPosts.list({
-        from: days[0]!.toISOString(),
-        to: new Date(
-          end.getFullYear(),
-          end.getMonth(),
-          end.getDate() + 1
-        ).toISOString(),
+        from: from.toISOString(),
+        to: to.toISOString(),
       })
-      // A slower answer for a month left behind is dropped.
-      if (get().month === month) set({ posts, status: "ready" })
+      if (current === generation) set({ posts, status: "ready" })
     } catch (error) {
-      if (get().month === month)
+      if (current === generation)
         set({ error: errorMessage(error), status: "error" })
     }
   },
@@ -72,11 +79,17 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     await get().load()
   },
   applySaved: (post) => {
+    const { from, to } = rangeOf(get().month)
+    const at = new Date(post.scheduledFor)
     const others = get().posts.filter((item) => item.id !== post.id)
     set({
-      posts: [...others, post].sort((a, b) =>
-        a.scheduledFor.localeCompare(b.scheduledFor)
-      ),
+      // A post moved to another month leaves this one.
+      posts:
+        at >= from && at < to
+          ? [...others, post].sort((a, b) =>
+              a.scheduledFor.localeCompare(b.scheduledFor)
+            )
+          : others,
     })
   },
   applyRemoved: (id) =>
