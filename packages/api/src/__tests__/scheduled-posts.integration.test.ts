@@ -15,8 +15,10 @@ import type { ApiKeyScope, CreatedApiKey } from "../contract/api-key"
 import type { Automation, PostAutomationInput } from "../contract/automation"
 import type {
   MediaUpload,
+  PostMedia,
   ScheduledPost,
   SchedulePostInput,
+  UploadLink,
 } from "../contract/post"
 import type { ApiApp } from "../http/app"
 import { recordingAnalytics } from "./analytics-fixture"
@@ -877,7 +879,134 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     )
     expect(
       (await reader.listTools()).tools.map((tool) => tool.name).sort()
-    ).toEqual(["get_scheduled_post", "list_scheduled_posts"])
+    ).toEqual(["get_scheduled_post", "get_upload_link", "list_scheduled_posts"])
+  })
+
+  it("lets an agent that cannot upload have the owner upload in the browser, once and within the owner's workspace", async () => {
+    const token = await key(["posts:read", "posts:write"])
+    const created = await rest(token, "/upload-links", "POST", {})
+    expect(created.statusCode).toBe(201)
+    const link = created.json<UploadLink>()
+    expect(link).toMatchObject({
+      url: `${config.appUrl}/upload?link=${link.id}`,
+      status: "waiting",
+      media: [],
+      uploadedAt: null,
+    })
+    expect(Date.parse(link.expiresAt)).toBeGreaterThan(Date.now() + 23 * HOUR)
+
+    // The owner's page reads the link; another owner cannot see or fill it.
+    const media: PostMedia[] = [
+      { url: "https://media.example/temp/cover.jpg", type: "image" },
+      { url: "https://media.example/temp/clip.mp4", type: "video" },
+    ]
+    expect(
+      (await session(`/upload-links/${link.id}`)).json<UploadLink>()
+    ).toMatchObject({ id: link.id, status: "waiting" })
+    expect(
+      (await session(`/upload-links/${link.id}`, "GET", undefined, otherCookie))
+        .statusCode
+    ).toBe(404)
+    expect(
+      (
+        await session(
+          `/upload-links/${link.id}/complete`,
+          "POST",
+          { media },
+          otherCookie
+        )
+      ).statusCode
+    ).toBe(404)
+    expect(
+      (
+        await session(`/upload-links/${link.id}/complete`, "POST", {
+          media: [],
+        })
+      ).statusCode
+    ).toBe(422)
+
+    const completed = await session(
+      `/upload-links/${link.id}/complete`,
+      "POST",
+      { media }
+    )
+    expect(completed.statusCode).toBe(200)
+    expect(completed.json<UploadLink>()).toMatchObject({
+      status: "uploaded",
+      media,
+    })
+    const again = await session(`/upload-links/${link.id}/complete`, "POST", {
+      media: [media[0]],
+    })
+    expect(again.statusCode).toBe(409)
+    expect(
+      recorded.events.find(
+        ({ event }) =>
+          event.name === "upload_link_completed" &&
+          event.upload_link_id === link.id
+      )?.event
+    ).toMatchObject({ media_count: 2, video_count: 1 })
+
+    // The agent reads the files in the owner's order and schedules them.
+    const read = await rest(token, `/upload-links/${link.id}`)
+    expect(read.json<UploadLink>()).toMatchObject({ status: "uploaded", media })
+    const scheduled = await rest(token, "/scheduled-posts", "POST", {
+      ...post(),
+      media: read.json<UploadLink>().media,
+    })
+    expect(scheduled.statusCode).toBe(201)
+    expect(scheduled.json<ScheduledPost>().media).toEqual(media)
+
+    // An expired link takes no files.
+    const late = (
+      await rest(token, "/upload-links", "POST", {})
+    ).json<UploadLink>()
+    const { error } = await admin
+      .from("upload_links")
+      .update({ expires_at: new Date(Date.now() - 1_000).toISOString() })
+      .eq("id", late.id)
+    if (error) throw new Error("Could not expire the upload link")
+    expect(
+      (await rest(token, `/upload-links/${late.id}`)).json<UploadLink>().status
+    ).toBe("expired")
+    const refused = await session(`/upload-links/${late.id}/complete`, "POST", {
+      media,
+    })
+    expect(refused.statusCode).toBe(409)
+    expect(refused.json().error.message).toBe(
+      "This link has expired. Ask your agent for a new one."
+    )
+
+    // Links older than Zernio keeps uploads are removed with the next one.
+    const { error: aging } = await admin
+      .from("upload_links")
+      .update({
+        created_at: new Date(Date.now() - 8 * 24 * HOUR).toISOString(),
+      })
+      .eq("id", link.id)
+    if (aging) throw new Error("Could not age the upload link")
+    const client = new Client({ name: "aghost-uploads", version: "1.0.0" })
+    clients.push(client)
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${address}/api/mcp`), {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+      })
+    )
+    const made = await client.callTool({
+      name: "create_upload_link",
+      arguments: {},
+    })
+    expect(made.isError).not.toBe(true)
+    const fresh = (made.structuredContent as { data: UploadLink }).data
+    expect(fresh.status).toBe("waiting")
+    const fetched = await client.callTool({
+      name: "get_upload_link",
+      arguments: { uploadLinkId: fresh.id },
+    })
+    expect(
+      (fetched.structuredContent as { data: UploadLink }).data
+    ).toMatchObject({ id: fresh.id, url: fresh.url, status: "waiting" })
+    expect((await rest(token, `/upload-links/${link.id}`)).statusCode).toBe(404)
   })
 
   it("cancels an account's scheduled posts when the account is removed", async () => {

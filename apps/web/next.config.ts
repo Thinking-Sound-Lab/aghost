@@ -30,17 +30,16 @@ const nextConfig: NextConfig = {
   devIndicators: { position: "bottom-right" },
   // PostHog's endpoints end with a slash, which a redirect would drop.
   skipTrailingSlashRedirect: true,
-  // The consent page for agent apps must not be framed by another site.
+  // Pages where the owner approves an agent app or uploads files for an
+  // agent must not be framed by another site.
   async headers() {
-    return [
-      {
-        source: "/authorize",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
-        ],
-      },
-    ]
+    return ["/authorize", "/upload"].map((source) => ({
+      source,
+      headers: [
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+      ],
+    }))
   },
   async rewrites() {
     const apiUrl = process.env.API_URL

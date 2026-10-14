@@ -29,7 +29,8 @@ curl --fail-with-body http://localhost:3000/api/v1/openapi.json \
 | PATCH  | `/automations/:automationId`, `/automations/:automationId/status`                                         | `automations:write` |
 | DELETE | `/automations/:automationId`                                                                              | `automations:write` |
 | GET    | `/scheduled-posts?from=&to=`, `/scheduled-posts/:postId`                                                  | `posts:read`        |
-| POST   | `/scheduled-posts`, `/media/uploads`                                                                      | `posts:write`       |
+| GET    | `/upload-links/:uploadLinkId`                                                                             | `posts:read`        |
+| POST   | `/scheduled-posts`, `/media/uploads`, `/upload-links`                                                     | `posts:write`       |
 | PATCH  | `/scheduled-posts/:postId`                                                                                | `posts:write`       |
 | DELETE | `/scheduled-posts/:postId`                                                                                | `posts:write`       |
 | GET    | `/contacts?search=&offset=0`                                                                              | `contacts:read`     |
@@ -71,7 +72,9 @@ curl --fail-with-body -X PUT "$UPLOAD_URL" \
   -H 'Content-Type: image/jpeg' --data-binary @launch.jpg
 ```
 
-Uploads accept JPEG and PNG photos up to 20 MB and MP4 and MOV videos up to 300 MB. Pass the response's `media` object when scheduling. Add `automation` to answer the post's comments once it is published; the automation takes the fields of an automation without its account and trigger, and needs `automations:write` as well:
+Uploads accept JPEG and PNG photos up to 20 MB and MP4 and MOV videos up to 300 MB. Pass the response's `media` object when scheduling.
+
+An agent that can't send the file itself, because it runs in a sandbox whose network blocks the storage host or because the file is on the user's device, asks the owner to upload it instead. `POST /upload-links` with the body `{}` returns a link whose `url` opens a page in aghost, where the owner signs in, chooses up to 10 photos and videos, and sends them. The page takes files for 24 hours, once. `GET /upload-links/:uploadLinkId` returns its `status`, `waiting`, `uploaded` or `expired`, and once uploaded its `media` in the owner's order, ready to schedule. Creating a link removes the workspace's links older than seven days, after which the provider has deleted unused uploads. Add `automation` to answer the post's comments once it is published; the automation takes the fields of an automation without its account and trigger, and needs `automations:write` as well:
 
 ```sh
 curl --fail-with-body http://localhost:3000/api/v1/scheduled-posts \

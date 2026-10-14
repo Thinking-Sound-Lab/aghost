@@ -357,6 +357,42 @@ export type Database = {
           },
         ]
       }
+      upload_links: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          media: Json | null
+          uploaded_at: string | null
+          workspace_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          media?: Json | null
+          uploaded_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          media?: Json | null
+          uploaded_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events: {
         Row: {
           error: string | null

@@ -8,6 +8,7 @@ import {
   billingPath,
 } from "../contract/billing"
 import { authorizeLoginPath, authorizePath } from "../contract/oauth"
+import { uploadLinkLoginPath, uploadLinkPath } from "../contract/post"
 import type { Analytics } from "../modules/analytics/analytics"
 import { BadRequestError, UnauthenticatedError } from "../shared/errors"
 import { presentUser } from "./presenters"
@@ -32,6 +33,7 @@ function signInReturn(query: {
   plan?: unknown
   interval?: unknown
   request?: unknown
+  link?: unknown
 }): SignInReturn {
   if (query.next === "billing") {
     const choice = billingChoice(query)
@@ -48,6 +50,13 @@ function signInReturn(query: {
       destination: authorizePath(request.data),
       failure: `${authorizeLoginPath(request.data)}&error=google`,
     }
+  const link = z.uuid().safeParse(query.link)
+  if (query.next === "upload" && link.success)
+    return {
+      cookie: `upload:${link.data}`,
+      destination: uploadLinkPath(link.data),
+      failure: `${uploadLinkLoginPath(link.data)}&error=google`,
+    }
   return { cookie: "home", destination: "/home", failure: SIGN_IN_FAILED_PATH }
 }
 
@@ -56,7 +65,9 @@ function returnFromCookie(value: string): SignInReturn {
   return signInReturn(
     next === "billing"
       ? { next, plan: first, interval: second }
-      : { next, request: first }
+      : next === "upload"
+        ? { next, link: first }
+        : { next, request: first }
   )
 }
 
@@ -98,6 +109,7 @@ export function authRoutes(
         plan?: string
         interval?: string
         request?: string
+        link?: string
       }
     }>("/google", async (request, reply) => {
       const returnTo = signInReturn(request.query)

@@ -5,6 +5,7 @@ import {
   type AutomationActivityPage,
   type AutomationStatsById,
   type ConnectInstagramResult,
+  type CompleteUploadLinkInput,
   type ContactPage,
   type Conversation,
   type CreateAutomationInput,
@@ -23,6 +24,7 @@ import {
   type ScheduledPostRange,
   type SchedulePostInput,
   type UpdateScheduledPostInput,
+  type UploadLink,
   type SendMessageInput,
   type SessionUser,
   type UpdateAutomationInput,
@@ -245,6 +247,17 @@ export function createApiClient(
           )
         return upload.media
       },
+    },
+    uploadLinks: {
+      get: (id: string) =>
+        request<UploadLink>(`/upload-links/${encodeURIComponent(id)}`),
+      /** Hands the uploaded files to the agent that asked for them. */
+      complete: (id: string, input: CompleteUploadLinkInput) =>
+        request<UploadLink>(
+          `/upload-links/${encodeURIComponent(id)}/complete`,
+          "POST",
+          input
+        ),
     },
     inbox: {
       list: () => request<Conversation[]>("/inbox"),
