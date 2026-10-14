@@ -20,6 +20,7 @@ import { SupabaseOAuthRepository } from "./infrastructure/supabase/supabase-oaut
 import { SupabaseAutomationRepository } from "./infrastructure/supabase/supabase-automation.repository"
 import { SupabaseBillingRepository } from "./infrastructure/supabase/supabase-billing.repository"
 import { SupabasePostRepository } from "./infrastructure/supabase/supabase-post.repository"
+import { SupabaseUploadLinkRepository } from "./infrastructure/supabase/supabase-upload-link.repository"
 import { SupabaseWebhookProcessor } from "./infrastructure/supabase/supabase-webhook.processor"
 import { SupabaseWorkspaceRepository } from "./infrastructure/supabase/supabase-workspace.repository"
 import { SupabaseWorkspaceOperations } from "./infrastructure/supabase/supabase-workspace-operations"
@@ -56,6 +57,7 @@ import { InboxService } from "./modules/inbox/inbox.service"
 import { oauthEndpoints } from "./modules/oauth/oauth"
 import type { PublishingProvider } from "./modules/posts/post.provider"
 import { PostService } from "./modules/posts/post.service"
+import { UploadLinkService } from "./modules/posts/upload-link.service"
 import { OAuthService } from "./modules/oauth/oauth.service"
 import { WebhookService } from "./modules/webhooks/webhook.service"
 import type { ProfileProvider } from "./modules/workspaces/profile.provider"
@@ -73,6 +75,7 @@ export type Services = {
   accounts: AccountService
   automations: AutomationService
   posts: PostService
+  uploadLinks: UploadLinkService
   inbox: InboxService
   contacts: ContactService
   billing: BillingService
@@ -91,8 +94,15 @@ type Providers = {
   billing: BillingProvider
 }
 
-/** Addresses in the web app that providers send the browser back to. */
-type ReturnPages = { connectRedirectUrl: string; billing: BillingPages }
+/**
+ * Addresses in the web app: the pages providers send the browser back to, and
+ * the app itself, for links that agents give the owner.
+ */
+type ReturnPages = {
+  connectRedirectUrl: string
+  billing: BillingPages
+  appUrl: string
+}
 
 function createServices(
   db: DataClients,
@@ -152,6 +162,11 @@ function createServices(
     analytics
   )
 
+  const uploadLinks = new UploadLinkService(
+    new SupabaseUploadLinkRepository(db),
+    pages.appUrl,
+    analytics
+  )
   const inbox = new InboxService(providers.inbox, accountRepository, analytics)
   const contacts = new ContactService(providers.contacts)
   const apiKeys = new ApiKeyService(
@@ -165,6 +180,7 @@ function createServices(
     accounts,
     automations,
     posts,
+    uploadLinks,
     inbox,
     contacts,
     billing,
@@ -196,6 +212,7 @@ function runtime(config: ApiConfig, options: RuntimeOptions = {}) {
       checkoutCancel: appPage(BILLING_PATH),
       portalReturn: appPage(BILLING_PATH),
     },
+    appUrl: config.appUrl,
   }
   const admin = createAdminSupabaseClient(config.supabase)
   const analytics =

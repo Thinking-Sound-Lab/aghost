@@ -266,7 +266,7 @@ describe("the scheduling composer across failures and navigation", () => {
       id: null,
       post: null,
       status: "idle",
-      busy: false,
+      pending: null,
     })
     expect(api.scheduledPosts.list).toHaveBeenCalledOnce()
     await vi.waitFor(() =>

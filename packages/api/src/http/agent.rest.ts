@@ -138,6 +138,17 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
     status: 201,
     requestInput: body,
   }),
+  route("create_upload_link", {
+    method: "POST",
+    path: "/upload-links",
+    status: 201,
+    requestInput: empty,
+  }),
+  route("get_upload_link", {
+    method: "GET",
+    path: "/upload-links/:uploadLinkId",
+    requestInput: params,
+  }),
   route("list_contacts", {
     method: "GET",
     path: "/contacts",

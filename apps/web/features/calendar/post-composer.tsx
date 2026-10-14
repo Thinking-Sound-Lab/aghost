@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, type FormEvent } from "react"
+import { useEffect, useTransition, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -62,6 +62,9 @@ export function PostComposer({
   const composer = useComposerStore()
   const workspace = useWorkspaceStore()
   const router = useRouter()
+  // A saved post stays locked until the calendar shows. Until then a new
+  // post's page keeps its title and button, chosen by the address.
+  const [leaving, startLeaving] = useTransition()
   const initialize = composer.initialize
   useEffect(() => {
     void initialize(id, day)
@@ -114,9 +117,12 @@ export function PostComposer({
     draft.media.length -
     composer.uploads.length
 
+  const saving = composer.pending === "save" || leaving
+  const busy = composer.pending !== null || leaving
+
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (await composer.save()) router.push("/calendar")
+    if (await composer.save()) startLeaving(() => router.push("/calendar"))
   }
   async function remove() {
     if (await composer.remove()) router.push("/calendar")
@@ -139,9 +145,10 @@ export function PostComposer({
               <ArrowLeft />
             </Link>
             <h1 className="mr-auto text-xl font-semibold tracking-tight">
-              {post ? (editable ? "Edit post" : "Post") : "New post"}
+              {id ? (editable ? "Edit post" : "Post") : "New post"}
             </h1>
-            {post &&
+            {id &&
+              post &&
               post.status !== "publishing" &&
               post.status !== "published" && (
                 <ConfirmButton
@@ -152,7 +159,7 @@ export function PostComposer({
                       : "It won't be published."
                   }
                   confirmLabel="Delete"
-                  busy={composer.busy}
+                  busy={busy}
                   onConfirm={remove}
                 >
                   Delete
@@ -313,7 +320,7 @@ export function PostComposer({
                       Add
                       <input
                         type="file"
-                        disabled={composer.busy || composer.uploads.length > 0}
+                        disabled={busy || composer.uploads.length > 0}
                         accept={ACCEPT}
                         multiple={!story}
                         className="sr-only"
@@ -445,9 +452,12 @@ export function PostComposer({
               <Button
                 type="submit"
                 className="ml-auto"
-                disabled={composer.busy || composer.uploads.length > 0}
+                disabled={busy || composer.uploads.length > 0}
               >
-                {post ? "Save" : "Schedule"}
+                {saving && (
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                )}
+                {id ? "Save" : "Schedule"}
               </Button>
             </footer>
           )}

@@ -17,6 +17,7 @@ import {
 } from "../contract/automation"
 import { contactPageQuerySchema } from "../contract/contact"
 import {
+  completeUploadLinkSchema,
   createMediaUploadSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
@@ -594,6 +595,22 @@ export function createApp({
           const { services } = request.identity
           const input = validate(createMediaUploadSchema, request.body)
           return reply.code(201).send(await services.posts.createUpload(input))
+        })
+        routes.get<IdParams>("/upload-links/:id", async (request) => {
+          const { services, workspace } = request.identity
+          return services.uploadLinks.get(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+        })
+        routes.post<IdParams>("/upload-links/:id/complete", async (request) => {
+          const { services, workspace } = request.identity
+          const { media } = validate(completeUploadLinkSchema, request.body)
+          return services.uploadLinks.complete(
+            workspace,
+            validate(z.uuid(), request.params.id),
+            media
+          )
         })
         routes.get("/inbox", async (request) => {
           const { services, workspace } = request.identity

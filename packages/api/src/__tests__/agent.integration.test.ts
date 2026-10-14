@@ -276,7 +276,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
 
     const client = await mcp(created.token)
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(21)
+    expect(tools).toHaveLength(23)
     expect(tools.map((tool) => tool.name)).toContain("create_automation")
     expect(tools.map((tool) => tool.name)).toContain("schedule_post")
     expect(tools.map((tool) => tool.name)).toContain("send_message")

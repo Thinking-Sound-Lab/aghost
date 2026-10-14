@@ -13,6 +13,8 @@ export const POST_LIMITS = {
   minLeadMinutes: 5,
   /** The longest period one list request can cover. */
   maxRangeDays: 92,
+  /** How long the owner has to upload files through an upload link. */
+  uploadLinkHours: 24,
 } as const
 
 /** A feed post (one photo, a reel from one video, or a carousel) or a story. */
@@ -175,6 +177,44 @@ export type MediaUpload = {
   media: PostMedia
   /** The upload URL stops working at this time. */
   expiresAt: string
+}
+
+type UploadLinkStatus = "waiting" | "uploaded" | "expired"
+
+/**
+ * A page where the owner uploads photos and videos from their browser, for an
+ * agent that cannot send files to storage itself.
+ */
+export type UploadLink = {
+  id: string
+  /** The page to give the owner. */
+  url: string
+  status: UploadLinkStatus
+  /** The uploaded files in the owner's order; empty until they are uploaded. */
+  media: PostMedia[]
+  /** The page stops taking files at this time. */
+  expiresAt: string
+  uploadedAt: string | null
+}
+
+export const completeUploadLinkSchema = z.object({
+  media: z
+    .array(postMediaSchema)
+    .min(1, "Add a photo or video")
+    .max(
+      POST_LIMITS.maxMediaItems,
+      `Add up to ${POST_LIMITS.maxMediaItems} photos or videos`
+    ),
+})
+
+export type CompleteUploadLinkInput = z.infer<typeof completeUploadLinkSchema>
+
+export function uploadLinkPath(linkId: string): string {
+  return `/upload?${new URLSearchParams({ link: linkId })}`
+}
+
+export function uploadLinkLoginPath(linkId: string): string {
+  return `/login?${new URLSearchParams({ next: "upload", link: linkId })}`
 }
 
 export type ScheduledPost = {

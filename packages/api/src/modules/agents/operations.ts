@@ -227,10 +227,26 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_media_upload",
     description:
-      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post. Media already at a public https URL needs no upload.",
+      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post. Media already at a public https URL needs no upload. If the file is on the user's device, or you can't reach uploadUrl, for example because your sandbox's network blocks it, use create_upload_link instead.",
     scope: "posts:write",
     schema: createMediaUploadSchema,
     run: ({ services }, input) => services.posts.createUpload(input),
+  }),
+  operation({
+    name: "create_upload_link",
+    description: `Get a page where the user uploads photos and videos for a post from their browser, for files you can't upload yourself. Give the user the url and ask them to tell you when they have uploaded; the page takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post.`,
+    scope: "posts:write",
+    schema: noInput,
+    run: ({ workspace, services }) => services.uploadLinks.create(workspace),
+  }),
+  operation({
+    name: "get_upload_link",
+    description:
+      "Get an upload link's status: waiting, uploaded or expired. Once uploaded, media lists the user's files in their order, ready to pass to schedule_post.",
+    scope: "posts:read",
+    schema: z.object({ uploadLinkId: z.uuid() }),
+    run: ({ workspace, services }, { uploadLinkId }) =>
+      services.uploadLinks.get(workspace, uploadLinkId),
   }),
   operation({
     name: "schedule_post",

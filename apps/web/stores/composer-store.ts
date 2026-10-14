@@ -2,7 +2,6 @@ import { create } from "zustand"
 import {
   AUTOMATION_LIMITS,
   POST_LIMITS,
-  createMediaUploadSchema,
   schedulePostSchema,
   updateScheduledPostSchema,
   type PostKind,
@@ -17,6 +16,7 @@ import {
 } from "@/features/automations/automation-fields"
 import { timeLabel } from "@/features/calendar/post-media"
 import { api } from "@/lib/api"
+import { fileProblem, uploadFiles } from "@/lib/media"
 import { useCalendarStore } from "./calendar-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
@@ -50,7 +50,8 @@ type ComposerState = {
   status: "idle" | "loading" | "ready" | "error"
   error: string | null
   fields: Record<string, string>
-  busy: boolean
+  /** The request in flight, which locks the draft until it answers. */
+  pending: "save" | "remove" | null
   /** Posts deleted since the app opened; late results must not restore them. */
   removed: string[]
   initialize: (id: string | null, day: string | null) => Promise<void>
@@ -138,7 +139,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   status: "idle",
   error: null,
   fields: {},
-  busy: false,
+  pending: null,
   removed: [],
   initialize: async (id, day) => {
     const revision = get().revision + 1
@@ -162,7 +163,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       status: "loading",
       error: null,
       fields: {},
-      busy: false,
+      pending: null,
     })
     try {
       if (id) {
@@ -198,7 +199,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     set({
       revision: get().revision + 1,
       uploads: [],
-      busy: false,
+      pending: null,
       status: "idle",
     }),
   patch: (patch) =>
@@ -220,9 +221,9 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     }
   },
   addFiles: async (files) => {
-    const { draft, uploads, revision, busy } = get()
+    const { draft, uploads, revision, pending } = get()
     // A batch keeps selection order; the next batch waits for its slots.
-    if (uploads.length > 0 || busy) {
+    if (uploads.length > 0 || pending) {
       set({ error: "Wait for the current uploads or save to finish." })
       return
     }
@@ -239,29 +240,18 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       })
       return
     }
-    for (const file of files) {
-      const checked = createMediaUploadSchema.safeParse({
-        filename: file.name,
-        contentType: file.type,
-        size: file.size,
-      })
-      if (!checked.success) {
-        set({ error: `${file.name}: ${checked.error.issues[0]!.message}` })
-        return
-      }
+    const problem = fileProblem(files)
+    if (problem) {
+      set({ error: problem })
+      return
     }
     const started = files.map((file) => ({
       key: crypto.randomUUID(),
       name: file.name,
     }))
     set({ uploads: [...get().uploads, ...started], error: null, fields: {} })
-    // Uploads run together; the files keep the order they were chosen in.
-    const results = await Promise.allSettled(files.map(api.media.upload))
+    const { media: added, failed } = await uploadFiles(files)
     if (get().revision !== revision) return
-    const added = results.flatMap((result) =>
-      result.status === "fulfilled" ? [result.value] : []
-    )
-    const failed = results.find((result) => result.status === "rejected")
     const keys = new Set(started.map((upload) => upload.key))
     set({
       uploads: get().uploads.filter((upload) => !keys.has(upload.key)),
@@ -278,7 +268,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   },
   save: async () => {
     const state = get()
-    if (state.busy) return null
+    if (state.pending) return null
     if (state.uploads.length > 0) {
       set({ error: "Wait for the uploads to finish." })
       return null
@@ -325,7 +315,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       })
       return null
     }
-    set({ busy: true, fields: {}, error: null })
+    set({ pending: "save", fields: {}, error: null })
     const ownsDraft = () => get().revision === state.revision
     const workspaceId = useWorkspaceStore.getState().workspace?.id
     try {
@@ -365,14 +355,14 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
         })
       return null
     } finally {
-      if (ownsDraft()) set({ busy: false })
+      if (ownsDraft()) set({ pending: null })
     }
   },
   remove: async () => {
-    const { id, busy, revision } = get()
-    if (!id || busy) return false
+    const { id, pending, revision } = get()
+    if (!id || pending) return false
     const workspaceId = useWorkspaceStore.getState().workspace?.id
-    set({ busy: true, error: null })
+    set({ pending: "remove", error: null })
     try {
       await api.scheduledPosts.remove(id)
       set({ removed: [...get().removed, id] })
@@ -397,7 +387,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       if (get().revision === revision) set({ error: errorMessage(error) })
       return false
     } finally {
-      if (get().revision === revision) set({ busy: false })
+      if (get().revision === revision) set({ pending: null })
     }
   },
 }))

@@ -105,6 +105,12 @@ type Events = {
     post_id: string
     reason: "owner" | "account_removed"
   }
+  /** The owner uploaded files through a link an agent gave them. */
+  upload_link_completed: {
+    upload_link_id: string
+    media_count: number
+    video_count: number
+  }
   inbox_message_sent: { account_id: string }
   checkout_started: {
     plan: PlanId

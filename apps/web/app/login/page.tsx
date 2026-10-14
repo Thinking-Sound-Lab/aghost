@@ -18,10 +18,11 @@ export default async function Page({
     plan?: string
     interval?: string
     request?: string
+    link?: string
   }>
 }) {
   const query = await searchParams
-  const { error, next, request } = query
+  const { error, next, request, link } = query
   return (
     <SignIn
       returnTo={
@@ -29,7 +30,9 @@ export default async function Page({
           ? { next, ...billingChoice(query) }
           : next === "authorize" && request
             ? { next, request }
-            : null
+            : next === "upload" && link
+              ? { next, link }
+              : null
       }
       error={
         error === "google" ? "Google sign-in did not finish. Try again." : null
