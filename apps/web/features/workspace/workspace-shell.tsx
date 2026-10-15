@@ -12,8 +12,11 @@ import {
   CalendarDays,
   House,
   Inbox,
+  Monitor,
+  Moon,
   PanelLeft,
   Settings,
+  Sun,
   UsersRound,
   Workflow,
   X,
@@ -33,6 +36,10 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { Brand } from "@/components/brand"
@@ -42,9 +49,10 @@ import { useAuthStore } from "@/stores/auth-store"
 import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
 import { usePendingConnectionStore } from "@/stores/pending-connection-store"
+import { THEMES, useThemeStore } from "@/stores/theme-store"
 
 const ITEM =
-  "flex h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8"
+  "flex h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8"
 
 const navigation = [
   { href: "/home", label: "Home", icon: House },
@@ -55,6 +63,12 @@ const navigation = [
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
+const themeOptions = {
+  system: { label: "System", icon: Monitor },
+  light: { label: "Light", icon: Sun },
+  dark: { label: "Dark", icon: Moon },
+}
+
 function SidebarContent({
   onNavigate,
   closeButton,
@@ -63,6 +77,7 @@ function SidebarContent({
   closeButton?: React.ReactNode
 }) {
   const auth = useAuthStore()
+  const { theme, setTheme } = useThemeStore()
   const pathname = usePathname()
   const name = auth.user?.name?.trim() || "Your account"
 
@@ -114,6 +129,19 @@ function SidebarContent({
             </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" className="w-52">
+            <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+              <DropdownMenuLabel>Theme</DropdownMenuLabel>
+              {THEMES.map((option) => {
+                const { label, icon: Icon } = themeOptions[option]
+                return (
+                  <DropdownMenuRadioItem key={option} value={option}>
+                    <Icon aria-hidden="true" />
+                    {label}
+                  </DropdownMenuRadioItem>
+                )
+              })}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => void auth.signOut()}>
                 Log out
@@ -140,7 +168,7 @@ function MobileNavigation() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <header className="flex shrink-0 items-center gap-2 border-b bg-muted px-3 py-2 md:hidden">
+      <header className="flex shrink-0 items-center gap-2 border-b bg-sidebar px-3 py-2 md:hidden">
         <DialogTrigger
           render={
             <Button
@@ -158,7 +186,7 @@ function MobileNavigation() {
       <DialogContent
         showCloseButton={false}
         overlayClassName="data-open:motion-reduce:animate-none data-closed:motion-reduce:animate-none"
-        className="top-0 left-0 flex h-dvh w-72 max-w-[calc(100%-3rem)] translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-muted px-2 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:max-w-[calc(100%-3rem)] data-open:zoom-in-100 data-open:slide-in-from-left-4 data-open:motion-reduce:animate-none data-closed:zoom-out-100 data-closed:slide-out-to-left-4 data-closed:motion-reduce:animate-none"
+        className="top-0 left-0 flex h-dvh w-72 max-w-[calc(100%-3rem)] translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-sidebar px-2 pt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:max-w-[calc(100%-3rem)] data-open:zoom-in-100 data-open:slide-in-from-left-4 data-open:motion-reduce:animate-none data-closed:zoom-out-100 data-closed:slide-out-to-left-4 data-closed:motion-reduce:animate-none"
       >
         <DialogTitle className="sr-only">Workspace navigation</DialogTitle>
         <DialogDescription className="sr-only">
@@ -255,7 +283,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh">
       {/* The logo and menu line up with page titles and content. */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r bg-muted px-2 pt-10 pb-2 md:flex">
+      <aside className="hidden w-56 shrink-0 flex-col border-r bg-sidebar px-2 pt-10 pb-2 md:flex">
         <SidebarContent />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
