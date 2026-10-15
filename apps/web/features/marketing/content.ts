@@ -5,11 +5,17 @@ import { price } from "@/features/billing/plan-cards"
 // llms.txt all read it, so what crawlers are told matches what visitors see.
 
 export const productSummary =
-  "aghost is Instagram comment-to-DM automation for creators and brands. It sends a private message in response to a comment on a post or reel, using keyword triggers or an any-comment rule. You can manage it from the dashboard or an AI agent over MCP or REST."
+  "aghost combines Instagram scheduling and comment-to-DM automation for creators and brands. Plan posts, reels, carousels and stories, and send links by DM when people comment on your posts or reels. Manage it from the dashboard or an AI agent over MCP or REST."
 
 /** The hero's promise, in one sentence under the headline. */
 export const heroSummary =
-  "aghost is agentic Instagram DM automation: AI agents create and manage your automations and reply to every comment on your posts and reels to increase sales and capture leads."
+  "Schedule your Instagram content and turn comments into DMs from one workspace. Let your AI agent prepare the posts and automations, or manage everything in the dashboard."
+
+export const schedulingFeature = {
+  label: "Scheduling",
+  title: "Schedule the post. Have the DMs ready.",
+  text: "Schedule Instagram posts, reels, carousels and stories from one calendar. Add a comment-to-DM automation to a post or reel before it publishes.",
+}
 
 /** Who signs up, and what each of them gets out of it. */
 export const audiences = [
@@ -52,6 +58,7 @@ export const agentClients = ["Claude Code", "Codex", "Cursor"]
 
 /** What a workspace API key lets an agent do, over MCP or the REST API. */
 export const agentAbilities = [
+  "Schedule, edit, and cancel Instagram posts and stories",
   "Create, edit, pause, and delete automations",
   "Read each automation's stats and its log of every DM",
   "Look up your accounts, posts, and contacts",
@@ -74,6 +81,7 @@ export const steps = [
 ]
 
 export const features = [
+  schedulingFeature,
   {
     label: "Agentic",
     title: "Run it from your AI agent",
@@ -124,11 +132,21 @@ export const faqs = [
   {
     question: "What does agentic mean?",
     answer:
-      "It means an AI agent can operate aghost for you. Connect Claude Code, Codex, Cursor, or any MCP client with an API key, and the agent can create, edit, pause, and delete automations, read their stats and delivery logs, look up contacts, and read and answer the inbox.",
+      "It means an AI agent can operate aghost for you. Connect Claude Code, Codex, Cursor, or any MCP client with an API key, and the agent can schedule content, manage automations, read their stats and delivery logs, look up contacts, and read and answer the inbox.",
+  },
+  {
+    question: "Can I schedule Instagram posts with aghost?",
+    answer:
+      "Yes. Use the Calendar to schedule posts, reels, carousels and stories. Add your media, choose a publishing time, and review your upcoming content. You can also schedule through your AI agent over MCP or the REST API. Scheduling is included on every plan.",
+  },
+  {
+    question: "Can I prepare a DM automation before my post is published?",
+    answer:
+      "Yes. Attach a comment-to-DM automation while scheduling a post or reel. Set its keywords, message and links in advance so it can answer comments after the post is published. Stories can be scheduled too, but do not support comment-to-DM automations.",
   },
   {
     question: "How much does aghost cost?",
-    answer: `${planPrices.join(", ")}. Every plan includes MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Prices are in US dollars with taxes included, billed monthly or yearly.`,
+    answer: `${planPrices.join(", ")}. Every plan includes Instagram scheduling, MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Prices are in US dollars with taxes included, billed monthly or yearly.`,
   },
   {
     question: "Which AI agents work with aghost?",
@@ -182,6 +200,6 @@ export const faqs = [
   {
     question: "How is aghost different from ManyChat?",
     answer:
-      "ManyChat is a chatbot platform for several channels, including Instagram, Messenger, and WhatsApp, with a visual flow builder. aghost does one job, Instagram comment-to-DM automation, and lets an AI agent run it over MCP.",
+      "ManyChat is a chatbot platform for several channels, including Instagram, Messenger, and WhatsApp, with a visual flow builder. aghost brings Instagram scheduling, comment-to-DM automation and an inbox into one workspace, and lets an AI agent run it over MCP or REST.",
   },
 ]

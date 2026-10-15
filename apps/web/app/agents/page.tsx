@@ -20,7 +20,7 @@ import {
 import { openGraph, site } from "@/lib/site"
 
 const description =
-  "Connect Claude Code, Codex, Cursor, or any HTTP MCP client to manage Instagram automations, read stats, and answer your inbox in aghost."
+  "Connect Claude Code, Codex, Cursor, or any HTTP MCP client to schedule Instagram content, manage DM automations, read stats and answer your inbox in aghost."
 export const metadata: Metadata = {
   title: "AI agents, MCP, and REST API",
   description,
@@ -64,8 +64,9 @@ export default function Page() {
         <div className={prose}>
           <h2>What your agent can do</h2>
           <p>
-            Your agent works in the same workspace you use. Ask for an
-            automation, check how it’s doing, or get help with a reply.
+            Your agent works in the same workspace you use. Ask for a scheduled
+            post, prepare its DM automation, check how it’s doing, or get help
+            with a reply.
           </p>
           <ul className="grid gap-3 text-white">
             {agentAbilities.map((ability) => (
@@ -141,21 +142,22 @@ export default function Page() {
         <div className={`${card} ${prose}`}>
           <h2>Start with a clear request</h2>
           <blockquote className="border-l-4 border-brand pl-5 text-xl font-semibold text-white">
-            “Find my latest reel. Create a paused automation for people who
-            comment GUIDE. Ask them to follow first. Show me the message before
-            turning it on.”
+            “Prepare my reel for Friday at 6 PM. Attach an automation that DMs
+            my free guide to anyone who comments GUIDE. Show me the media,
+            caption, publishing time and DM before scheduling it.”
           </blockquote>
           <p className="text-base">
-            Review the post, trigger, and message in your dashboard. Activating
-            an automation or sending an inbox reply can deliver real messages.
+            Review the media, caption, publishing time and message in your
+            dashboard. Scheduling a post will publish it at the chosen time;
+            attached automations can send real messages after it is published.
           </p>
         </div>
         <div className={`${card} ${prose}`}>
           <h2>Keep the keys</h2>
           <p>
-            A key gives your agent access to your workspace’s automations,
-            stats, contacts, and inbox. Give it only to an agent you trust and
-            revoke it in Settings → API when you’re finished.
+            A key gives your agent access to your workspace’s scheduled posts,
+            automations, stats, contacts, and inbox. Give it only to an agent
+            you trust and revoke it in Settings → API when you’re finished.
           </p>
           <p>
             Agents cannot create more API keys, change workspace settings, or

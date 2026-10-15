@@ -104,6 +104,7 @@ export function PlanCards({
               {[
                 "MCP access for AI agents",
                 "REST API access",
+                "Instagram post and story scheduling",
                 "Unlimited automations",
                 "Unlimited contacts and DMs",
                 "Comment keywords and follow requirement",
@@ -132,8 +133,9 @@ export function PricingTerms() {
   return (
     <div className="grid gap-2 text-sm text-muted-foreground">
       <p>
-        MCP, REST API and dashboard access on every plan. Contacts and DMs never
-        change your price. Instagram's messaging limits and fair use apply.
+        Instagram scheduling, MCP, REST API and dashboard access on every plan.
+        Contacts and DMs never change your price. Instagram's publishing and
+        messaging limits and fair use apply.
       </p>
       <p>All plans are billed in US dollars. Taxes are included.</p>
     </div>
