@@ -7,9 +7,20 @@ const SYSTEM_DARK = "(prefers-color-scheme: dark)"
 
 /**
  * The same rule as below, run while the page is parsed so it never flashes.
- * It reads the JSON that zustand saves the store as.
+ * It reads the JSON that zustand saves the store as. A browser that blocks
+ * storage has no saved choice, as for the store, so the system decides.
  */
-const beforePaint = `document.documentElement.classList.toggle("dark",(function(theme){return theme==="dark"||(theme!=="light"&&matchMedia("${SYSTEM_DARK}").matches)})(JSON.parse(localStorage.getItem("${THEME_KEY}"))?.state.theme))`
+const beforePaint = `(function () {
+  var saved = null
+  try {
+    saved = localStorage.getItem("${THEME_KEY}")
+  } catch (blocked) {}
+  var theme = JSON.parse(saved)?.state.theme
+  document.documentElement.classList.toggle(
+    "dark",
+    theme === "dark" || (theme !== "light" && matchMedia("${SYSTEM_DARK}").matches)
+  )
+})()`
 
 /** Keeps the page dark or light as chosen, and in step with the device on "system". */
 export function Theme() {
