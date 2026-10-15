@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { Theme } from "@/components/theme"
 import { openGraph, site } from "@/lib/site"
 
 import "@workspace/ui/globals.css"
@@ -21,7 +22,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} font-sans antialiased`}>
+    // The theme script sets the dark class before React hydrates.
+    <html
+      lang="en"
+      className={`${inter.variable} font-sans antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <Theme />
+      </head>
       <body>{children}</body>
     </html>
   )

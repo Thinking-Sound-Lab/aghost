@@ -101,7 +101,7 @@ export function Authorize({ requestId }: { requestId: string | null }) {
           you.
         </Heading>
         {request.local && (
-          <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
+          <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
             This app runs on your computer. Allow it only if you just started
             connecting from it.
           </p>
