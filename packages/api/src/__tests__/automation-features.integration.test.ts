@@ -440,6 +440,7 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
     const event = await enqueue(automation)
     await ready(automation, event.sentAt)
     const repository = new SupabaseFollowUpRepository(admin)
+    const saveError = new Error("Database write interrupted")
     vi.spyOn(repository, "finish").mockImplementationOnce(async () => {
       // A reply arrives after the send but before its status save succeeds.
       const reply = await deliver({
@@ -447,6 +448,7 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
         account: { id: fixture.accountId, profileId, platform: "instagram" },
         conversation: {
           id: fixture.conversationId,
+          platformConversationId: "fixture-participant-1",
           participantId: "fixture-participant-1",
         },
         message: {
@@ -455,13 +457,19 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
           sentAt: new Date(Date.now() + 1000).toISOString(),
         },
       })
-      expect(reply.response.statusCode).toBe(200)
-      throw new Error("Database write interrupted")
+      expect(reply.response.statusCode, reply.response.body).toBe(200)
+      expect(reply.response.json()).toMatchObject({ receipt: "processed" })
+      expect((await jobs(automation))[0]).toMatchObject({
+        status: "cancelled",
+        reason: "replied",
+        delivery_receipt: null,
+      })
+      throw saveError
     })
     const before = fixture.requests.length
     const errors: unknown[] = []
     await worker(event.sentAt, repository).run((error) => errors.push(error))
-    expect(errors).toHaveLength(1)
+    expect(errors).toEqual([saveError])
     const pending = (await jobs(automation))[0]!
     expect(pending).toMatchObject({
       status: "pending",
