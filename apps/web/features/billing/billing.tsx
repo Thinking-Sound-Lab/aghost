@@ -88,7 +88,7 @@ export function Billing() {
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    All features. No contact-based charges.
+                    Pick your tools. No contact-based charges.
                   </p>
                 )}
               </div>

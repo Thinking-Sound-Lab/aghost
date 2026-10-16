@@ -1,4 +1,7 @@
+"use client"
+
 import Image from "next/image"
+import { useState } from "react"
 import {
   BatteryFull,
   Bookmark,
@@ -21,7 +24,7 @@ import {
   Wifi,
 } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
-import type { OpeningDm } from "@workspace/api/contract"
+import type { FollowUp, OpeningDm, ProductCard } from "@workspace/api/contract"
 
 // A stand-in commenter, so personalised messages read naturally.
 const SAMPLE = { first_name: "Alex", name: "Alex Rivera", username: "alex" }
@@ -44,6 +47,8 @@ export function InstagramPreview({
   openingDm,
   dmMessage,
   buttons,
+  productCarousel = null,
+  followUp = null,
 }: {
   screen: "post" | "dm" | "story"
   account: Account
@@ -53,6 +58,8 @@ export function InstagramPreview({
   openingDm: OpeningDm | null
   dmMessage: string
   buttons: string[]
+  productCarousel?: ProductCard[] | null
+  followUp?: FollowUp | null
 }) {
   return (
     <div className="h-[620px] w-[300px] shrink-0 rounded-[46px] bg-neutral-950 p-2.5 shadow-2xl ring-1 ring-black/10">
@@ -80,6 +87,8 @@ export function InstagramPreview({
             openingDm={openingDm}
             dmMessage={dmMessage}
             buttons={buttons}
+            productCarousel={productCarousel}
+            followUp={followUp}
           />
         )}
         <div className="mx-auto mt-1 mb-2 h-1 w-28 shrink-0 rounded-full bg-white/80" />
@@ -211,11 +220,15 @@ function DmScreen({
   openingDm,
   dmMessage,
   buttons,
+  productCarousel,
+  followUp,
 }: {
   account: Account
   openingDm: OpeningDm | null
   dmMessage: string
   buttons: string[]
+  productCarousel: ProductCard[] | null
+  followUp: FollowUp | null
 }) {
   return (
     <>
@@ -228,7 +241,8 @@ function DmScreen({
           <Video />
         </span>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col justify-end gap-1.5 overflow-hidden px-3 py-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-3">
+        <div className="mt-auto" />
         {openingDm && (
           <>
             <Received account={account} text={openingDm.message}>
@@ -239,9 +253,24 @@ function DmScreen({
             </p>
           </>
         )}
-        <Received account={account} text={dmMessage}>
-          {buttons}
-        </Received>
+        {productCarousel ? (
+          <CarouselPreview cards={productCarousel} />
+        ) : (
+          <Received account={account} text={dmMessage}>
+            {buttons}
+          </Received>
+        )}
+        {followUp && (
+          <>
+            <p className="pt-3 text-center text-[10px] text-white/50">
+              {followUp.delayMinutes} minutes later · if they haven’t replied or
+              clicked
+            </p>
+            <Received account={account} text={followUp.message}>
+              {followUp.button ? [followUp.button.label] : []}
+            </Received>
+          </>
+        )}
       </div>
       <div className="mx-3 mb-2 flex shrink-0 items-center gap-2 rounded-full bg-neutral-900 p-1.5 pr-3 [&_svg]:size-5">
         <span className="grid size-8 place-items-center rounded-full bg-[#3797f0]">
@@ -253,6 +282,67 @@ function DmScreen({
         <Smile />
       </div>
     </>
+  )
+}
+
+function CarouselPreview({ cards }: { cards: ProductCard[] }) {
+  return (
+    <div className="shrink-0">
+      <div
+        className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-xl pb-2 outline-offset-2 focus-visible:outline"
+        tabIndex={0}
+        role="region"
+        aria-label="Product carousel preview"
+      >
+        {cards.map((card, index) => (
+          <article
+            key={index}
+            className="w-[205px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-neutral-800"
+          >
+            <ProductImage card={card} />
+            <div className="grid gap-1 p-3">
+              <p className="text-[13px] font-semibold break-words">
+                {card.title || "Product title"}
+              </p>
+              <p className="min-h-4 text-[11px] break-words text-white/60">
+                {card.subtitle || "Description or price"}
+              </p>
+            </div>
+            <p className="border-t border-white/10 px-3 py-2 text-center text-[12px] font-semibold">
+              {card.buttonLabel || "Shop now"}
+            </p>
+          </article>
+        ))}
+      </div>
+      {cards.length > 1 && (
+        <p className="text-center text-[10px] text-white/50">
+          Swipe to browse · {cards.length} products
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ProductImage({ card }: { card: ProductCard }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const valid =
+    /^https:\/\/.+/.test(card.imageUrl) && card.imageUrl !== failedSrc
+  return (
+    <div className="relative grid aspect-[1.5] place-items-center bg-neutral-700">
+      {valid ? (
+        <Image
+          src={card.imageUrl}
+          alt={card.title || "Product image"}
+          fill
+          sizes="205px"
+          unoptimized
+          className="object-cover"
+          onError={() => setFailedSrc(card.imageUrl)}
+        />
+      ) : (
+        <ImageIcon className="size-7 text-white/30" aria-hidden="true" />
+      )}
+    </div>
   )
 }
 

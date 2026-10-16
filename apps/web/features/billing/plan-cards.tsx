@@ -55,9 +55,43 @@ export function BillingIntervalToggle({
 }
 
 const descriptions = {
-  pro: "For your creator account.",
-  growth: "For a creator and a brand.",
-  business: "For brands managing several accounts.",
+  pro: "Turn interested comments into conversations.",
+  growth: "Turn your DMs into a product showcase.",
+  business: "Bring interested people back to your offer.",
+}
+
+function benefits(plan: Plan): string[] {
+  const accounts = `${plan.instagramAccounts} Instagram account${plan.instagramAccounts === 1 ? "" : "s"}`
+  if (plan.features.followUpNudge)
+    return [
+      "Everything in Growth",
+      accounts,
+      "Automatic follow-up nudges",
+      "Choose a delay from 30 minutes to 20 hours",
+      "Reminders stop after a reply or link click",
+      "Send your offer link again",
+    ]
+  if (plan.features.productCarousel)
+    return [
+      "Everything in Pro",
+      accounts,
+      "Product carousels in your DMs",
+      "Up to 10 swipeable product cards",
+      "Images, descriptions and a link per product",
+      "Click tracking on product links",
+    ]
+  return [
+    accounts,
+    "Unlimited automations, contacts and DMs",
+    "Post and reel comment triggers",
+    "Keyword or any-comment matching",
+    "Public comment replies",
+    "Opening DMs and follower gates",
+    "Up to 3 link buttons per DM",
+    "Link clicks and delivery activity",
+    "Instagram inbox",
+    "MCP and REST API access",
+  ]
 }
 
 export function PlanCards({
@@ -78,13 +112,23 @@ export function PlanCards({
         return (
           <section
             key={id}
-            className="flex min-w-0 flex-col rounded-lg border p-6"
+            className={cn(
+              "plan-card flex min-w-0 flex-col rounded-2xl border p-6",
+              id === "growth" && "border-brand bg-brand/5"
+            )}
           >
+            <p className="plan-card-purpose mb-4 text-xs font-medium text-muted-foreground">
+              {id === "pro"
+                ? "Start the conversation"
+                : id === "growth"
+                  ? "Showcase your products"
+                  : "Keep the conversation going"}
+            </p>
             <h2 className="text-lg font-semibold">{plan.name}</h2>
             <p className="mt-1 min-h-10 text-sm text-muted-foreground">
               {descriptions[id]}
             </p>
-            <p className="mt-6 flex flex-wrap items-baseline gap-1">
+            <p className="plan-card-price mt-6 flex flex-wrap items-baseline gap-1">
               <span className="text-3xl font-semibold tracking-tight tabular-nums">
                 {price(plan.prices[currency][interval], currency)}
               </span>
@@ -96,31 +140,32 @@ export function PlanCards({
               Taxes included
               {interval === "yearly" && ", billed yearly"}
             </p>
-            <p className="mt-6 text-sm font-semibold">
-              {plan.instagramAccounts} Instagram account
-              {plan.instagramAccounts > 1 ? "s" : ""}
-            </p>
-            <ul className="mt-4 grid gap-3 text-sm">
-              {[
-                "MCP access for AI agents",
-                "REST API access",
-                "Unlimited automations",
-                "Unlimited contacts and DMs",
-                "Comment keywords and follow requirement",
-                "Inbox and activity",
-              ].map((feature, index) => (
+            <div className="plan-card-action mt-6">{action(plan)}</div>
+            <ul className="mt-6 grid content-start gap-3 border-t pt-6 text-sm">
+              {benefits(plan).map((feature, index) => (
                 <li key={feature} className="flex gap-2">
                   <Check
                     aria-hidden="true"
                     className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                   />
-                  <span className={index < 2 ? "font-medium" : undefined}>
+                  <span
+                    className={
+                      index === 0 || (id !== "pro" && index === 2)
+                        ? "font-semibold"
+                        : undefined
+                    }
+                  >
                     {feature}
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-auto pt-6">{action(plan)}</div>
+            {id !== "pro" && (
+              <p className="mt-auto pt-6 text-xs text-muted-foreground">
+                Unlimited automations, contacts and DMs. MCP and REST API
+                included.
+              </p>
+            )}
           </section>
         )
       })}

@@ -79,6 +79,8 @@ function automationFor(saved: ScheduledPost): Automation {
     dmButtons: [],
     commentReply: null,
     requireFollow: false,
+    productCarousel: null,
+    followUp: null,
     createdAt: saved.createdAt,
     updatedAt: saved.updatedAt,
   }
@@ -102,6 +104,7 @@ async function draft(withAutomation = false) {
   useComposerStore.setState({
     automationOn: withAutomation,
     response: {
+      dmFormat: "text",
       openingDm: null,
       dmMessage: "Here is the guide",
       dmButtons: [],
@@ -124,6 +127,95 @@ describe("the scheduling composer across failures and navigation", () => {
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
     vi.mocked(api.automations.stats).mockResolvedValue({})
   })
+
+  it("includes the carousel and reminder in the scheduled post's automation", async () => {
+    await draft(true)
+    const productCarousel = [
+      {
+        title: "Creator kit",
+        subtitle: "$29",
+        imageUrl: "https://media.example/kit.jpg",
+        buttonLabel: "Shop now",
+        url: "https://example.com/kit",
+      },
+    ]
+    const followUp = {
+      message: "Still interested?",
+      delayMinutes: 60,
+      button: null,
+    }
+    useComposerStore.setState({
+      response: {
+        ...useComposerStore.getState().response,
+        productCarousel,
+        followUp,
+        dmFormat: "carousel",
+      },
+    })
+    const saved = post(["33333333-3333-4333-8333-333333333333"])
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.automations.get).mockResolvedValue({
+      ...automationFor(saved),
+      productCarousel,
+      followUp,
+    })
+
+    expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        automation: expect.objectContaining({
+          productCarousel,
+          followUp,
+          dmButtons: [],
+        }),
+      })
+    )
+  })
+
+  it.each(["text", "carousel"] as const)(
+    "keeps both format drafts but validates and sends only %s",
+    async (dmFormat) => {
+      await draft(true)
+      const productCarousel = [
+        {
+          title: "Kit",
+          subtitle: "$29",
+          imageUrl: "https://media.example/kit.jpg",
+          buttonLabel: "Shop",
+          url: "https://example.com/kit",
+        },
+      ]
+      const dmButtons = [{ label: "Guide", url: "https://example.com/guide" }]
+      const response = {
+        ...useComposerStore.getState().response,
+        dmFormat,
+        dmMessage: dmFormat === "carousel" ? "   " : "Your guide",
+        productCarousel:
+          dmFormat === "text"
+            ? [{ ...productCarousel[0]!, imageUrl: "unfinished" }]
+            : productCarousel,
+        dmButtons:
+          dmFormat === "carousel"
+            ? [{ label: "", url: "unfinished" }]
+            : dmButtons,
+      }
+      useComposerStore.setState({ response })
+      const saved = post(["33333333-3333-4333-8333-333333333333"])
+      vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+      vi.mocked(api.automations.get).mockResolvedValue(automationFor(saved))
+      expect(await useComposerStore.getState().save()).toEqual(saved)
+      const sent = vi.mocked(api.scheduledPosts.create).mock.calls[0]![0]
+        .automation!
+      expect(sent).toMatchObject({
+        dmMessage:
+          dmFormat === "carousel" ? "Browse the collection." : "Your guide",
+        productCarousel: dmFormat === "carousel" ? productCarousel : null,
+        dmButtons: dmFormat === "text" ? dmButtons : [],
+      })
+      expect(sent).not.toHaveProperty("dmFormat")
+      expect(useComposerStore.getState().response).toEqual(response)
+    }
+  )
 
   it("keeps a successful scheduling result when the optional automation refresh fails", async () => {
     await draft(true)
@@ -223,6 +315,7 @@ describe("the scheduling composer across failures and navigation", () => {
     useComposerStore.setState({
       automationOn: true,
       response: {
+        dmFormat: "text",
         openingDm: null,
         dmMessage: "Guide",
         dmButtons: [],

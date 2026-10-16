@@ -8,7 +8,12 @@ import { run } from "./local-command.mjs"
 
 // One subscription per Zernio account; each run points it at the new address.
 const WEBHOOK_NAME = "aghost local tunnel"
-const WEBHOOK_EVENTS = ["account.connected", "account.disconnected"]
+const WEBHOOK_EVENTS = [
+  "account.connected",
+  "account.disconnected",
+  "message.sent",
+  "message.received",
+]
 
 const configured = ensureRootEnv()
 if (!configured.ZERNIO_API_KEY && !configured.DODO_PAYMENTS_API_KEY)

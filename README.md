@@ -106,7 +106,7 @@ Supabase reads both values when it starts. After changing them, or after switchi
 
 ### Provider webhooks locally
 
-Zernio notifies the API when an Instagram account connects or disconnects. To receive those events on your machine, run:
+Zernio notifies the API when an Instagram account connects or disconnects, and when messages are sent or received. Message events schedule and cancel follow-up nudges. To receive those events on your machine, run:
 
 ```sh
 pnpm local:tunnel
@@ -115,7 +115,7 @@ pnpm local:tunnel
 This starts a [Cloudflare quick tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) in Docker, which needs no Cloudflare account. Only `/api/webhooks/zernio` and `/api/webhooks/dodo` are public; Cloudflare answers 404 for every other path. With Zernio configured, the command:
 
 1. Generates `ZERNIO_WEBHOOK_SECRET` in the root `.env` if it is empty.
-2. Creates or updates a Zernio webhook named `aghost local tunnel` that points to the tunnel and subscribes to `account.connected` and `account.disconnected`.
+2. Creates or updates a Zernio webhook named `aghost local tunnel` that points to the tunnel and subscribes to `account.connected`, `account.disconnected`, `message.sent`, and `message.received`.
 3. Asks Zernio to send a test event through the tunnel, and fails if it is not delivered.
 
 Set `ZERNIO_API_KEY` or a Dodo test-mode API key. With Dodo configured, the command also registers its local subscription/payment webhook, stores the signing secret in the root `.env`, and recreates the API container. Deliveries and their status codes appear in `pnpm local:logs`; a 401 means the signature did not match the secret.
@@ -348,7 +348,7 @@ GitHub's runners have no IPv6, and the database's direct address is IPv6-only, s
 > [!TIP]
 > Add required reviewers to the `prod` environment to approve each release before it starts.
 
-**4. Supabase, Google, and Zernio.** In the Supabase dashboard, under **Authentication**, enable the Google provider with an OAuth client's ID and secret, disable the Email provider, and allow `<APP_URL>/api/auth/callback` in the redirect URLs. Add `https://<project>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs in the Google Cloud console. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected` and `account.disconnected`.
+**4. Supabase, Google, and Zernio.** In the Supabase dashboard, under **Authentication**, enable the Google provider with an OAuth client's ID and secret, disable the Email provider, and allow `<APP_URL>/api/auth/callback` in the redirect URLs. Add `https://<project>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs in the Google Cloud console. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected`, `account.disconnected`, `message.sent`, and `message.received`. Apply `20261016090000_carousels_and_follow_ups.sql` before the API release; see [the feature rollout](docs/billing.md#carousel-and-follow-up-rollout).
 
 > [!NOTE]
 > Google sign-in returns to `APP_URL`, and the API accepts writes only from its origin. Previews show the site and dashboard, but signing in from a preview does not work.

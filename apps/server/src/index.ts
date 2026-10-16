@@ -7,7 +7,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535)
 const host = process.env.API_HOST
 if (!host) throw new Error("Set API_HOST in the root .env.")
 
-const api = createApi(config)
+const api = createApi(config, { runFollowUps: true })
 if (!config.zernio.apiKey)
   api.log.info(
     "Zernio is not configured. Add ZERNIO_API_KEY to the root .env to connect Instagram."

@@ -30,6 +30,41 @@ const accountDisconnectedSchema = z.object({
   account: accountSchema.extend({ reason: z.string() }),
 })
 
+const inboxEventSchema = z.object({
+  account: z.object({
+    id: z.string().min(1),
+    accountId: z.string().optional(),
+    profileId: z.string().optional(),
+    platform: z.string(),
+  }),
+  conversation: z.object({
+    id: z.string().min(1),
+    participantId: z.string().optional(),
+    platformConversationId: z.string().min(1),
+  }),
+  message: z.object({
+    id: z.string().min(1),
+    direction: z.enum(["incoming", "outgoing"]),
+    sentAt: z.iso.datetime({ offset: true }),
+    automationId: z.string().nullable().optional(),
+    sentVia: z.string().nullable().optional(),
+  }),
+  metadata: z.object({ metaInteractive: z.unknown().optional() }).optional(),
+})
+
+// Main carousel cards only have URL buttons. Postback buttons are the opening
+// or follower gate; its delivery must not start the reminder timer.
+function hasPostback(value: unknown, depth = 0): boolean {
+  if (depth > 12 || !value || typeof value !== "object") return false
+  if (Array.isArray(value))
+    return value.some((item) => hasPostback(item, depth + 1))
+  const object = value as Record<string, unknown>
+  return (
+    object.type === "postback" ||
+    Object.values(object).some((item) => hasPostback(item, depth + 1))
+  )
+}
+
 export class ZernioWebhookGateway implements WebhookGateway {
   constructor(private readonly secret: string) {}
 
@@ -61,6 +96,41 @@ export class ZernioWebhookGateway implements WebhookGateway {
     }
 
     switch (envelope.event) {
+      case "message.sent":
+      case "message.received": {
+        const data = decode(inboxEventSchema, payload)
+        if (data.account.platform !== "instagram" || !data.account.profileId)
+          return { ...event, kind: "unhandled" }
+        const outgoing = envelope.event === "message.sent"
+        if (
+          outgoing &&
+          (data.message.direction !== "outgoing" ||
+            data.message.sentVia !== "comment_automation" ||
+            !data.message.automationId ||
+            hasPostback(data.metadata?.metaInteractive))
+        )
+          return { ...event, kind: "unhandled" }
+        if (!outgoing && data.message.direction !== "incoming")
+          return { ...event, kind: "unhandled" }
+        return {
+          ...event,
+          kind: outgoing ? "automation_dm_sent" : "dm_received",
+          account: {
+            providerAccountId: data.account.accountId ?? data.account.id,
+            providerProfileId: data.account.profileId,
+            platform: data.account.platform,
+          },
+          message: {
+            providerMessageId: data.message.id,
+            providerAutomationId: data.message.automationId ?? null,
+            conversationId: data.conversation.id,
+            recipientId:
+              data.conversation.participantId ??
+              data.conversation.platformConversationId,
+            sentAt: data.message.sentAt,
+          },
+        }
+      }
       case "account.connected": {
         const { account } = decode(accountConnectedSchema, payload)
 

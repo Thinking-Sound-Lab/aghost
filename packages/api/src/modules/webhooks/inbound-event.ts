@@ -26,6 +26,21 @@ export type InboundEvent = {
       }
     }
   | { kind: "unhandled" }
+  | {
+      kind: "automation_dm_sent" | "dm_received"
+      account: {
+        providerAccountId: string
+        providerProfileId: string
+        platform: string
+      }
+      message: {
+        providerMessageId: string
+        providerAutomationId: string | null
+        conversationId: string
+        recipientId: string
+        sentAt: string
+      }
+    }
 )
 
 /** `ignored` means the event was understood but does not concern this product. */

@@ -30,6 +30,23 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
     private readonly analytics: ProductAnalytics
   ) {}
   async process(event: InboundEvent): Promise<WebhookReceipt> {
+    if (event.kind === "automation_dm_sent" || event.kind === "dm_received") {
+      return required(
+        await this.db.rpc("process_follow_up_webhook", {
+          p_id: event.id,
+          p_type: event.type,
+          p_payload: event.payload as Json,
+          p_account_id: event.account.providerAccountId,
+          p_profile_id: event.account.providerProfileId,
+          p_recipient_id: event.message.recipientId,
+          p_conversation_id: event.message.conversationId,
+          p_message_id: event.message.providerMessageId,
+          p_automation_id: event.message.providerAutomationId ?? "",
+          p_sent_at: event.message.sentAt,
+        }),
+        "process the reminder event"
+      ) as WebhookReceipt
+    }
     const workspace = await this.workspaceOf(event)
     return workspace
       ? this.operations.run(workspace.id, () =>
@@ -41,7 +58,12 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
   private async workspaceOf(
     event: InboundEvent
   ): Promise<WorkspaceOwner | null> {
-    if (event.kind === "unhandled" || event.account.platform !== "instagram")
+    if (
+      event.kind === "unhandled" ||
+      event.kind === "automation_dm_sent" ||
+      event.kind === "dm_received" ||
+      event.account.platform !== "instagram"
+    )
       return null
     if (event.kind === "account_connected") {
       const workspace = optional(

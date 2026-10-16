@@ -14,6 +14,7 @@ export type Plan = {
   id: PlanId
   name: string
   instagramAccounts: number
+  features: { productCarousel: boolean; followUpNudge: boolean }
   /** Tax-inclusive, in US cents. */
   prices: PlanPrices
 }
@@ -27,6 +28,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "pro",
     name: "Pro",
     instagramAccounts: 1,
+    features: { productCarousel: false, followUpNudge: false },
     prices: {
       USD: { monthly: 900, yearly: 10_800 },
     },
@@ -35,6 +37,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "growth",
     name: "Growth",
     instagramAccounts: 2,
+    features: { productCarousel: true, followUpNudge: false },
     prices: {
       USD: { monthly: 1_900, yearly: 22_800 },
     },
@@ -43,6 +46,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "business",
     name: "Business",
     instagramAccounts: 5,
+    features: { productCarousel: true, followUpNudge: true },
     prices: {
       USD: { monthly: 4_900, yearly: 58_800 },
     },

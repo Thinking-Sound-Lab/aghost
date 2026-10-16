@@ -105,6 +105,16 @@ export const features = [
     text: "Send the link only to people who follow you. Anyone Instagram can't confirm as a follower is asked to follow first.",
   },
   {
+    label: "Product carousel · Growth and Business",
+    title: "Your products, one swipe away",
+    text: "Send up to 10 product cards in a DM, each with an image, description and its own tracked link. Included on Growth and Business.",
+  },
+  {
+    label: "Follow-up nudges · Business",
+    title: "A gentle reminder, automatically",
+    text: "Follow up once after 30 minutes to 20 hours. Reminders stop after a reply or link click, and only send within Instagram's messaging window. Included on Business.",
+  },
+  {
     label: "Analytics",
     title: "Know what got the click",
     text: "See comments, DMs sent, and link clicks for each automation, and a log of every DM: sent, waiting for a tap, or failed.",
@@ -118,6 +128,16 @@ export const features = [
 
 export const faqs = [
   {
+    question: "Can I send a product carousel in a DM?",
+    answer:
+      "Yes. Growth and Business include up to 10 swipeable product cards. Each has an image, title, short description and a link button. A carousel replaces the main text DM; you can still use an opening DM and a public comment reply.",
+  },
+  {
+    question: "Can I send an automatic follow-up reminder?",
+    answer:
+      "Business includes one follow-up nudge per original DM. Choose a delay from 30 minutes to 20 hours, write the reminder, and optionally include a link button. It is skipped if the person replies or clicks a tracked link, if the conversation has continued, or if Instagram no longer allows another message. An opening DM helps people opt in by tapping before they receive your offer.",
+  },
+  {
     question: "What is aghost?",
     answer: productSummary,
   },
@@ -128,7 +148,7 @@ export const faqs = [
   },
   {
     question: "How much does aghost cost?",
-    answer: `${planPrices.join(", ")}. Every plan includes MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Prices are in US dollars with taxes included, billed monthly or yearly.`,
+    answer: `${planPrices.join(", ")}. Every plan includes MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Growth adds product carousels, and Business adds follow-up nudges. Prices are in US dollars with taxes included, billed monthly or yearly.`,
   },
   {
     question: "Which AI agents work with aghost?",
