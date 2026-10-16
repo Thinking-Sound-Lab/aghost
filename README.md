@@ -348,7 +348,7 @@ GitHub's runners have no IPv6, and the database's direct address is IPv6-only, s
 > [!TIP]
 > Add required reviewers to the `prod` environment to approve each release before it starts.
 
-**4. Supabase, Google, and Zernio.** In the Supabase dashboard, under **Authentication**, enable the Google provider with an OAuth client's ID and secret, disable the Email provider, and allow `<APP_URL>/api/auth/callback` in the redirect URLs. Add `https://<project>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs in the Google Cloud console. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected`, `account.disconnected`, `message.sent`, and `message.received`. Apply `20261013090000_carousels_and_follow_ups.sql` before the API release; see [the feature rollout](docs/billing.md#carousel-and-follow-up-rollout).
+**4. Supabase, Google, and Zernio.** In the Supabase dashboard, under **Authentication**, enable the Google provider with an OAuth client's ID and secret, disable the Email provider, and allow `<APP_URL>/api/auth/callback` in the redirect URLs. Add `https://<project>.supabase.co/auth/v1/callback` to that client's authorized redirect URIs in the Google Cloud console. Point the Zernio webhook to `<ApiUrl>/api/webhooks/zernio` with the same secret, subscribed to `account.connected`, `account.disconnected`, `message.sent`, and `message.received`. Apply `20261016090000_carousels_and_follow_ups.sql` before the API release; see [the feature rollout](docs/billing.md#carousel-and-follow-up-rollout).
 
 > [!NOTE]
 > Google sign-in returns to `APP_URL`, and the API accepts writes only from its origin. Previews show the site and dashboard, but signing in from a preview does not work.

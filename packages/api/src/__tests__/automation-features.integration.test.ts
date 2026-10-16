@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { parseEnv } from "node:util"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { createClient } from "@supabase/supabase-js"
 import {
   createAdminSupabaseClient,
@@ -149,9 +149,12 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
     })
     return { ...event, sentAt, providerId: row.data!.zernio_automation_id }
   }
-  function worker(sentAt: string) {
+  function worker(
+    sentAt: string,
+    repository = new SupabaseFollowUpRepository(admin)
+  ) {
     return new FollowUpService(
-      new SupabaseFollowUpRepository(admin),
+      repository,
       new ZernioFollowUpProvider(() =>
         createZernioClient({
           apiUrl: fixture.apiUrl,
@@ -432,6 +435,124 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
     })
   })
 
+  it("retains a successful send receipt across a failed save and a worker restart", async () => {
+    const automation = await create({ followUp })
+    const event = await enqueue(automation)
+    await ready(automation, event.sentAt)
+    const repository = new SupabaseFollowUpRepository(admin)
+    vi.spyOn(repository, "finish").mockImplementationOnce(async () => {
+      // A reply arrives after the send but before its status save succeeds.
+      const reply = await deliver({
+        event: "message.received",
+        account: { id: fixture.accountId, profileId, platform: "instagram" },
+        conversation: {
+          id: fixture.conversationId,
+          participantId: "fixture-participant-1",
+        },
+        message: {
+          id: randomUUID(),
+          direction: "incoming",
+          sentAt: new Date(Date.now() + 1000).toISOString(),
+        },
+      })
+      expect(reply.response.statusCode).toBe(200)
+      throw new Error("Database write interrupted")
+    })
+    const before = fixture.requests.length
+    const errors: unknown[] = []
+    await worker(event.sentAt, repository).run((error) => errors.push(error))
+    expect(errors).toHaveLength(1)
+    const pending = (await jobs(automation))[0]!
+    expect(pending).toMatchObject({
+      status: "pending",
+      reason: "saving_delivery",
+      delivery_receipt: {
+        logId: `log-${automation.id}`,
+        messageId: expect.any(String),
+      },
+    })
+    await admin
+      .from("follow_up_jobs")
+      .update({ retry_after: new Date(Date.now() - 1000).toISOString() })
+      .eq("id", pending.id)
+    await worker(event.sentAt).run((error) => {
+      throw error
+    })
+    const recovered = (await jobs(automation))[0]!
+    expect(recovered.status).toBe("sent")
+    expect(Date.parse(recovered.sent_at!)).toBe(
+      Date.parse(event.sentAt) + 31 * 60_000
+    )
+    expect(
+      fixture.requests
+        .slice(before)
+        .filter(
+          (item) => item.method === "POST" && item.path.includes("/messages")
+        )
+    ).toHaveLength(1)
+  })
+
+  it("keeps busy workspace deferrals out of the delivery attempt budget", async () => {
+    const automation = await create({ followUp })
+    const event = await enqueue(automation)
+    await ready(automation, event.sentAt)
+    const repository = new SupabaseFollowUpRepository(admin)
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await admin
+        .from("follow_up_jobs")
+        .update({ retry_after: new Date(Date.now() - 1000).toISOString() })
+        .eq("automation_id", automation.id)
+      const owner = randomUUID()
+      const claimed = (await repository.claim(owner)).find(
+        (job) => job.automationId === automation.id
+      )!
+      expect(claimed.attempts).toBe(1)
+      await repository.defer(claimed, owner)
+      expect((await jobs(automation))[0]).toMatchObject({
+        status: "pending",
+        reason: "workspace_busy",
+        attempts: 0,
+      })
+    }
+    await admin
+      .from("follow_up_jobs")
+      .update({ retry_after: new Date(Date.now() - 1000).toISOString() })
+      .eq("automation_id", automation.id)
+    await worker(event.sentAt).run((error) => {
+      throw error
+    })
+    expect((await jobs(automation))[0]).toMatchObject({
+      status: "sent",
+      attempts: 1,
+    })
+  })
+
+  it("bounds a missing original-DM lookup instead of scanning all automation history", async () => {
+    const automation = await create({ followUp })
+    const event = await enqueue(automation)
+    await ready(automation, event.sentAt)
+    fixture.state.automationLogs = Array.from({ length: 2500 }, (_, index) => ({
+      id: `other-${index}`,
+      status: "sent",
+      commenterId: "another-reader",
+      createdAt: event.sentAt,
+      clickCount: 0,
+    }))
+    const before = fixture.requests.length
+    await worker(event.sentAt).run((error) => {
+      throw error
+    })
+    expect((await jobs(automation))[0]).toMatchObject({
+      status: "cancelled",
+      reason: "unverified_delivery",
+    })
+    expect(
+      fixture.requests
+        .slice(before)
+        .filter((item) => item.path.endsWith("/logs"))
+    ).toHaveLength(10)
+  })
+
   it("cancels after tracked clicks, after a reply, and when there is no messaging consent", async () => {
     const clicked = await create({ followUp })
     const first = await enqueue(clicked)
@@ -525,6 +646,24 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
         })
       ).statusCode
     ).toBe(200)
+    const unchanged = await request(`/automations/${downgraded.id}`, "PATCH", {
+      ...input(),
+      name: "Renamed paused draft",
+      status: "paused",
+      followUp,
+    })
+    expect(unchanged.statusCode, unchanged.body).toBe(200)
+    expect(unchanged.json<Automation>()).toMatchObject({
+      name: "Renamed paused draft",
+      followUp,
+      status: "paused",
+    })
+    const changed = await request(`/automations/${downgraded.id}`, "PATCH", {
+      ...input(),
+      status: "paused",
+      followUp: { ...followUp, message: "A new reminder" },
+    })
+    expect(changed.statusCode, changed.body).toBe(403)
   })
 
   it("claims due jobs exclusively across replicas and recovers an expired lease", async () => {

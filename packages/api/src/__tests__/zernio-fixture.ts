@@ -331,14 +331,15 @@ export async function startZernioFixture() {
               }
         )
       } else if (method === "POST") {
+        const messageId = `fixture-message-${randomUUID()}`
         messages.push({
-          id: `fixture-message-${randomUUID()}`,
+          id: messageId,
           direction: "outgoing",
           message: body.message,
           createdAt: new Date().toISOString(),
           attachments: [],
         })
-        reply(200, { success: true, data: { conversationId: id } })
+        reply(200, { success: true, data: { conversationId: id, messageId } })
       } else {
         const sortOrder = url.searchParams.get("sortOrder") ?? "asc"
         const page = held ? [...messages] : []

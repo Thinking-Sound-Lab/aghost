@@ -10,6 +10,8 @@ import { PlanEntitlements } from "../modules/billing/plan-entitlements"
 import type { BillingRepository } from "../modules/billing/billing.repository"
 import type { AutomationRecord } from "../modules/automations/automation"
 import { ZernioWebhookGateway } from "../infrastructure/zernio/zernio-webhook.gateway"
+import { ConflictError } from "../shared/errors"
+import type { WorkspaceOperations } from "../modules/workspaces/workspace-operations"
 import {
   FollowUpService,
   type FollowUpJob,
@@ -177,6 +179,7 @@ describe("durable follow-up delivery", () => {
       automationUpdatedAt: automation.updatedAt,
       followUp,
       attempts: 1,
+      deliveryReceipt: null,
     }
     const context = {
       automation: { ...automation },
@@ -199,21 +202,21 @@ describe("durable follow-up delivery", () => {
       stillClaimed: vi.fn(async () => true),
       finish: vi.fn(async () => {}),
       retry: vi.fn(async () => {}),
+      defer: vi.fn(async () => {}),
     }
     const provider = {
       check: vi.fn(async () => ({
         logId: "original-log",
         reason: null as string | null,
       })),
-      send: vi.fn<FollowUpProvider["send"]>().mockResolvedValue(undefined),
+      send: vi
+        .fn<FollowUpProvider["send"]>()
+        .mockResolvedValue("reminder-message"),
     }
-    const worker = new FollowUpService(
-      jobs,
-      provider,
-      { run: async (_id, work) => work() },
-      () => now
-    )
-    return { job, jobs, provider, worker, context }
+    const operations: WorkspaceOperations = { run: async (_id, work) => work() }
+    const run = vi.spyOn(operations, "run")
+    const worker = new FollowUpService(jobs, provider, operations, () => now)
+    return { job, jobs, provider, worker, context, operations, run }
   }
   it("sends with a key tied to the original DM, and records delivery", async () => {
     const { worker, provider, job, jobs } = setup()
@@ -227,7 +230,12 @@ describe("durable follow-up delivery", () => {
       expect.any(String),
       "sent",
       null,
-      "original-log"
+      "original-log",
+      {
+        logId: "original-log",
+        messageId: "reminder-message",
+        sentAt: now.toISOString(),
+      }
     )
   })
   it.each([
@@ -280,11 +288,72 @@ describe("durable follow-up delivery", () => {
     const onError = vi.fn()
     await worker.run(onError)
     expect(onError).toHaveBeenCalledOnce()
-    expect(jobs.retry).toHaveBeenCalledWith(job, expect.any(String))
+    expect(jobs.retry).toHaveBeenCalledWith(job, expect.any(String), undefined)
     await worker.run(onError)
     expect(provider.send.mock.calls.map((call) => call[1])).toEqual([
       `aghost-nudge-${automation.id}-original-log`,
       `aghost-nudge-${automation.id}-original-log`,
     ])
+  })
+
+  it("does not spend the delivery retry budget on workspace contention", async () => {
+    const { worker, run, jobs, job, provider } = setup()
+    run.mockRejectedValue(new ConflictError("Workspace is busy"))
+    const errors = vi.fn()
+    for (let attempt = 0; attempt < 6; attempt++) await worker.run(errors)
+    expect(jobs.defer).toHaveBeenCalledTimes(6)
+    expect(jobs.defer).toHaveBeenLastCalledWith(job, expect.any(String))
+    expect(jobs.retry).not.toHaveBeenCalled()
+    expect(errors).not.toHaveBeenCalled()
+    expect(provider.send).not.toHaveBeenCalled()
+  })
+
+  it("reads provider history before taking the lock, then rechecks the plan inside it", async () => {
+    const { worker, run, context, provider, jobs, job } = setup()
+    provider.check.mockImplementation(async () => {
+      expect(run).not.toHaveBeenCalled()
+      return { logId: "original-log", reason: null }
+    })
+    run.mockImplementation(async (_id, work) => {
+      context.plan = PLANS.growth
+      return work()
+    })
+    await worker.run(() => {})
+    expect(provider.send).not.toHaveBeenCalled()
+    expect(jobs.finish).toHaveBeenCalledWith(
+      job.id,
+      expect.any(String),
+      "cancelled",
+      "plan_changed",
+      null
+    )
+  })
+
+  it("recovers a confirmed delivery after its final save fails, without checking or sending again", async () => {
+    const { worker, provider, jobs, job, operations } = setup()
+    vi.mocked(jobs.finish).mockRejectedValueOnce(
+      new Error("Database unavailable")
+    )
+    vi.mocked(jobs.retry).mockImplementation(async (_job, _owner, receipt) => {
+      job.deliveryReceipt = receipt ?? null
+    })
+    await worker.run(() => {})
+    expect(job.deliveryReceipt).toEqual({
+      logId: "original-log",
+      messageId: "reminder-message",
+      sentAt: now.toISOString(),
+    })
+    const restarted = new FollowUpService(jobs, provider, operations, () => now)
+    await restarted.run(() => {})
+    expect(provider.check).toHaveBeenCalledOnce()
+    expect(provider.send).toHaveBeenCalledOnce()
+    expect(jobs.finish).toHaveBeenLastCalledWith(
+      job.id,
+      expect.any(String),
+      "sent",
+      null,
+      "original-log",
+      job.deliveryReceipt
+    )
   })
 })

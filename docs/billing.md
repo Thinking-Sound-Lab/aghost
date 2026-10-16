@@ -14,7 +14,7 @@ All countries, including India, pay in US dollars. Prices include tax. Yearly bi
 
 ## Carousel and follow-up rollout
 
-1. Apply `20261013090000_carousels_and_follow_ups.sql`. It adds nullable carousel/reminder configuration and a workspace-scoped reminder queue; existing text automations are preserved.
+1. Apply `20261016090000_carousels_and_follow_ups.sql`. It adds nullable carousel/reminder configuration and a workspace-scoped reminder queue; existing text automations are preserved.
 2. Release the API before the dashboard. New request fields are optional: older clients preserve stored carousel/reminder settings when they omit them. Explicit `null` removes the feature. Feature access is checked by the shared domain services for dashboard, REST and MCP. Downgrades pause running automations that need a higher plan, and pending reminders recheck the plan before sending.
 3. Add `message.sent` and `message.received` to the existing signed Zernio webhook at `<ApiUrl>/api/webhooks/zernio`. Keep `account.connected` and `account.disconnected`. `pnpm local:tunnel` configures all four for local use. No new keys, services or Dodo products are needed.
 4. Release the dashboard and pricing page, then verify a carousel and nudge with a controlled Instagram account. Local tests use provider fixtures and are not proof of live Instagram delivery.
@@ -22,6 +22,8 @@ All countries, including India, pay in US dollars. Prices include tax. Yearly bi
 The API process polls durable reminder jobs every 15 seconds. Only successful main automation DMs create jobs; opening/follower postback gates are ignored. Select one reminder from 30 minutes to 20 hours, optionally with a link button. Before sending, the worker verifies the conversation and original DM, checks tracked clicks and later messages, and requires proof of a recent incoming message or resolved opt-in gate inside Instagram's 24-hour window. A comment alone never grants that permission. A reply cancels a pending reminder; clicks and newer conversation messages skip it at delivery time. Pausing, editing, deleting, disconnecting, or losing feature access prevents the old reminder from sending.
 
 Claims survive process restarts and concurrent API replicas. Sends use a stable provider idempotency key derived from the original DM log; transport errors retry up to five times. Failed sends remain visible in automation activity. The worker does not reclaim the existing workspace mutex automatically; use the documented operator recovery for an API crash that leaves workspace ownership behind.
+
+Waiting for a busy workspace reschedules the reminder without consuming a delivery attempt. Provider-history checks run outside workspace ownership with a bounded search; unverified original DMs are skipped. The worker reloads the plan and automation under ownership immediately before sending. A confirmed send receipt is retained on a failed status save so a subsequent worker records the original delivery time without sending or mistaking the nudge for a newer reply. Paused drafts can retain unchanged features after a downgrade; activating or adding unavailable features still requires the appropriate plan.
 
 ## Dodo setup
 

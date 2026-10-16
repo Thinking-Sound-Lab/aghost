@@ -35,6 +35,7 @@ create table public.follow_up_jobs (
   lease_until timestamptz,
   reason text,
   provider_log_id text,
+  delivery_receipt jsonb,
   sent_at timestamptz,
   created_at timestamptz not null default now(),
   unique (automation_id, provider_message_id)
@@ -97,7 +98,7 @@ begin
       from public.workspaces w
       where w.id = j.workspace_id and w.zernio_profile_id = p_profile_id
         and j.provider_account_id = p_account_id and j.recipient_id = p_recipient_id
-        and j.status in ('pending', 'processing') and p_sent_at > j.source_sent_at;
+        and j.status in ('pending', 'processing') and j.delivery_receipt is null and p_sent_at > j.source_sent_at;
     if found then outcome := 'processed'; end if;
   end if;
   update public.webhook_events set status = outcome, processed_at = now() where id = p_id;
@@ -128,7 +129,7 @@ create function private.cancel_changed_follow_ups() returns trigger
 language plpgsql set search_path = '' as $$
 begin
   update public.follow_up_jobs set status = 'cancelled', reason = 'automation_changed', lease_owner = null, lease_until = null
-    where automation_id = new.id and status in ('pending', 'processing');
+    where automation_id = new.id and status in ('pending', 'processing') and delivery_receipt is null;
   return new;
 end;
 $$;

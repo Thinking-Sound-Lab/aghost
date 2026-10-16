@@ -172,6 +172,7 @@ export type Database = {
           automation_updated_at: string
           conversation_id: string
           created_at: string
+          delivery_receipt: Json | null
           due_at: string
           follow_up: NonNullable<Json>
           id: string
@@ -196,6 +197,7 @@ export type Database = {
           automation_updated_at: string
           conversation_id: string
           created_at?: string
+          delivery_receipt?: Json | null
           due_at: string
           follow_up: NonNullable<Json>
           id?: string
@@ -219,6 +221,7 @@ export type Database = {
           automation_updated_at?: string
           conversation_id?: string
           created_at?: string
+          delivery_receipt?: Json | null
           due_at?: string
           follow_up?: NonNullable<Json>
           id?: string
@@ -655,6 +658,7 @@ export type Database = {
           automation_updated_at: string
           conversation_id: string
           created_at: string
+          delivery_receipt: Json | null
           due_at: string
           follow_up: NonNullable<Json>
           id: string

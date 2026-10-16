@@ -70,14 +70,20 @@ export class ZernioFollowUpProvider implements FollowUpProvider {
       latestInbound = Math.max(latestInbound, gateAt)
     if (!latestInbound || now.getTime() - latestInbound >= 24 * 60 * 60_000)
       return fail("outside_window", log.id)
-    return { logId: log.id, reason: null }
+    return {
+      logId: log.id,
+      reason: null,
+      validUntil: latestInbound + 24 * 60 * 60_000,
+    }
   }
 
   private async findLog(
     automationId: string,
     job: FollowUpJob
   ): Promise<CommentAutomationLog | null> {
-    for (let offset = 0; ; offset += 200) {
+    // Fail closed after a bounded lookup, outside workspace ownership. Never
+    // walk an automation's entire lifetime history for every reminder.
+    for (let offset = 0; offset < 2_000; offset += 200) {
       const page = await request("verify the original DM and its clicks", () =>
         this.zernio().commentautomations.listCommentAutomationLogs({
           throwOnError: true,
@@ -99,10 +105,11 @@ export class ZernioFollowUpProvider implements FollowUpProvider {
       if (log) return log
       if (!page.pagination.hasMore || page.logs.length === 0) return null
     }
+    return null
   }
 
-  async send(job: FollowUpJob, idempotencyKey: string): Promise<void> {
-    await request("send the follow-up reminder", () =>
+  async send(job: FollowUpJob, idempotencyKey: string): Promise<string | null> {
+    const result = await request("send the follow-up reminder", () =>
       this.zernio().messages.sendInboxMessage({
         throwOnError: true,
         path: { conversationId: job.conversationId },
@@ -122,5 +129,8 @@ export class ZernioFollowUpProvider implements FollowUpProvider {
         },
       })
     )
+    if (!result.success)
+      throw new ProviderError("The reminder send was not confirmed.")
+    return result.data?.messageId ?? null
   }
 }

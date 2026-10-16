@@ -6,7 +6,6 @@ import {
   AUTOMATION_LIMITS,
   PLANS,
   billingPath,
-  type CreateAutomationInput,
   type FollowUp,
   type ProductCard,
 } from "@workspace/api/contract"
@@ -16,16 +15,12 @@ import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Field } from "@/components/interface"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-
-type ExtrasDraft = Pick<
-  CreateAutomationInput,
-  "productCarousel" | "followUp" | "dmButtons" | "dmMessage"
->
+import type { MessageDraft } from "@/lib/automation-draft"
 
 type ExtrasProps = {
-  draft: ExtrasDraft
+  draft: MessageDraft
   fields: Record<string, string>
-  onChange: (patch: Partial<ExtrasDraft>) => void
+  onChange: (patch: Partial<MessageDraft>) => void
 }
 
 const emptyCard = (): ProductCard => ({
@@ -66,7 +61,8 @@ export function ProductCarouselEditor({
     (state) => state.billing?.subscription?.plan ?? "pro"
   )
   const canUse = PLANS[planId].features.productCarousel
-  const cards = draft.productCarousel ?? null
+  const cards =
+    draft.dmFormat === "carousel" ? (draft.productCarousel ?? null) : null
   const patchCard = (index: number, patch: Partial<ProductCard>) =>
     onChange({
       productCarousel: cards!.map((card, i) =>
@@ -94,8 +90,7 @@ export function ProductCarouselEditor({
               checked={!cards}
               onChange={() =>
                 onChange({
-                  productCarousel: null,
-                  dmButtons: [{ label: "", url: "" }],
+                  dmFormat: "text",
                 })
               }
             />
@@ -110,9 +105,9 @@ export function ProductCarouselEditor({
               disabled={!canUse && !cards}
               onChange={() =>
                 onChange({
-                  productCarousel: [emptyCard()],
-                  dmButtons: [],
-                  dmMessage: draft.dmMessage || "Browse the collection.",
+                  dmFormat: "carousel",
+                  productCarousel: draft.productCarousel ?? [emptyCard()],
+                  dmMessage: draft.dmMessage.trim() || "Browse the collection.",
                 })
               }
             />
@@ -248,8 +243,9 @@ export function FollowUpEditor({ draft, fields, onChange }: ExtrasProps) {
   const patch = (value: Partial<FollowUp>) =>
     onChange({ followUp: { ...followUp!, ...value } })
   function enable(on: boolean) {
-    const first = draft.dmButtons[0]
-    const card = draft.productCarousel?.[0]
+    const first = draft.dmFormat === "text" ? draft.dmButtons[0] : null
+    const card =
+      draft.dmFormat === "carousel" ? draft.productCarousel?.[0] : null
     onChange({
       followUp: on
         ? {

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util"
 import type { InstagramPost } from "../../contract/account"
 import type {
   AutomationActivityPage,
@@ -215,9 +216,28 @@ export class AutomationService {
         input.followUp === undefined ? current.followUp : input.followUp,
     }
     assertMessageFormat(config)
-    // Pausing remains available after a downgrade, even to an older client.
-    if (input.status === "active" || input.productCarousel || input.followUp)
-      await this.plan.assertCanUseAutomationFeatures(workspace, config)
+    // Paused drafts may retain settings from their previous plan. Only new
+    // settings need feature access; activation always checks the full config.
+    const changedFeatures = {
+      productCarousel: isDeepStrictEqual(
+        config.productCarousel,
+        current.productCarousel
+      )
+        ? null
+        : config.productCarousel,
+      followUp: isDeepStrictEqual(config.followUp, current.followUp)
+        ? null
+        : config.followUp,
+    }
+    if (
+      input.status === "active" ||
+      changedFeatures.productCarousel ||
+      changedFeatures.followUp
+    )
+      await this.plan.assertCanUseAutomationFeatures(
+        workspace,
+        input.status === "active" ? config : { ...config, ...changedFeatures }
+      )
 
     await this.provider.update(
       current.providerAutomationId,

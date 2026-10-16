@@ -9,11 +9,18 @@ import type {
   FollowUpContext,
   FollowUpJob,
   FollowUpRepository,
+  FollowUpReceipt,
 } from "../../modules/automations/follow-up.service"
 import { SupabaseAutomationRepository } from "./supabase-automation.repository"
 import { SupabaseAccountRepository } from "./supabase-account.repository"
 import { SupabaseBillingRepository } from "./supabase-billing.repository"
 import { completed, optional, required } from "./query"
+
+const receiptSchema = z.object({
+  logId: z.string(),
+  messageId: z.string().nullable(),
+  sentAt: z.iso.datetime(),
+})
 
 export class SupabaseFollowUpRepository implements FollowUpRepository {
   constructor(private readonly db: DatabaseClient) {}
@@ -62,6 +69,9 @@ export class SupabaseFollowUpRepository implements FollowUpRepository {
       automationUpdatedAt: row.automation_updated_at,
       followUp: followUpSchema.parse(row.follow_up),
       attempts: row.attempts,
+      deliveryReceipt: row.delivery_receipt
+        ? receiptSchema.parse(row.delivery_receipt)
+        : null,
     }))
   }
 
@@ -111,43 +121,73 @@ export class SupabaseFollowUpRepository implements FollowUpRepository {
     owner: string,
     status: "sent" | "cancelled",
     reason: string | null,
-    logId: string | null
+    logId: string | null,
+    receipt?: FollowUpReceipt
   ): Promise<void> {
-    completed(
-      await this.db
-        .from("follow_up_jobs")
-        .update({
-          status,
-          reason,
-          provider_log_id: logId,
-          sent_at: status === "sent" ? new Date().toISOString() : null,
-          lease_owner: null,
-          lease_until: null,
-        })
-        .eq("id", id)
-        .eq("status", "processing")
-        .eq("lease_owner", owner),
-      "finish the reminder"
-    )
+    let query = this.db
+      .from("follow_up_jobs")
+      .update({
+        status,
+        reason,
+        provider_log_id: logId,
+        sent_at:
+          status === "sent"
+            ? (receipt?.sentAt ?? new Date().toISOString())
+            : null,
+        ...(receipt && { delivery_receipt: receipt }),
+        lease_owner: null,
+        lease_until: null,
+      })
+      .eq("id", id)
+    // A reply may cancel a job while its send is already in flight. A
+    // confirmed delivery remains a fact even after that cancellation.
+    query = receipt
+      ? query.in("status", ["processing", "cancelled", "pending", "failed"])
+      : query.eq("status", "processing").eq("lease_owner", owner)
+    completed(await query, "finish the reminder")
   }
 
-  async retry(job: FollowUpJob, owner: string): Promise<void> {
+  async retry(
+    job: FollowUpJob,
+    owner: string,
+    receipt?: FollowUpReceipt
+  ): Promise<void> {
+    let query = this.db
+      .from("follow_up_jobs")
+      .update({
+        status: !receipt && job.attempts >= 5 ? "failed" : "pending",
+        reason: receipt ? "saving_delivery" : "delivery_error",
+        ...(receipt && { delivery_receipt: receipt }),
+        retry_after: new Date(
+          Date.now() + Math.min(job.attempts, 5) * 60_000
+        ).toISOString(),
+        lease_owner: null,
+        lease_until: null,
+      })
+      .eq("id", job.id)
+      .eq("workspace_id", job.workspaceId)
+    query = receipt
+      ? query.neq("status", "sent")
+      : query.eq("status", "processing").eq("lease_owner", owner)
+    completed(await query, "retry the reminder")
+  }
+
+  async defer(job: FollowUpJob, owner: string): Promise<void> {
     completed(
       await this.db
         .from("follow_up_jobs")
         .update({
-          status: job.attempts >= 5 ? "failed" : "pending",
-          reason: "delivery_error",
-          retry_after: new Date(
-            Date.now() + Math.min(job.attempts, 5) * 60_000
-          ).toISOString(),
+          status: "pending",
+          attempts: Math.max(0, job.attempts - 1),
+          reason: "workspace_busy",
+          retry_after: new Date(Date.now() + 15_000).toISOString(),
           lease_owner: null,
           lease_until: null,
         })
         .eq("id", job.id)
         .eq("status", "processing")
         .eq("lease_owner", owner),
-      "retry the reminder"
+      "defer a busy workspace's reminder"
     )
   }
 }

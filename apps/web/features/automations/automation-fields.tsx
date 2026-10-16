@@ -4,13 +4,13 @@ import { Plus, X } from "lucide-react"
 import {
   AUTOMATION_LIMITS,
   PERSONALIZATION_TOKENS,
-  type CreateAutomationInput,
 } from "@workspace/api/contract"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Field } from "@/components/interface"
+import type { AutomationDraft } from "@/lib/automation-draft"
 
 import { FollowUpEditor, ProductCarouselEditor } from "./automation-extras"
 
@@ -18,7 +18,7 @@ const KEYWORD_EXAMPLES = ["Price", "Link", "Shop"]
 
 /** What an automation sends, without its trigger. */
 export type ResponseDraft = Pick<
-  CreateAutomationInput,
+  AutomationDraft,
   | "openingDm"
   | "dmMessage"
   | "dmButtons"
@@ -26,6 +26,7 @@ export type ResponseDraft = Pick<
   | "requireFollow"
   | "productCarousel"
   | "followUp"
+  | "dmFormat"
 >
 
 export type KeywordDraft = { keywordText: string; anyWord: boolean }
@@ -162,7 +163,7 @@ export function AutomationFields({
             fields={fields}
             onChange={onChange}
           />
-          {!draft.productCarousel && (
+          {draft.dmFormat === "text" && (
             <Card title="a DM with the link">
               <Field error={fields.dmMessage}>
                 <Textarea

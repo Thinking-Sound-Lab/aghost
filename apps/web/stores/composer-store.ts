@@ -16,6 +16,7 @@ import {
 } from "@/features/automations/automation-fields"
 import { timeLabel } from "@/features/calendar/post-media"
 import { api } from "@/lib/api"
+import { responseForSave } from "@/lib/automation-draft"
 import { fileProblem, uploadFiles } from "@/lib/media"
 import { useCalendarStore } from "./calendar-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
@@ -94,6 +95,7 @@ function emptyResponse(): ResponseDraft {
     commentReply: null,
     requireFollow: false,
     productCarousel: null,
+    dmFormat: "text",
     followUp: null,
   }
 }
@@ -295,7 +297,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       state.draft.kind === "post" &&
       !state.post?.automationIds.length
         ? {
-            ...state.response,
+            ...responseForSave(state.response),
             name: automationName(state.draft, scheduledFor),
             status: "active" as const,
             keywords: keywordsOf(state.keywords),

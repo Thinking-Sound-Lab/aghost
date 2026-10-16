@@ -115,7 +115,9 @@ export function AutomationEditor({ id }: { id?: string }) {
       openingDm={draft.openingDm}
       dmMessage={draft.dmMessage}
       buttons={draft.dmButtons.map((item) => item.label)}
-      productCarousel={draft.productCarousel ?? null}
+      productCarousel={
+        draft.dmFormat === "carousel" ? (draft.productCarousel ?? null) : null
+      }
       followUp={draft.followUp ?? null}
     />
   )
