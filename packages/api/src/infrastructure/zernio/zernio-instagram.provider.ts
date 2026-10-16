@@ -6,15 +6,16 @@ import type { InstagramProvider } from "../../modules/accounts/instagram.provide
 import { ProviderError } from "../../shared/errors"
 import { request, requestDeletion, type ZernioAccess } from "./zernio-client"
 
-// Comment-to-DM needs to read comments and send messages, nothing else.
-const CONNECT_SCOPES = "comments,messaging"
+// Comment-to-DM reads comments and sends messages; the calendar publishes.
+const CONNECT_SCOPES = "posting,comments,messaging"
 
 export class ZernioInstagramProvider implements InstagramProvider {
   constructor(private readonly zernio: ZernioAccess) {}
 
   async getConnectUrl(
     providerProfileId: string,
-    redirectUrl: string
+    redirectUrl: string,
+    reconnectAccountId: string | null
   ): Promise<string> {
     const action = "start the Instagram connection"
 
@@ -26,6 +27,7 @@ export class ZernioInstagramProvider implements InstagramProvider {
           profileId: providerProfileId,
           redirect_url: redirectUrl,
           scopes: CONNECT_SCOPES,
+          ...(reconnectAccountId && { reconnectAccountId }),
         },
       })
     )

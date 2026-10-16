@@ -16,6 +16,13 @@ import {
   updateAutomationSchema,
 } from "../contract/automation"
 import { contactPageQuerySchema } from "../contract/contact"
+import {
+  completeUploadLinkSchema,
+  createMediaUploadSchema,
+  schedulePostSchema,
+  scheduledPostRangeSchema,
+  updateScheduledPostSchema,
+} from "../contract/post"
 import { sendMessageSchema } from "../contract/inbox"
 import { renameWorkspaceSchema } from "../contract/workspace"
 import { choosePlanSchema } from "../contract/billing"
@@ -47,6 +54,7 @@ import { oauthDiscoveryRoutes, oauthRoutes } from "./oauth.routes"
 import {
   presentAccount,
   presentAutomation,
+  presentScheduledPost,
   presentWorkspace,
 } from "./presenters"
 import { validate } from "./validation"
@@ -59,6 +67,7 @@ const statusByCode = {
   not_found: 404,
   conflict: 409,
   account_disconnected: 409,
+  publishing_not_allowed: 409,
   plan_required: 402,
   plan_limit_reached: 403,
   invalid_webhook_signature: 401,
@@ -431,6 +440,24 @@ export function createApp({
           const { services, workspace } = request.identity
           return (await services.accounts.sync(workspace)).map(presentAccount)
         })
+        routes.post<IdParams>("/accounts/:id/reconnect", async (request) => {
+          const { services, workspace } = request.identity
+          return {
+            authUrl: await services.accounts.startReconnection(
+              workspace,
+              validate(z.uuid(), request.params.id)
+            ),
+          }
+        })
+        routes.get<IdParams>("/accounts/:id/publishing", async (request) => {
+          const { services, workspace } = request.identity
+          return {
+            canPublish: await services.posts.canPublish(
+              workspace,
+              validate(z.uuid(), request.params.id)
+            ),
+          }
+        })
         routes.get<IdParams>("/accounts/:id/posts", async (request) => {
           const { services, workspace } = request.identity
           return services.accounts.listRecentPosts(
@@ -513,6 +540,76 @@ export function createApp({
             workspace,
             validate(z.uuid(), request.params.id),
             page
+          )
+        })
+        routes.get("/scheduled-posts", async (request) => {
+          const { services, workspace } = request.identity
+          const range = validate(scheduledPostRangeSchema, request.query)
+          return (await services.posts.list(workspace, range)).map(
+            presentScheduledPost
+          )
+        })
+        routes.post("/scheduled-posts", async (request, reply) => {
+          const { services, workspace } = request.identity
+          const input = validate(schedulePostSchema, request.body)
+          return reply
+            .code(201)
+            .send(
+              presentScheduledPost(
+                await services.posts.schedule(workspace, input)
+              )
+            )
+        })
+        routes.get<IdParams>("/scheduled-posts/:id", async (request) => {
+          const { services, workspace } = request.identity
+          return presentScheduledPost(
+            await services.posts.get(
+              workspace,
+              validate(z.uuid(), request.params.id)
+            )
+          )
+        })
+        routes.patch<IdParams>("/scheduled-posts/:id", async (request) => {
+          const { services, workspace } = request.identity
+          const input = validate(updateScheduledPostSchema, request.body)
+          return presentScheduledPost(
+            await services.posts.update(
+              workspace,
+              validate(z.uuid(), request.params.id),
+              input
+            )
+          )
+        })
+        routes.delete<IdParams>(
+          "/scheduled-posts/:id",
+          async (request, reply) => {
+            const { services, workspace } = request.identity
+            await services.posts.delete(
+              workspace,
+              validate(z.uuid(), request.params.id)
+            )
+            return reply.code(204).send()
+          }
+        )
+        routes.post("/media/uploads", async (request, reply) => {
+          const { services } = request.identity
+          const input = validate(createMediaUploadSchema, request.body)
+          return reply.code(201).send(await services.posts.createUpload(input))
+        })
+        routes.get<IdParams>("/upload-links/:id", async (request) => {
+          const { services, workspace } = request.identity
+          return services.uploadLinks.get(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+        })
+        routes.post<IdParams>("/upload-links/:id/complete", async (request) => {
+          const { services, workspace } = request.identity
+          const { media } = validate(completeUploadLinkSchema, request.body)
+          return services.uploadLinks.complete(
+            workspace,
+            validate(z.uuid(), request.params.id),
+            media
           )
         })
         routes.get("/inbox", async (request) => {

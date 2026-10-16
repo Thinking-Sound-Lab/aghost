@@ -102,6 +102,53 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
       }),
     }),
   }),
+  route("list_scheduled_posts", {
+    method: "GET",
+    path: "/scheduled-posts",
+    requestInput: (request) => request.query,
+  }),
+  route("get_scheduled_post", {
+    method: "GET",
+    path: "/scheduled-posts/:postId",
+    requestInput: params,
+  }),
+  route("schedule_post", {
+    method: "POST",
+    path: "/scheduled-posts",
+    status: 201,
+    requestInput: body,
+  }),
+  route("update_scheduled_post", {
+    method: "PATCH",
+    path: "/scheduled-posts/:postId",
+    requestInput: (request) => ({
+      ...(request.params as object),
+      input: request.body,
+    }),
+  }),
+  route("delete_scheduled_post", {
+    method: "DELETE",
+    path: "/scheduled-posts/:postId",
+    status: 204,
+    requestInput: params,
+  }),
+  route("create_media_upload", {
+    method: "POST",
+    path: "/media/uploads",
+    status: 201,
+    requestInput: body,
+  }),
+  route("create_upload_link", {
+    method: "POST",
+    path: "/upload-links",
+    status: 201,
+    requestInput: empty,
+  }),
+  route("get_upload_link", {
+    method: "GET",
+    path: "/upload-links/:uploadLinkId",
+    requestInput: params,
+  }),
   route("list_contacts", {
     method: "GET",
     path: "/contacts",

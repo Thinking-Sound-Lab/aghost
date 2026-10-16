@@ -77,6 +77,7 @@ export type Database = {
           post_scope: string
           product_carousel: Json | null
           require_follow: boolean
+          scheduled_post_id: string | null
           status: string
           updated_at: string
           workspace_id: string
@@ -102,6 +103,7 @@ export type Database = {
           post_scope: string
           product_carousel?: Json | null
           require_follow?: boolean
+          scheduled_post_id?: string | null
           status: string
           updated_at?: string
           workspace_id: string
@@ -126,6 +128,7 @@ export type Database = {
           post_scope?: string
           product_carousel?: Json | null
           require_follow?: boolean
+          scheduled_post_id?: string | null
           status?: string
           updated_at?: string
           workspace_id?: string
@@ -144,6 +147,13 @@ export type Database = {
             columns: ["instagram_account_id"]
             isOneToOne: false
             referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automations_scheduled_post_id_fkey"
+            columns: ["scheduled_post_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_posts"
             referencedColumns: ["id"]
           },
           {
@@ -370,6 +380,112 @@ export type Database = {
           secret_hash?: string | null
         }
         Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          caption: string | null
+          created_at: string
+          error: string | null
+          id: string
+          instagram_account_id: string
+          kind: string
+          media: NonNullable<Json>
+          permalink: string | null
+          platform_post_id: string | null
+          published_at: string | null
+          scheduled_for: string
+          status: string
+          updated_at: string
+          workspace_id: string
+          zernio_post_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          instagram_account_id: string
+          kind: string
+          media: NonNullable<Json>
+          permalink?: string | null
+          platform_post_id?: string | null
+          published_at?: string | null
+          scheduled_for: string
+          status: string
+          updated_at?: string
+          workspace_id: string
+          zernio_post_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          instagram_account_id?: string
+          kind?: string
+          media?: NonNullable<Json>
+          permalink?: string | null
+          platform_post_id?: string | null
+          published_at?: string | null
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+          zernio_post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_instagram_account_id_fkey"
+            columns: ["instagram_account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_posts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      upload_links: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          media: Json | null
+          uploaded_at: string | null
+          workspace_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          media?: Json | null
+          uploaded_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          media?: Json | null
+          uploaded_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_events: {
         Row: {

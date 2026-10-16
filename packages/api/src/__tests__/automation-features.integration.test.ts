@@ -10,6 +10,7 @@ import {
 import { createApi } from "../container"
 import { loadApiConfig } from "../config"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
+import type { ScheduledPost } from "../contract/post"
 import type { ApiApp } from "../http/app"
 import { createZernioClient } from "../infrastructure/zernio/zernio-client"
 import { ZernioFollowUpProvider } from "../infrastructure/zernio/zernio-follow-up.provider"
@@ -302,6 +303,58 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
     expect([...fixture.automations.values()].at(-1)).toMatchObject({
       template: null,
       buttons: [{ type: "url", title: "Kit", url: card.url }],
+    })
+  })
+
+  it("enforces feature plans on scheduled automations and preserves their carousel and nudge", async () => {
+    const payload = {
+      instagramAccountId: accountId,
+      kind: "post",
+      caption: "Comment KIT for the collection",
+      media: [{ type: "image", url: card.imageUrl }],
+      scheduledFor: new Date(Date.now() + 86_400_000).toISOString(),
+      automation: {
+        name: "Scheduled collection",
+        status: "active",
+        keywords: ["KIT"],
+        matchMode: "word",
+        openingDm: null,
+        dmMessage: "Browse the collection.",
+        dmButtons: [],
+        productCarousel: [card],
+        followUp,
+        commentReply: null,
+        requireFollow: false,
+      },
+    }
+    for (const plan of ["pro", "growth"] as const) {
+      await grantPlan(config, workspaceId, plan)
+      const postsBefore = fixture.posts.size
+      const automationsBefore = fixture.automations.size
+      const refused = await request("/scheduled-posts", "POST", payload)
+      expect(refused.statusCode, refused.body).toBe(403)
+      expect(fixture.posts.size).toBe(postsBefore)
+      expect(fixture.automations.size).toBe(automationsBefore)
+    }
+
+    await grantPlan(config, workspaceId, "business")
+    const response = await request("/scheduled-posts", "POST", payload)
+    expect(response.statusCode, response.body).toBe(201)
+    const post = response.json<ScheduledPost>()
+    expect(post.automationIds).toHaveLength(1)
+    const linked = await request(`/automations/${post.automationIds[0]}`)
+    expect(linked.statusCode, linked.body).toBe(200)
+    expect(linked.json<Automation>()).toMatchObject({
+      trigger: { postScope: "scheduled_post", scheduledPost: { id: post.id } },
+      productCarousel: [card],
+      followUp,
+    })
+    const remote = [...fixture.automations.values()].at(-1)!
+    expect(fixture.posts.has(String(remote.postId))).toBe(true)
+    expect(remote).toMatchObject({
+      isActive: true,
+      buttons: [],
+      template: { type: "generic", elements: [{ title: card.title }] },
     })
   })
 

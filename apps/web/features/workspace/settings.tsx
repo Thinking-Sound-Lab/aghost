@@ -215,15 +215,24 @@ function Channels() {
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs",
                   account.status === "connected"
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
                     : "bg-muted text-muted-foreground"
                 )}
               >
                 {account.status === "connected" ? "Connected" : "Disconnected"}
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={store.busy}
+                title="Authorize again, including permission to publish posts"
+                onClick={() => void store.reconnect(account.id)}
+              >
+                Reconnect
+              </Button>
               <ConfirmButton
                 title={`Disconnect @${account.username}?`}
-                description="Its automations are deleted too."
+                description="Its automations and scheduled posts are deleted too."
                 confirmLabel="Disconnect"
                 busy={store.busy}
                 onConfirm={() => store.removeAccount(account.id)}

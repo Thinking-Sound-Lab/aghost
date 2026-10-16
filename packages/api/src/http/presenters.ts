@@ -1,9 +1,11 @@
 import type { Automation } from "../contract/automation"
 import type { InstagramAccount } from "../contract/account"
+import type { ScheduledPost } from "../contract/post"
 import type { SessionUser } from "../contract/auth"
 import type { User } from "@supabase/supabase-js"
 import type { AutomationRecord } from "../modules/automations/automation"
 import type { AccountRecord } from "../modules/accounts/account"
+import type { ScheduledPostRecord } from "../modules/posts/post"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
 
 export function presentWorkspace(record: WorkspaceRecord) {
@@ -51,4 +53,16 @@ export function presentAutomation(record: AutomationRecord): Automation {
     ...config
   } = record
   return { ...config, instagramAccountId: accountId }
+}
+
+export function presentScheduledPost(
+  record: ScheduledPostRecord
+): ScheduledPost {
+  const {
+    accountId,
+    workspaceId: _workspaceId,
+    providerPostId: _providerId,
+    ...post
+  } = record
+  return { ...post, instagramAccountId: accountId }
 }

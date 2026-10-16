@@ -85,6 +85,16 @@ export class AccountDisconnectedError extends AppError {
   }
 }
 
+/** The account was connected without permission to publish posts. */
+export class PublishingNotAllowedError extends AppError {
+  constructor(username: string) {
+    super(
+      "publishing_not_allowed",
+      `@${username} has not allowed aghost to publish posts. Reconnect it in Settings to continue.`
+    )
+  }
+}
+
 /** The workspace has no plan, or its plan has ended. */
 export class PlanRequiredError extends AppError {
   constructor(action: string) {

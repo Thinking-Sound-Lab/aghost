@@ -139,6 +139,7 @@ async function context() {
       provider,
       accounts,
       instagram,
+      { findById: async () => null },
       plans,
       operations,
       analytics
@@ -148,6 +149,7 @@ async function context() {
       dodo,
       accounts,
       automation,
+      { cancelAll: async () => {} },
       {
         checkoutReturn: "https://app.example/settings#billing",
         checkoutCancel: "https://app.example/settings#billing",
@@ -161,6 +163,7 @@ async function context() {
       instagram,
       { ensureProviderProfile: async () => `profile_${ownerId}` },
       automation,
+      { deleteAllForAccount: async () => {} },
       "https://app.example/accounts/callback",
       plans,
       operations,

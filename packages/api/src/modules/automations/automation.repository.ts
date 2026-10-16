@@ -11,6 +11,10 @@ export interface AutomationRepository {
     workspaceId: string,
     accountId: string
   ): Promise<AutomationRecord[]>
+  listByScheduledPost(
+    workspaceId: string,
+    postId: string
+  ): Promise<AutomationRecord[]>
   findById(workspaceId: string, id: string): Promise<AutomationRecord | null>
   insert(automation: NewAutomation): Promise<AutomationRecord>
   updateConfig(

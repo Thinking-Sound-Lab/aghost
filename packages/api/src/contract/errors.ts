@@ -8,6 +8,7 @@ const API_ERROR_CODES = [
   "not_found",
   "conflict",
   "account_disconnected",
+  "publishing_not_allowed",
   "plan_required",
   "plan_limit_reached",
   "invalid_webhook_signature",

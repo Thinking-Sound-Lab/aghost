@@ -44,15 +44,17 @@ For JSON-configured clients that support this format:
 
 Use your hosted app's URL in place of localhost for remote access. Store the key using your client's secret or environment variable support when available. New keys can use all the tools below. The backend retains capability checks for previously issued restricted keys:
 
-| Permission          | MCP tools                                                                                |
-| ------------------- | ---------------------------------------------------------------------------------------- |
-| `workspace:read`    | `get_workspace`                                                                          |
-| `accounts:read`     | `list_accounts`, `list_account_posts`                                                    |
-| `automations:read`  | `list_automations`, `get_automation`, `get_automation_stats`, `list_automation_activity` |
-| `automations:write` | `create_automation`, `update_automation`, `set_automation_status`, `delete_automation`   |
-| `contacts:read`     | `list_contacts`                                                                          |
-| `inbox:read`        | `list_conversations`, `list_messages`                                                    |
-| `inbox:write`       | `send_message`                                                                           |
+| Permission          | MCP tools                                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `workspace:read`    | `get_workspace`                                                                                                |
+| `accounts:read`     | `list_accounts`, `list_account_posts`                                                                          |
+| `automations:read`  | `list_automations`, `get_automation`, `get_automation_stats`, `list_automation_activity`                       |
+| `automations:write` | `create_automation`, `update_automation`, `set_automation_status`, `delete_automation`                         |
+| `posts:read`        | `list_scheduled_posts`, `get_scheduled_post`, `get_upload_link`                                                |
+| `posts:write`       | `create_media_upload`, `create_upload_link`, `schedule_post`, `update_scheduled_post`, `delete_scheduled_post` |
+| `contacts:read`     | `list_contacts`                                                                                                |
+| `inbox:read`        | `list_conversations`, `list_messages`                                                                          |
+| `inbox:write`       | `send_message`                                                                                                 |
 
 Tools return readable JSON text and `structuredContent.data`. Application failures return `isError` with the API error code and message. The SDK handles protocol and input-schema errors. While the workspace has no active plan, the endpoint itself answers 402 `plan_required`, so a client can neither connect nor call tools until the owner chooses a plan in the app.
 
@@ -62,10 +64,13 @@ Read accounts first to get an `instagramAccountId`. For a specific post, read th
 - `update_automation` takes `{ "automationId": "...", "input": { ...full configuration... } }`. Read the automation first to preserve fields you are not changing. Convert a returned specific-post trigger's `trigger.post.platformPostId` to the input's `trigger.platformPostId`.
 - `set_automation_status` takes `{ "automationId": "...", "status": "active" }` or `paused`.
 - `list_automation_activity` takes `{ "automationId": "...", "limit": 25, "offset": 0 }`, with a maximum limit of 50. Advance the offset by the number of returned entries while `hasMore` is true.
+- `schedule_post` takes the body of the [REST example](api.md#scheduled-posts), including an optional `automation`, which also needs `automations:write`. Upload local files with `create_media_upload` first and pass its `media` objects.
+- An agent that can't reach the storage address `create_media_upload` returns, such as one in a sandbox that allows only some hosts, or whose files are on the user's device, calls `create_upload_link` instead. It returns a `url` for the user to open; they upload the files in their browser and choose **Send to agent**. The agent then calls `get_upload_link` with `{ "uploadLinkId": "..." }` and passes its `media` to `schedule_post` once `status` is `uploaded`.
+- `update_scheduled_post` takes `{ "postId": "...", "input": { "kind", "caption", "media", "scheduledFor" } }`; `kind` cannot change. Include an optional `automation` in `input` to add it together with the post changes; this requires `automations:write` and restores the previous post if automation creation fails. `delete_scheduled_post` also needs `automations:write` when the post has automations. `list_scheduled_posts` takes `from` and `to`, up to 92 days apart.
 - `list_contacts` takes `search` and `offset`, returning up to 50 contacts per page.
 - Message tools take `accountId` and the unchanged `conversationId` returned by `list_conversations`. `send_message` also takes `text`.
 
-Activating automations and sending inbox replies can deliver real messages. Writes do not provide an idempotency-key contract: inspect state after an uncertain response instead of automatically retrying creation or message delivery.
+Activating automations and sending inbox replies can deliver real messages, and scheduled posts publish at their time. Writes do not provide an idempotency-key contract: inspect state after an uncertain response instead of automatically retrying creation or message delivery.
 
 ## Deployment and verification
 

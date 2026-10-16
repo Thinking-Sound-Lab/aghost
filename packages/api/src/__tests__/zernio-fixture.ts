@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { randomBytes, randomUUID } from "node:crypto"
 import {
   createServer,
   type IncomingMessage,
@@ -19,6 +19,7 @@ type RecordedRequest = {
 export async function startZernioFixture() {
   const profiles = new Map<string, string>()
   const automations = new Map<string, Body>()
+  const posts = new Map<string, Body>()
   const requests: RecordedRequest[] = []
   const state = {
     failureStatus: 0,
@@ -26,6 +27,10 @@ export async function startZernioFixture() {
     accountConnected: true,
     inboxAccountsFailed: 0,
     automationLogs: null as Body[] | null,
+    // Whether the account granted permission to publish.
+    canPost: true,
+    // Fails the next automation write only, after other writes succeeded.
+    automationFailureStatus: 0,
   }
   const accountId = `fixture-account-${randomUUID()}`
   const postId = "fixture-post-1"
@@ -103,7 +108,10 @@ export async function startZernioFixture() {
       reply(401, { error: "Unexpected fixture authorization" })
       return
     }
-    if (state.failureStatus && ["POST", "PATCH", "DELETE"].includes(method)) {
+    if (
+      state.failureStatus &&
+      ["POST", "PUT", "PATCH", "DELETE"].includes(method)
+    ) {
       const status = state.failureStatus
       state.failureStatus = 0
       reply(status, { error: "Intentional provider fixture failure" })
@@ -160,9 +168,60 @@ export async function startZernioFixture() {
       })
       return
     }
+    if (url.pathname === `/v1/accounts/${accountId}/health`) {
+      reply(200, {
+        accountId,
+        platform: "instagram",
+        permissions: { canPost: state.canPost },
+      })
+      return
+    }
+    if (url.pathname === "/v1/media/presign" && method === "POST") {
+      const name = String(body.filename)
+      reply(200, {
+        uploadUrl: `https://storage.example/upload/${name}?signature=fixture`,
+        publicUrl: `https://media.example/temp/${name}`,
+        key: `temp/${name}`,
+        expiresIn: 3600,
+      })
+      return
+    }
+    if (url.pathname === "/v1/posts" && method === "POST") {
+      // Zernio's ids are 24 hexadecimal characters.
+      const id = randomBytes(12).toString("hex")
+      const post = { ...body, _id: id, status: "scheduled" }
+      posts.set(id, post)
+      reply(201, { post })
+      return
+    }
+    const post = url.pathname.match(/^\/v1\/posts\/([^/]+)$/)
+    if (post) {
+      const id = post[1]!
+      const stored = posts.get(id)
+      if (!stored) reply(404, { error: "Post not found" })
+      else if (method === "PUT") {
+        const updated = { ...stored, ...body }
+        posts.set(id, updated)
+        reply(200, { post: updated })
+      } else if (method === "DELETE") {
+        posts.delete(id)
+        reply(200, { message: "Post deleted" })
+      } else reply(200, { post: stored })
+      return
+    }
     if (url.pathname === `/v1/accounts/${accountId}` && method === "DELETE") {
       state.accountConnected = false
       reply(200, { success: true })
+      return
+    }
+    if (
+      state.automationFailureStatus &&
+      method !== "GET" &&
+      url.pathname.startsWith("/v1/comment-automations")
+    ) {
+      const status = state.automationFailureStatus
+      state.automationFailureStatus = 0
+      reply(status, { error: "Intentional automation fixture failure" })
       return
     }
     if (url.pathname === "/v1/comment-automations") {
@@ -352,6 +411,7 @@ export async function startZernioFixture() {
     requests,
     automations,
     messages,
+    posts,
     state,
     close: () =>
       new Promise<void>((resolve, reject) =>

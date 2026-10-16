@@ -11,6 +11,13 @@ export type AutomationTarget = {
   providerAccountId: string
 }
 
+/** The post whose comments the provider watches. */
+export type PostBinding =
+  | { scope: "any_post" }
+  | { scope: "platform_post"; platformPostId: string; caption: string | null }
+  /** A post the provider has yet to publish: watching starts once it does. */
+  | { scope: "scheduled_post"; providerPostId: string; caption: string | null }
+
 export type ActivityPageRequest = {
   limit: number
   offset: number
@@ -22,12 +29,15 @@ export interface AutomationProvider {
   create(
     target: AutomationTarget,
     config: AutomationConfig,
-    status: AutomationStatus
+    status: AutomationStatus,
+    post: PostBinding
   ): Promise<string>
+  /** A null `post` keeps watching the post it watched before. */
   update(
     providerAutomationId: string,
     config: AutomationConfig,
-    status: AutomationStatus
+    status: AutomationStatus,
+    post: PostBinding | null
   ): Promise<void>
   setStatus(
     providerAutomationId: string,

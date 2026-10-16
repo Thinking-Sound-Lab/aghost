@@ -22,12 +22,15 @@ import { InternalError } from "../../shared/errors"
 import type { DataClients } from "./data-clients"
 import { completed, optional, required } from "./query"
 
-type AutomationRow = Database["public"]["Tables"]["automations"]["Row"]
+type AutomationRow = Database["public"]["Tables"]["automations"]["Row"] & {
+  scheduled_post: { caption: string | null } | null
+}
 type AutomationConfigColumns = Pick<
   AutomationRow,
   | "name"
   | "post_scope"
   | "platform_post_id"
+  | "scheduled_post_id"
   | "post_caption"
   | "post_permalink"
   | "keywords"
@@ -42,14 +45,36 @@ type AutomationConfigColumns = Pick<
   | "follow_up"
 >
 
+// A scheduled post's caption is read with the automation, so it stays current
+// when the post is edited.
+const COLUMNS = "*, scheduled_post:scheduled_posts(caption)"
+
 const statusSchema = z.enum(AUTOMATION_STATUSES)
 const postScopeSchema = z.enum(POST_SCOPES)
 const matchModeSchema = z.enum(MATCH_MODES)
 const dmButtonsSchema = z.array(dmButtonSchema)
 
 function toTrigger(row: AutomationRow): AutomationTrigger {
-  if (postScopeSchema.parse(row.post_scope) === "any_post") {
+  const scope = postScopeSchema.parse(row.post_scope)
+
+  if (scope === "any_post") {
     return { postScope: "any_post" }
+  }
+
+  if (scope === "scheduled_post") {
+    if (row.scheduled_post_id === null || row.scheduled_post === null) {
+      throw new InternalError(
+        `Automation ${row.id} targets a scheduled post that is not stored.`
+      )
+    }
+
+    return {
+      postScope: "scheduled_post",
+      scheduledPost: {
+        id: row.scheduled_post_id,
+        caption: row.scheduled_post.caption,
+      },
+    }
   }
 
   if (row.platform_post_id === null) {
@@ -119,6 +144,10 @@ function toConfigColumns(config: AutomationConfig): AutomationConfigColumns {
     platform_post_id: post ? post.platformPostId : null,
     post_caption: post ? post.caption : null,
     post_permalink: post ? post.permalink : null,
+    scheduled_post_id:
+      config.trigger.postScope === "scheduled_post"
+        ? config.trigger.scheduledPost.id
+        : null,
     keywords: config.keywords,
     match_mode: config.matchMode,
     opening_dm_message: config.openingDm ? config.openingDm.message : null,
@@ -143,12 +172,22 @@ export class SupabaseAutomationRepository implements AutomationRepository {
     workspaceId: string,
     accountId: string
   ): Promise<AutomationRecord[]> {
-    return this.list(workspaceId, accountId)
+    return this.list(workspaceId, {
+      column: "instagram_account_id",
+      id: accountId,
+    })
+  }
+
+  async listByScheduledPost(
+    workspaceId: string,
+    postId: string
+  ): Promise<AutomationRecord[]> {
+    return this.list(workspaceId, { column: "scheduled_post_id", id: postId })
   }
 
   private async list(
     workspaceId: string,
-    accountId?: string
+    owner?: { column: "instagram_account_id" | "scheduled_post_id"; id: string }
   ): Promise<AutomationRecord[]> {
     const automations: AutomationRecord[] = []
     // Supabase limits a response to 1,000 rows. Collect all pages before a
@@ -158,11 +197,11 @@ export class SupabaseAutomationRepository implements AutomationRepository {
     for (let offset = 0; ; offset += pageSize) {
       let query = this.db.scoped
         .from("automations")
-        .select()
+        .select(COLUMNS)
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-      if (accountId) query = query.eq("instagram_account_id", accountId)
+      if (owner) query = query.eq(owner.column, owner.id)
       const rows = required(
         await query.range(offset, offset + pageSize - 1),
         "list automations"
@@ -179,7 +218,7 @@ export class SupabaseAutomationRepository implements AutomationRepository {
     const row = optional(
       await this.db.scoped
         .from("automations")
-        .select()
+        .select(COLUMNS)
         .eq("workspace_id", workspaceId)
         .eq("id", id)
         .maybeSingle(),
@@ -200,7 +239,7 @@ export class SupabaseAutomationRepository implements AutomationRepository {
           zernio_automation_id: automation.providerAutomationId,
           status: automation.status,
         })
-        .select()
+        .select(COLUMNS)
         .single(),
       "save the automation"
     )
@@ -220,7 +259,7 @@ export class SupabaseAutomationRepository implements AutomationRepository {
         .update({ ...toConfigColumns(config), status })
         .eq("workspace_id", workspaceId)
         .eq("id", id)
-        .select()
+        .select(COLUMNS)
         .single(),
       "update the automation"
     )
@@ -239,7 +278,7 @@ export class SupabaseAutomationRepository implements AutomationRepository {
         .update({ status })
         .eq("workspace_id", workspaceId)
         .eq("id", id)
-        .select()
+        .select(COLUMNS)
         .single(),
       "update the automation's status"
     )

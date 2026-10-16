@@ -5,6 +5,8 @@ export const API_KEY_SCOPES = [
   "accounts:read",
   "automations:read",
   "automations:write",
+  "posts:read",
+  "posts:write",
   "contacts:read",
   "inbox:read",
   "inbox:write",
@@ -16,6 +18,7 @@ export const API_KEY_READ_SCOPES: ApiKeyScope[] = [
   "workspace:read",
   "accounts:read",
   "automations:read",
+  "posts:read",
   "contacts:read",
   "inbox:read",
 ]

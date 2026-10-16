@@ -5,6 +5,7 @@ import {
   type AutomationActivityPage,
   type AutomationStatsById,
   type ConnectInstagramResult,
+  type CompleteUploadLinkInput,
   type ContactPage,
   type Conversation,
   type CreateAutomationInput,
@@ -14,7 +15,16 @@ import {
   type InstagramAccount,
   type InstagramPost,
   type IntegrationStatus,
+  type MediaContentType,
+  type MediaUpload,
   type Message,
+  type PostMedia,
+  type PublishingAccess,
+  type ScheduledPost,
+  type ScheduledPostRange,
+  type SchedulePostInput,
+  type UpdateScheduledPostInput,
+  type UploadLink,
   type SendMessageInput,
   type SessionUser,
   type UpdateAutomationInput,
@@ -150,6 +160,16 @@ export function createApiClient(
       connect: () =>
         request<ConnectInstagramResult>("/accounts/connect", "POST", {}),
       sync: () => request<InstagramAccount[]>("/accounts/sync", "POST", {}),
+      reconnect: (id: string) =>
+        request<ConnectInstagramResult>(
+          `/accounts/${encodeURIComponent(id)}/reconnect`,
+          "POST",
+          {}
+        ),
+      publishing: (id: string) =>
+        request<PublishingAccess>(
+          `/accounts/${encodeURIComponent(id)}/publishing`
+        ),
       posts: (id: string) =>
         request<InstagramPost[]>(`/accounts/${encodeURIComponent(id)}/posts`),
       remove: (id: string) =>
@@ -179,6 +199,64 @@ export function createApiClient(
       activity: (id: string, offset = 0) =>
         request<AutomationActivityPage>(
           `/automations/${encodeURIComponent(id)}/activity?limit=25&offset=${offset}`
+        ),
+    },
+    scheduledPosts: {
+      list: (range: ScheduledPostRange) =>
+        request<ScheduledPost[]>(
+          `/scheduled-posts?${new URLSearchParams(range)}`
+        ),
+      get: (id: string) =>
+        request<ScheduledPost>(`/scheduled-posts/${encodeURIComponent(id)}`),
+      create: (input: SchedulePostInput) =>
+        request<ScheduledPost>("/scheduled-posts", "POST", input),
+      update: (id: string, input: UpdateScheduledPostInput) =>
+        request<ScheduledPost>(
+          `/scheduled-posts/${encodeURIComponent(id)}`,
+          "PATCH",
+          input
+        ),
+      remove: (id: string) =>
+        request<void>(`/scheduled-posts/${encodeURIComponent(id)}`, "DELETE"),
+    },
+    media: {
+      /** Uploads the file straight to storage and returns it ready to post. */
+      upload: async (file: File): Promise<PostMedia> => {
+        const upload = await request<MediaUpload>("/media/uploads", "POST", {
+          filename: file.name,
+          contentType: file.type as MediaContentType,
+          size: file.size,
+        })
+        let response: Response
+        try {
+          response = await transport(upload.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          })
+        } catch {
+          throw new ApiClientError(
+            "internal_error",
+            `Could not upload ${file.name}. Check your connection and try again.`
+          )
+        }
+        if (!response.ok)
+          throw new ApiClientError(
+            "provider_error",
+            `Could not upload ${file.name}. Try again.`
+          )
+        return upload.media
+      },
+    },
+    uploadLinks: {
+      get: (id: string) =>
+        request<UploadLink>(`/upload-links/${encodeURIComponent(id)}`),
+      /** Hands the uploaded files to the agent that asked for them. */
+      complete: (id: string, input: CompleteUploadLinkInput) =>
+        request<UploadLink>(
+          `/upload-links/${encodeURIComponent(id)}/complete`,
+          "POST",
+          input
         ),
     },
     inbox: {

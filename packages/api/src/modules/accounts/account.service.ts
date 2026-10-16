@@ -29,6 +29,14 @@ export interface AccountAutomations {
   ): Promise<void>
 }
 
+/** Cancels the scheduled posts of an account that is being removed. */
+export interface AccountPosts {
+  deleteAllForAccount(
+    workspace: WorkspaceOwner,
+    accountId: string
+  ): Promise<void>
+}
+
 /** Checks that the workspace's plan has room for another account. */
 export interface AccountPlan {
   assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void>
@@ -40,6 +48,7 @@ export class AccountService {
     private readonly instagram: InstagramProvider,
     private readonly profiles: ProviderProfiles,
     private readonly automations: AccountAutomations,
+    private readonly posts: AccountPosts,
     /** Where the provider sends the browser once the user has authorized. */
     private readonly connectRedirectUrl: string,
     private readonly plan: AccountPlan,
@@ -68,10 +77,42 @@ export class AccountService {
 
       const url = await this.instagram.getConnectUrl(
         providerProfileId,
-        this.connectRedirectUrl
+        this.connectRedirectUrl,
+        null
       )
       this.analytics.capture(actorOf(workspace), {
         name: "instagram_connect_started",
+      })
+      return url
+    })
+  }
+
+  /**
+   * Authorizes a stored account again, which grants the permissions it was
+   * connected without, or brings back a disconnected one. The provider may
+   * have removed a disconnected account, so that one connects afresh.
+   */
+  async startReconnection(
+    workspace: WorkspaceRecord,
+    accountId: string
+  ): Promise<string> {
+    return this.operations.run(workspace.id, async () => {
+      const account = await this.get(workspace, accountId)
+      // A connected account keeps its place in the plan; a disconnected one
+      // needs room again.
+      if (account.status !== "connected")
+        await this.plan.assertCanConnectAccount(workspace)
+      const providerProfileId =
+        await this.profiles.ensureProviderProfile(workspace)
+
+      const url = await this.instagram.getConnectUrl(
+        providerProfileId,
+        this.connectRedirectUrl,
+        account.status === "connected" ? account.providerAccountId : null
+      )
+      this.analytics.capture(actorOf(workspace), {
+        name: "instagram_reconnect_started",
+        account_id: account.id,
       })
       return url
     })
@@ -160,12 +201,16 @@ export class AccountService {
     return this.instagram.listRecentPosts(account.providerAccountId)
   }
 
-  /** Disconnects the account and deletes the automations that ran on it. */
+  /**
+   * Disconnects the account, deletes the automations that ran on it and
+   * cancels the posts it had still to publish.
+   */
   async remove(workspace: WorkspaceRecord, accountId: string): Promise<void> {
     return this.operations.run(workspace.id, async () => {
       const account = await this.get(workspace, accountId)
 
       await this.automations.deleteAllForAccount(workspace, account.id)
+      await this.posts.deleteAllForAccount(workspace, account.id)
       await this.instagram.disconnectAccount(account.providerAccountId)
       await this.accounts.delete(workspace.id, account.id)
       this.analytics.capture(actorOf(workspace), {

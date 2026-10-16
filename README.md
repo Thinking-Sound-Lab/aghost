@@ -6,7 +6,7 @@
 
 **Agentic DM automation for Instagram.**
 
-Create, manage and monitor comment-to-DM automations through MCP, the REST API, or the dashboard. MCP and API access are included on every plan.
+Create, manage and monitor comment-to-DM automations, and schedule the Instagram posts they answer, through MCP, the REST API, or the dashboard. MCP and API access are included on every plan.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
@@ -23,7 +23,7 @@ Create, manage and monitor comment-to-DM automations through MCP, the REST API, 
 | **Web**            | Next.js marketing site and dashboard, Zustand, shadcn/ui · on Vercel  |
 | **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS |
 | **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth              |
-| **Instagram**      | Zernio for account connections, automations, inbox, and contacts      |
+| **Instagram**      | Zernio for accounts, automations, publishing, inbox, and contacts     |
 | **Analytics**      | PostHog for product events, web analytics, and session replay         |
 | **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                |
 
@@ -155,7 +155,7 @@ The dashboard, REST API and MCP need a plan: after sign-in the app shows only th
 
 ## API
 
-Open **Settings → API**, click **+ API key**, and name your workspace key in the dialog. After creation, copy and save the key before closing the dialog; the full key will not be shown again. Agents can create, edit, pause, activate, and delete automations; inspect statistics and delivery activity; read accounts, posts, contacts, and inbox conversations; and send inbox messages.
+Open **Settings → API**, click **+ API key**, and name your workspace key in the dialog. After creation, copy and save the key before closing the dialog; the full key will not be shown again. Agents can create, edit, pause, activate, and delete automations; schedule, edit, and cancel Instagram posts with their automations; inspect statistics and delivery activity; read accounts, posts, contacts, and inbox conversations; and send inbox messages.
 
 Call `<APP_URL>/api/v1` with `Authorization: Bearer <key>`. New keys have full agent access and no expiry; revoke them in Settings to stop access. `GET /api/v1/openapi.json` provides the REST API contract. See the [REST API guide](docs/api.md) for requests and deployment requirements.
 
@@ -190,7 +190,7 @@ The colours are Tailwind tokens in [`globals.css`](packages/ui/src/styles/global
 
 ## Search and AI assistants
 
-The marketing pages serve readable HTML to search engines and AI assistants such as ChatGPT, Claude, and Perplexity. They describe Instagram comment-to-DM automation, its requirements, and the supported features. The [Instagram DM automation guide](apps/web/app/instagram-dm-automation/page.tsx) explains where aghost fits into social media management without implying that it schedules posts or manages other social networks.
+The marketing pages serve readable HTML to search engines and AI assistants such as ChatGPT, Claude, and Perplexity. They describe Instagram comment-to-DM automation, its requirements, and the supported features. The [Instagram DM automation guide](apps/web/app/instagram-dm-automation/page.tsx) explains where aghost fits into social media management: it schedules Instagram posts together with the automations that answer them, and does not manage other social networks.
 
 - **One copy of the text.** [`content.ts`](apps/web/features/marketing/content.ts) holds the facts, steps, features, and questions. The page, its structured data, and `/llms.txt` all read it, so crawlers are told what visitors see.
 - **Agent access.** The homepage, feature demo, and dedicated agent page explain how Claude Code, Codex, Cursor, or another MCP client can run aghost.

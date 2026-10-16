@@ -87,7 +87,7 @@ export function agentOpenApi() {
       title: "aghost Agent API",
       version: "1.0.0",
       description:
-        "Workspace-scoped access to Instagram automations, delivery activity, accounts, contacts, and inbox. Create API keys in Settings → API.",
+        "Workspace-scoped access to Instagram automations, delivery activity, scheduled posts, accounts, contacts, and inbox. Create API keys in Settings → API.",
     },
     servers: [{ url: "/api/v1" }],
     security: [{ bearerAuth: [] }],

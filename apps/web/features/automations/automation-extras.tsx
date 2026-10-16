@@ -6,6 +6,7 @@ import {
   AUTOMATION_LIMITS,
   PLANS,
   billingPath,
+  type CreateAutomationInput,
   type FollowUp,
   type ProductCard,
 } from "@workspace/api/contract"
@@ -14,8 +15,18 @@ import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Field } from "@/components/interface"
-import { useEditorStore } from "@/stores/editor-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+
+type ExtrasDraft = Pick<
+  CreateAutomationInput,
+  "productCarousel" | "followUp" | "dmButtons" | "dmMessage"
+>
+
+type ExtrasProps = {
+  draft: ExtrasDraft
+  fields: Record<string, string>
+  onChange: (patch: Partial<ExtrasDraft>) => void
+}
 
 const emptyCard = (): ProductCard => ({
   title: "",
@@ -46,15 +57,18 @@ function Upgrade({
   )
 }
 
-export function ProductCarouselEditor() {
-  const editor = useEditorStore()
+export function ProductCarouselEditor({
+  draft,
+  fields,
+  onChange,
+}: ExtrasProps) {
   const planId = useWorkspaceStore(
     (state) => state.billing?.subscription?.plan ?? "pro"
   )
   const canUse = PLANS[planId].features.productCarousel
-  const cards = editor.draft.productCarousel ?? null
+  const cards = draft.productCarousel ?? null
   const patchCard = (index: number, patch: Partial<ProductCard>) =>
-    editor.patch({
+    onChange({
       productCarousel: cards!.map((card, i) =>
         i === index ? { ...card, ...patch } : card
       ),
@@ -62,7 +76,7 @@ export function ProductCarouselEditor() {
   function move(index: number, to: number) {
     const next = [...cards!]
     ;[next[index], next[to]] = [next[to]!, next[index]!]
-    editor.patch({ productCarousel: next })
+    onChange({ productCarousel: next })
   }
   return (
     <section
@@ -79,7 +93,7 @@ export function ProductCarouselEditor() {
               value="text"
               checked={!cards}
               onChange={() =>
-                editor.patch({
+                onChange({
                   productCarousel: null,
                   dmButtons: [{ label: "", url: "" }],
                 })
@@ -95,10 +109,10 @@ export function ProductCarouselEditor() {
               checked={Boolean(cards)}
               disabled={!canUse && !cards}
               onChange={() =>
-                editor.patch({
+                onChange({
                   productCarousel: [emptyCard()],
                   dmButtons: [],
-                  dmMessage: editor.draft.dmMessage || "Browse the collection.",
+                  dmMessage: draft.dmMessage || "Browse the collection.",
                 })
               }
             />
@@ -116,7 +130,7 @@ export function ProductCarouselEditor() {
             People can swipe through up to {AUTOMATION_LIMITS.maxCarouselCards}{" "}
             cards.
           </p>
-          <Field error={editor.fields.productCarousel}>
+          <Field error={fields.productCarousel}>
             <span className="sr-only">Product cards</span>
           </Field>
           {cards.map((card, index) => (
@@ -158,7 +172,7 @@ export function ProductCarouselEditor() {
                   aria-label={`Remove product ${index + 1}`}
                   disabled={cards.length === 1}
                   onClick={() =>
-                    editor.patch({
+                    onChange({
                       productCarousel: cards.filter((_, i) => i !== index),
                     })
                   }
@@ -183,7 +197,7 @@ export function ProductCarouselEditor() {
                 <Field
                   key={key}
                   label={label}
-                  error={editor.fields[`productCarousel.${index}.${key}`]}
+                  error={fields[`productCarousel.${index}.${key}`]}
                   hint={
                     key === "imageUrl"
                       ? "Use a public HTTPS image link."
@@ -213,7 +227,7 @@ export function ProductCarouselEditor() {
               className="justify-self-start"
               disabled={!canUse}
               onClick={() =>
-                editor.patch({ productCarousel: [...cards, emptyCard()] })
+                onChange({ productCarousel: [...cards, emptyCard()] })
               }
             >
               <Plus /> Add product
@@ -225,19 +239,18 @@ export function ProductCarouselEditor() {
   )
 }
 
-export function FollowUpEditor() {
-  const editor = useEditorStore()
+export function FollowUpEditor({ draft, fields, onChange }: ExtrasProps) {
   const planId = useWorkspaceStore(
     (state) => state.billing?.subscription?.plan ?? "pro"
   )
   const canUse = PLANS[planId].features.followUpNudge
-  const followUp = editor.draft.followUp ?? null
+  const followUp = draft.followUp ?? null
   const patch = (value: Partial<FollowUp>) =>
-    editor.patch({ followUp: { ...followUp!, ...value } })
+    onChange({ followUp: { ...followUp!, ...value } })
   function enable(on: boolean) {
-    const first = editor.draft.dmButtons[0]
-    const card = editor.draft.productCarousel?.[0]
-    editor.patch({
+    const first = draft.dmButtons[0]
+    const card = draft.productCarousel?.[0]
+    onChange({
       followUp: on
         ? {
             message: "Still interested? Here's your link again 👇",
@@ -279,7 +292,7 @@ export function FollowUpEditor() {
           <legend className="sr-only">Reminder settings</legend>
           <Field
             label="Send after"
-            error={editor.fields["followUp.delayMinutes"]}
+            error={fields["followUp.delayMinutes"]}
             hint="30 minutes to 20 hours after the DM."
           >
             <div className="flex items-center gap-2">
@@ -296,10 +309,7 @@ export function FollowUpEditor() {
               <span className="text-sm text-muted-foreground">minutes</span>
             </div>
           </Field>
-          <Field
-            label="Reminder message"
-            error={editor.fields["followUp.message"]}
-          >
+          <Field label="Reminder message" error={fields["followUp.message"]}>
             <Textarea
               aria-label="Reminder message"
               value={followUp.message}
@@ -321,7 +331,7 @@ export function FollowUpEditor() {
           </label>
           {followUp.button && (
             <>
-              <Field label="Link" error={editor.fields["followUp.button.url"]}>
+              <Field label="Link" error={fields["followUp.button.url"]}>
                 <Input
                   aria-label="Reminder link"
                   inputMode="url"
@@ -336,7 +346,7 @@ export function FollowUpEditor() {
               </Field>
               <Field
                 label="Button label"
-                error={editor.fields["followUp.button.label"]}
+                error={fields["followUp.button.label"]}
               >
                 <Input
                   aria-label="Reminder button label"

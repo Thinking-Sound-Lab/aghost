@@ -303,6 +303,77 @@ describe("Google sign-in", () => {
     )
   })
 
+  it("returns to an agent's upload link after sign-in, or to its login page when cancelled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input)
+        )
+        if (url.pathname.endsWith("/authorize"))
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: "https://accounts.google.com/o/oauth2/v2/auth",
+            },
+          })
+        if (url.pathname.endsWith("/token"))
+          return Response.json({
+            access_token: "fixture-token",
+            refresh_token: "fixture-refresh",
+            token_type: "bearer",
+            expires_in: 3600,
+            user: {
+              id: randomUUID(),
+              aud: "authenticated",
+              role: "authenticated",
+              email: "maya@example.com",
+              app_metadata: {},
+              user_metadata: {},
+              created_at: new Date().toISOString(),
+            },
+          })
+        throw new Error(`Unexpected auth request ${url.pathname}`)
+      })
+    )
+    const link = randomUUID()
+    const start = await app.inject({
+      method: "GET",
+      url: `/api/auth/google?next=upload&link=${link}`,
+    })
+    const cookies = [start.headers["set-cookie"] ?? []]
+      .flat()
+      .map((value) => String(value).split(";")[0]!)
+    const finish = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback?code=fixture-code",
+      headers: { cookie: cookies.join("; ") },
+    })
+    expect(finish.headers.location).toBe(
+      `http://localhost:3000/upload?link=${link}`
+    )
+    const cancelled = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: {
+        cookie: cookies.find((value) =>
+          value.startsWith("aghost-auth-return=")
+        )!,
+      },
+    })
+    expect(cancelled.headers.location).toBe(
+      `http://localhost:3000/login?next=upload&link=${link}&error=google`
+    )
+    const forged = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback",
+      headers: { cookie: "aghost-auth-return=upload%3A..%2F..%2Fhome" },
+    })
+    expect(forged.headers.location).toBe(
+      "http://localhost:3000/login?error=google"
+    )
+  })
+
   it("preserves the pricing choice after cancelled sign-in and ignores forged redirect destinations", async () => {
     const cancelled = await app.inject({
       method: "GET",

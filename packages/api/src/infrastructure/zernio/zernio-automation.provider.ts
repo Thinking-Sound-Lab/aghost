@@ -19,9 +19,11 @@ import type {
   ActivityPageRequest,
   AutomationProvider,
   AutomationTarget,
+  PostBinding,
 } from "../../modules/automations/automation.provider"
 import { ConflictError, ProviderError } from "../../shared/errors"
 import {
+  causeOf,
   hasStatus,
   request,
   requestDeletion,
@@ -67,11 +69,11 @@ export class ZernioAutomationProvider implements AutomationProvider {
   async create(
     target: AutomationTarget,
     config: AutomationConfig,
-    status: AutomationStatus
+    status: AutomationStatus,
+    post: PostBinding
   ): Promise<string> {
     const action = "create the automation"
-    const post =
-      config.trigger.postScope === "specific_post" ? config.trigger.post : null
+    const { platformPostId, postId, postTitle } = toPostFields(post)
 
     const body = await this.write(action, () =>
       this.zernio().commentautomations.createCommentAutomation({
@@ -81,10 +83,9 @@ export class ZernioAutomationProvider implements AutomationProvider {
           accountId: target.providerAccountId,
           name: config.name,
           // Leaving the post out makes the automation account-wide.
-          ...(post && {
-            platformPostId: post.platformPostId,
-            ...(post.caption && { postTitle: toPostTitle(post.caption) }),
-          }),
+          ...(platformPostId && { platformPostId }),
+          ...(postId && { postId }),
+          ...(postTitle && { postTitle }),
           keywords: config.keywords,
           matchMode: config.matchMode,
           dmMessage: config.dmMessage,
@@ -116,11 +117,9 @@ export class ZernioAutomationProvider implements AutomationProvider {
   async update(
     providerAutomationId: string,
     config: AutomationConfig,
-    status: AutomationStatus
+    status: AutomationStatus,
+    post: PostBinding | null
   ): Promise<void> {
-    const post =
-      config.trigger.postScope === "specific_post" ? config.trigger.post : null
-
     await this.write("update the automation", () =>
       this.zernio().commentautomations.updateCommentAutomation({
         throwOnError: true,
@@ -129,10 +128,8 @@ export class ZernioAutomationProvider implements AutomationProvider {
           name: config.name,
           isActive: status === "active",
           // The three post fields move as a unit: all null makes the
-          // automation account-wide.
-          platformPostId: post ? post.platformPostId : null,
-          postId: null,
-          postTitle: post?.caption ? toPostTitle(post.caption) : null,
+          // automation account-wide, and leaving them out keeps its post.
+          ...(post && toPostFields(post)),
           keywords: config.keywords,
           matchMode: config.matchMode,
           dmMessage: config.dmMessage,
@@ -257,12 +254,19 @@ export class ZernioAutomationProvider implements AutomationProvider {
   }
 }
 
-function causeOf(error: unknown): unknown {
-  return error instanceof Error ? error.cause : undefined
-}
-
-function toPostTitle(caption: string): string {
-  return caption.slice(0, POST_TITLE_MAX_LENGTH)
+/**
+ * A published post is watched by its Instagram id. A scheduled one is watched
+ * by Zernio's id, and Zernio starts the automation when it publishes.
+ */
+function toPostFields(post: PostBinding) {
+  if (post.scope === "any_post")
+    return { platformPostId: null, postId: null, postTitle: null }
+  const postTitle = post.caption
+    ? post.caption.slice(0, POST_TITLE_MAX_LENGTH)
+    : null
+  return post.scope === "platform_post"
+    ? { platformPostId: post.platformPostId, postId: null, postTitle }
+    : { platformPostId: null, postId: post.providerPostId, postTitle }
 }
 
 /**

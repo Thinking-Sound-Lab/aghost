@@ -4,6 +4,7 @@ import type {
   MatchMode,
   PostScope,
 } from "../../contract/automation"
+import type { PostKind } from "../../contract/post"
 import type {
   BillingInterval,
   PlanId,
@@ -37,6 +38,15 @@ type AutomationShape = {
   requires_follow: boolean
 }
 
+type PostShape = {
+  post_id: string
+  kind: PostKind
+  media_count: number
+  video_count: number
+  has_caption: boolean
+  has_automation: boolean
+}
+
 export type SubscriptionShape = {
   subscription_id: string
   plan: PlanId
@@ -67,6 +77,8 @@ type Events = {
     duration_ms: number
   }
   instagram_connect_started: None
+  /** The owner went to authorize an account again, to grant new permissions. */
+  instagram_reconnect_started: { account_id: string }
   instagram_account_connected: { account_id: string }
   /**
    * The plan had no room for an account the owner tried to connect. The id is
@@ -81,7 +93,23 @@ type Events = {
   automation_paused: { automation_id: string; reason: "owner" | "plan" }
   automation_deleted: {
     automation_id: string
+    reason: "owner" | "account_removed" | "post_deleted"
+  }
+  post_scheduled: PostShape
+  scheduled_post_updated: PostShape
+  /** Seen the first time the post is read after its time. */
+  scheduled_post_published: { post_id: string }
+  /** The post did not publish, or the ended plan cancelled it. */
+  scheduled_post_failed: { post_id: string; reason: "publishing" | "plan" }
+  scheduled_post_deleted: {
+    post_id: string
     reason: "owner" | "account_removed"
+  }
+  /** The owner uploaded files through a link an agent gave them. */
+  upload_link_completed: {
+    upload_link_id: string
+    media_count: number
+    video_count: number
   }
   inbox_message_sent: { account_id: string }
   checkout_started: {
