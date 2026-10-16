@@ -4,6 +4,7 @@ import {
   type BillingState,
   type ChoosePlanInput,
   type PlanChangeResult,
+  type Plan,
 } from "../../contract/billing"
 import {
   BadRequestError,
@@ -27,6 +28,7 @@ import { accountCount, type ConnectedAccounts } from "./plan-entitlements"
 /** Stops the automations of a workspace whose plan has ended. */
 export interface WorkspaceAutomations {
   pauseAll(workspace: WorkspaceOwner): Promise<void>
+  pauseUnsupported(workspace: WorkspaceOwner, plan: Plan): Promise<void>
 }
 
 /** Cancels the posts of a workspace whose plan has ended. */
@@ -382,6 +384,11 @@ export class BillingService {
     const connected = await this.accounts.countConnected(workspace.id)
     if (connected > PLANS[subscription.plan].instagramAccounts)
       await this.automations.pauseAll(workspace)
+    else
+      await this.automations.pauseUnsupported(
+        workspace,
+        PLANS[subscription.plan]
+      )
   }
 
   private async createCustomer(

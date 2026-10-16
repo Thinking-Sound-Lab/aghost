@@ -54,7 +54,10 @@ describe("automation creation compensation", () => {
       },
       { listRecentPosts: async () => [] },
       { findById: async () => null },
-      { assertCanRunAutomations: async () => {} },
+      {
+        assertCanRunAutomations: async () => {},
+        assertCanUseAutomationFeatures: async () => {},
+      },
       { run: (_workspaceId, work) => work() },
       recorded.source("dashboard")
     )

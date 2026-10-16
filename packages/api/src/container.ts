@@ -63,6 +63,9 @@ import { WebhookService } from "./modules/webhooks/webhook.service"
 import type { ProfileProvider } from "./modules/workspaces/profile.provider"
 import { WorkspaceService } from "./modules/workspaces/workspace.service"
 import { InvalidApiKeyError, UnauthenticatedError } from "./shared/errors"
+import { SupabaseFollowUpRepository } from "./infrastructure/supabase/supabase-follow-up.repository"
+import { ZernioFollowUpProvider } from "./infrastructure/zernio/zernio-follow-up.provider"
+import { FollowUpService } from "./modules/automations/follow-up.service"
 
 // Path of the page in the web app that finishes the Instagram connection.
 const CONNECT_CALLBACK_PATH = "/accounts/callback"
@@ -129,7 +132,8 @@ function createServices(
     postRepository,
     plans,
     operations,
-    analytics
+    analytics,
+    new SupabaseFollowUpRepository(db.scoped)
   )
   const posts = new PostService(
     postRepository,
@@ -189,7 +193,11 @@ function createServices(
   }
 }
 
-type RuntimeOptions = { dodo?: DodoClient; analytics?: Analytics }
+type RuntimeOptions = {
+  dodo?: DodoClient
+  analytics?: Analytics
+  runFollowUps?: boolean
+}
 
 function runtime(config: ApiConfig, options: RuntimeOptions = {}) {
   const zernio = () => createZernioClient(config.zernio)
@@ -331,7 +339,7 @@ export function createApi(
     backend.billing
   )
 
-  return createApp({
+  const app = createApp({
     authenticate,
     authenticateAgent,
     webhooks,
@@ -340,4 +348,37 @@ export function createApi(
     analytics,
     config,
   })
+  if (options.runFollowUps && config.zernio.apiKey) {
+    const followUps = new FollowUpService(
+      new SupabaseFollowUpRepository(admin),
+      new ZernioFollowUpProvider(() => createZernioClient(config.zernio)),
+      new SupabaseWorkspaceOperations(admin)
+    )
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let stopped = false
+    let running: Promise<void> | undefined
+    const poll = () => {
+      if (stopped) return
+      running = followUps
+        .run((err, jobId) =>
+          app.log.error({ err, jobId }, "Follow-up delivery failed")
+        )
+        .catch((err) => app.log.error({ err }, "Follow-up polling failed"))
+        .finally(() => {
+          if (!stopped) {
+            timer = setTimeout(poll, 15_000)
+            timer.unref()
+          }
+        })
+    }
+    app.addHook("onReady", async () => {
+      poll()
+    })
+    app.addHook("onClose", async () => {
+      stopped = true
+      clearTimeout(timer)
+      await running
+    })
+  }
+  return app
 }

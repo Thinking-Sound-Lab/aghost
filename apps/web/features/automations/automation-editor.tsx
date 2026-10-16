@@ -96,9 +96,35 @@ export function AutomationEditor({ id }: { id?: string }) {
     else void save("active")
   }
 
+  const preview = (
+    <InstagramPreview
+      screen={editor.preview}
+      account={{
+        username: account?.username ?? "",
+        picture: account?.profilePictureUrl ?? null,
+      }}
+      post={
+        draft.trigger.postScope === "specific_post"
+          ? selectedPost
+          : draft.trigger.postScope === "scheduled_post"
+            ? scheduledPost && previewOf(scheduledPost)
+            : (editor.posts[0] ?? null)
+      }
+      keyword={editor.anyWord ? null : (keywords[0] ?? null)}
+      commentReply={draft.commentReply}
+      openingDm={draft.openingDm}
+      dmMessage={draft.dmMessage}
+      buttons={draft.dmButtons.map((item) => item.label)}
+      productCarousel={
+        draft.dmFormat === "carousel" ? (draft.productCarousel ?? null) : null
+      }
+      followUp={draft.followUp ?? null}
+    />
+  )
+
   return (
     <div className="flex min-h-0 flex-1">
-      <Panel className="w-[560px] shrink-0">
+      <Panel className="min-w-0 flex-1 xl:w-[560px] xl:flex-none">
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <header className="flex shrink-0 items-center gap-2 px-10 pt-10 pb-8">
             <Link
@@ -213,6 +239,24 @@ export function AutomationEditor({ id }: { id?: string }) {
           </div>
           <footer className="flex shrink-0 items-center gap-2 px-10 pt-4 pb-8">
             <ErrorBanner message={editor.error} className="mr-auto py-1.5" />
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="xl:hidden"
+                  />
+                }
+              >
+                Preview
+              </DialogTrigger>
+              <DialogContent className="grid max-h-[90dvh] justify-items-center overflow-auto sm:max-w-sm">
+                <DialogTitle>Instagram preview</DialogTitle>
+                {preview}
+              </DialogContent>
+            </Dialog>
             {editor.step < LAST_STEP ? (
               <Button type="submit" className="ml-auto">
                 Next
@@ -236,26 +280,8 @@ export function AutomationEditor({ id }: { id?: string }) {
           </footer>
         </form>
       </Panel>
-      <Panel className="flex-1 items-center justify-center overflow-auto bg-muted p-10">
-        <InstagramPreview
-          screen={editor.preview}
-          account={{
-            username: account?.username ?? "",
-            picture: account?.profilePictureUrl ?? null,
-          }}
-          post={
-            draft.trigger.postScope === "specific_post"
-              ? selectedPost
-              : draft.trigger.postScope === "scheduled_post"
-                ? scheduledPost && previewOf(scheduledPost)
-                : (editor.posts[0] ?? null)
-          }
-          keyword={keywords[0] ?? null}
-          commentReply={draft.commentReply}
-          openingDm={draft.openingDm}
-          dmMessage={draft.dmMessage}
-          buttons={draft.dmButtons.map((item) => item.label)}
-        />
+      <Panel className="hidden flex-1 items-center justify-center overflow-auto bg-muted p-10 xl:flex">
+        {preview}
       </Panel>
     </div>
   )

@@ -5,18 +5,18 @@ import {
   updateAutomationSchema,
   type Automation,
   type AutomationActivityPage,
-  type CreateAutomationInput,
   type InstagramPost,
   type ScheduledPost,
 } from "@workspace/api/contract"
 import { ApiClientError } from "@workspace/api/client"
 import { keywordsOf } from "@/features/automations/automation-fields"
 import { api } from "@/lib/api"
+import { responseForSave, type AutomationDraft } from "@/lib/automation-draft"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
 type EditorState = {
   revision: number
-  draft: CreateAutomationInput
+  draft: AutomationDraft
   id: string | null
   keywordText: string
   /** "Any word" was chosen; keywordText is kept for switching back. */
@@ -38,7 +38,7 @@ type EditorState = {
   fields: Record<string, string>
   busy: boolean
   initialize: (id?: string) => Promise<void>
-  patch: (patch: Partial<CreateAutomationInput>) => void
+  patch: (patch: Partial<AutomationDraft>) => void
   next: () => void
   selectAccount: (id: string) => Promise<void>
   loadPosts: () => Promise<void>
@@ -52,7 +52,7 @@ const DEFAULT_OPENING_DM = {
   buttonLabel: "Send me the link",
 }
 
-function emptyDraft(): CreateAutomationInput {
+function emptyDraft(): AutomationDraft {
   return {
     name: "",
     instagramAccountId: "",
@@ -64,6 +64,9 @@ function emptyDraft(): CreateAutomationInput {
     dmButtons: [{ label: "", url: "" }],
     commentReply: null,
     requireFollow: false,
+    productCarousel: null,
+    dmFormat: "text",
+    followUp: null,
     status: "paused",
   }
 }
@@ -102,7 +105,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       keywordText: "",
       anyWord: false,
       step: id ? LAST_STEP : 0,
-      preview: "post",
+      preview: id ? "dm" : "post",
       posts: [],
       scheduledPosts: [],
       status: "loading",
@@ -118,8 +121,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (id) {
         const item = await api.automations.get(id)
         if (get().revision !== revision) return
-        const draft: CreateAutomationInput = {
+        const draft: AutomationDraft = {
           ...item,
+          productCarousel: item.productCarousel ?? null,
+          dmFormat: item.productCarousel ? "carousel" : "text",
+          followUp: item.followUp ?? null,
           trigger:
             item.trigger.postScope === "any_post"
               ? { postScope: "any_post" }
@@ -235,7 +241,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   save: async (status) => {
     if (get().busy) return null
-    const input = { ...get().draft, status, keywords: keywordsOf(get()) }
+    const input = {
+      ...responseForSave(get().draft),
+      status,
+      keywords: keywordsOf(get()),
+    }
     const result = createAutomationSchema.safeParse(input)
     if (!result.success) {
       const fields: Record<string, string> = {}

@@ -12,6 +12,7 @@ type RecordedRequest = {
   path: string
   query: URLSearchParams
   body: Body
+  idempotencyKey?: string
 }
 
 /** A local HTTP fixture exercises the real SDK without contacting Instagram. */
@@ -25,6 +26,7 @@ export async function startZernioFixture() {
     outsideProfile: false,
     accountConnected: true,
     inboxAccountsFailed: 0,
+    automationLogs: null as Body[] | null,
     // Whether the account granted permission to publish.
     canPost: true,
     // Fails the next automation write only, after other writes succeeded.
@@ -88,7 +90,16 @@ export async function startZernioFixture() {
     const text = Buffer.concat(chunks).toString()
     const body: Body = text ? JSON.parse(text) : {}
     const method = req.method ?? "GET"
-    requests.push({ method, path: url.pathname, query: url.searchParams, body })
+    requests.push({
+      method,
+      path: url.pathname,
+      query: url.searchParams,
+      body,
+      idempotencyKey:
+        typeof req.headers["idempotency-key"] === "string"
+          ? req.headers["idempotency-key"]
+          : undefined,
+    })
     const reply = (status: number, value: unknown) => {
       res.writeHead(status, { "Content-Type": "application/json" })
       res.end(JSON.stringify(value))
@@ -243,17 +254,30 @@ export async function startZernioFixture() {
       }
       if (match[2])
         reply(200, {
-          logs: [
-            {
-              id: "fixture-log-1",
-              status: "sent",
-              createdAt: "2026-10-09T10:00:00Z",
-              commenterUsername: "fixture_contact",
-              commentText: "GUIDE",
-              clickCount: 1,
-            },
-          ],
-          pagination: { total: 1, hasMore: false },
+          logs: state.automationLogs
+            ? state.automationLogs.slice(
+                Number(url.searchParams.get("skip") ?? 0),
+                Number(url.searchParams.get("skip") ?? 0) +
+                  Number(url.searchParams.get("limit") ?? 200)
+              )
+            : [
+                {
+                  id: "fixture-log-1",
+                  status: "sent",
+                  createdAt: "2026-10-09T10:00:00Z",
+                  commenterUsername: "fixture_contact",
+                  commentText: "GUIDE",
+                  clickCount: 1,
+                },
+              ],
+          pagination: {
+            total: state.automationLogs?.length ?? 1,
+            hasMore: state.automationLogs
+              ? Number(url.searchParams.get("skip") ?? 0) +
+                  Number(url.searchParams.get("limit") ?? 200) <
+                state.automationLogs.length
+              : false,
+          },
         })
       else if (method === "PATCH") {
         const updated = { ...automations.get(id), ...body }
@@ -307,14 +331,15 @@ export async function startZernioFixture() {
               }
         )
       } else if (method === "POST") {
+        const messageId = `fixture-message-${randomUUID()}`
         messages.push({
-          id: `fixture-message-${randomUUID()}`,
+          id: messageId,
           direction: "outgoing",
           message: body.message,
           createdAt: new Date().toISOString(),
           attachments: [],
         })
-        reply(200, { success: true, data: { conversationId: id } })
+        reply(200, { success: true, data: { conversationId: id, messageId } })
       } else {
         const sortOrder = url.searchParams.get("sortOrder") ?? "asc"
         const page = held ? [...messages] : []
@@ -386,6 +411,7 @@ export async function startZernioFixture() {
     foreignConversationId,
     requests,
     automations,
+    messages,
     posts,
     state,
     close: () =>

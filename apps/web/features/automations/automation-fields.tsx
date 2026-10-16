@@ -4,20 +4,29 @@ import { Plus, X } from "lucide-react"
 import {
   AUTOMATION_LIMITS,
   PERSONALIZATION_TOKENS,
-  type CreateAutomationInput,
 } from "@workspace/api/contract"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Field } from "@/components/interface"
+import type { AutomationDraft } from "@/lib/automation-draft"
+
+import { FollowUpEditor, ProductCarouselEditor } from "./automation-extras"
 
 const KEYWORD_EXAMPLES = ["Price", "Link", "Shop"]
 
 /** What an automation sends, without its trigger. */
 export type ResponseDraft = Pick<
-  CreateAutomationInput,
-  "openingDm" | "dmMessage" | "dmButtons" | "commentReply" | "requireFollow"
+  AutomationDraft,
+  | "openingDm"
+  | "dmMessage"
+  | "dmButtons"
+  | "commentReply"
+  | "requireFollow"
+  | "productCarousel"
+  | "followUp"
+  | "dmFormat"
 >
 
 export type KeywordDraft = { keywordText: string; anyWord: boolean }
@@ -149,109 +158,117 @@ export function AutomationFields({
             )}
           </Card>
 
-          <Card title="a DM with the link">
-            <Field error={fields.dmMessage}>
-              <Textarea
-                aria-label="Message"
-                placeholder="Here's your link!"
-                maxLength={AUTOMATION_LIMITS.dmMessageMaxLength}
-                value={draft.dmMessage}
-                onChange={(event) =>
-                  onChange({ dmMessage: event.target.value })
-                }
-              />
-            </Field>
-            <div className="flex gap-1.5">
-              {PERSONALIZATION_TOKENS.map((item) => (
-                <button
-                  key={item.token}
-                  type="button"
-                  className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    onChange({ dmMessage: `${draft.dmMessage}${item.token}` })
+          <ProductCarouselEditor
+            draft={draft}
+            fields={fields}
+            onChange={onChange}
+          />
+          {draft.dmFormat === "text" && (
+            <Card title="a DM with the link">
+              <Field error={fields.dmMessage}>
+                <Textarea
+                  aria-label="Message"
+                  placeholder="Here's your link!"
+                  maxLength={AUTOMATION_LIMITS.dmMessageMaxLength}
+                  value={draft.dmMessage}
+                  onChange={(event) =>
+                    onChange({ dmMessage: event.target.value })
                   }
-                >
-                  + {item.label}
-                </button>
-              ))}
-            </div>
-            {draft.dmButtons.map((button, index) => (
-              <div key={index} className="grid gap-1.5">
-                <div className="flex gap-1.5">
+                />
+              </Field>
+              <div className="flex gap-1.5">
+                {PERSONALIZATION_TOKENS.map((item) => (
+                  <button
+                    key={item.token}
+                    type="button"
+                    className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      onChange({ dmMessage: `${draft.dmMessage}${item.token}` })
+                    }
+                  >
+                    + {item.label}
+                  </button>
+                ))}
+              </div>
+              {draft.dmButtons.map((button, index) => (
+                <div key={index} className="grid gap-1.5">
+                  <div className="flex gap-1.5">
+                    <Input
+                      aria-label={`Link ${index + 1}`}
+                      placeholder="https://"
+                      inputMode="url"
+                      value={button.url}
+                      aria-invalid={!!fields[`dmButtons.${index}.url`]}
+                      onChange={(event) =>
+                        onChange({
+                          dmButtons: draft.dmButtons.map((item, i) =>
+                            i === index
+                              ? { ...item, url: event.target.value }
+                              : item
+                          ),
+                        })
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove link ${index + 1}`}
+                      onClick={() =>
+                        onChange({
+                          dmButtons: draft.dmButtons.filter(
+                            (_, i) => i !== index
+                          ),
+                        })
+                      }
+                    >
+                      <X />
+                    </Button>
+                  </div>
                   <Input
-                    aria-label={`Link ${index + 1}`}
-                    placeholder="https://"
-                    inputMode="url"
-                    value={button.url}
-                    aria-invalid={!!fields[`dmButtons.${index}.url`]}
+                    aria-label={`Button label ${index + 1}`}
+                    placeholder="Button label"
+                    maxLength={AUTOMATION_LIMITS.dmButtonLabelMaxLength}
+                    value={button.label}
+                    aria-invalid={!!fields[`dmButtons.${index}.label`]}
                     onChange={(event) =>
                       onChange({
                         dmButtons: draft.dmButtons.map((item, i) =>
                           i === index
-                            ? { ...item, url: event.target.value }
+                            ? { ...item, label: event.target.value }
                             : item
                         ),
                       })
                     }
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove link ${index + 1}`}
-                    onClick={() =>
-                      onChange({
-                        dmButtons: draft.dmButtons.filter(
-                          (_, i) => i !== index
-                        ),
-                      })
-                    }
-                  >
-                    <X />
-                  </Button>
+                  {(fields[`dmButtons.${index}.url`] ??
+                    fields[`dmButtons.${index}.label`]) && (
+                    <p className="text-xs text-destructive">
+                      {fields[`dmButtons.${index}.url`] ??
+                        fields[`dmButtons.${index}.label`]}
+                    </p>
+                  )}
                 </div>
-                <Input
-                  aria-label={`Button label ${index + 1}`}
-                  placeholder="Button label"
-                  maxLength={AUTOMATION_LIMITS.dmButtonLabelMaxLength}
-                  value={button.label}
-                  aria-invalid={!!fields[`dmButtons.${index}.label`]}
-                  onChange={(event) =>
+              ))}
+              {draft.dmButtons.length < AUTOMATION_LIMITS.maxDmButtons && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="justify-self-start"
+                  onClick={() =>
                     onChange({
-                      dmButtons: draft.dmButtons.map((item, i) =>
-                        i === index
-                          ? { ...item, label: event.target.value }
-                          : item
-                      ),
+                      dmButtons: [...draft.dmButtons, { label: "", url: "" }],
                     })
                   }
-                />
-                {(fields[`dmButtons.${index}.url`] ??
-                  fields[`dmButtons.${index}.label`]) && (
-                  <p className="text-xs text-destructive">
-                    {fields[`dmButtons.${index}.url`] ??
-                      fields[`dmButtons.${index}.label`]}
-                  </p>
-                )}
-              </div>
-            ))}
-            {draft.dmButtons.length < AUTOMATION_LIMITS.maxDmButtons && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="justify-self-start"
-                onClick={() =>
-                  onChange({
-                    dmButtons: [...draft.dmButtons, { label: "", url: "" }],
-                  })
-                }
-              >
-                <Plus />
-                Add link
-              </Button>
-            )}
-          </Card>
+                >
+                  <Plus />
+                  Add link
+                </Button>
+              )}
+            </Card>
+          )}
+          <FollowUpEditor draft={draft} fields={fields} onChange={onChange} />
 
           <Card
             title="a reply to their comment"

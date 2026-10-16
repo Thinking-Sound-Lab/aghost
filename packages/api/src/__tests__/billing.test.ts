@@ -136,17 +136,19 @@ function service(
   connected = 0
 ) {
   const pauseAll = vi.fn(async () => {})
+  const pauseUnsupported = vi.fn(async () => {})
   const cancelAll = vi.fn(async () => {})
   const recorded = recordingAnalytics()
   return {
     pauseAll,
+    pauseUnsupported,
     cancelAll,
     recorded,
     billing: new BillingService(
       repository,
       billingProvider,
       { countConnected: async () => connected },
-      { pauseAll },
+      { pauseAll, pauseUnsupported },
       { cancelAll },
       pages,
       { run: (_workspaceId, work) => work() },
@@ -269,6 +271,25 @@ describe("plan entitlements", () => {
 })
 
 describe("billing", () => {
+  it("enforces automation feature access when a subscription is downgraded", async () => {
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: subscription({ plan: "business" }),
+    })
+    const { billing, pauseAll, pauseUnsupported } = service(
+      repository,
+      provider({
+        getSubscription: async () => subscription({ plan: "growth" }),
+      })
+    )
+    await billing.refreshSubscription("sub_1")
+    expect(pauseUnsupported).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: workspace.id }),
+      PLANS.growth
+    )
+    expect(pauseAll).not.toHaveBeenCalled()
+  })
   it("reuses an unpaid checkout and creates the customer once", async () => {
     const repository = memoryRepository(null)
     const dodo = provider()

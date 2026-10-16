@@ -13,6 +13,10 @@ export const AUTOMATION_LIMITS = {
   commentReplyMaxLength: 300,
   // The opening DM is sent with its button as a button template.
   openingDmMaxLength: 640,
+  maxCarouselCards: 10,
+  carouselTextMaxLength: 80,
+  followUpMinDelayMinutes: 30,
+  followUpMaxDelayMinutes: 1200,
 } as const
 
 /** Placeholders the sender replaces with the commenter's details. */
@@ -94,6 +98,30 @@ const openingDmSchema = z.object({
 
 export type OpeningDm = z.infer<typeof openingDmSchema>
 
+const productCardSchema = z.object({
+  title: z.string().trim().min(1, "Add a product title").max(80),
+  subtitle: z.string().trim().max(80).default(""),
+  imageUrl: dmButtonSchema.shape.url,
+  buttonLabel: dmButtonSchema.shape.label,
+  url: dmButtonSchema.shape.url,
+})
+export const productCarouselSchema = z
+  .array(productCardSchema)
+  .min(1, "Add a product card")
+  .max(AUTOMATION_LIMITS.maxCarouselCards)
+export type ProductCard = z.infer<typeof productCardSchema>
+
+export const followUpSchema = z.object({
+  message: z.string().trim().min(1, "Write the reminder").max(640),
+  delayMinutes: z
+    .number()
+    .int()
+    .min(AUTOMATION_LIMITS.followUpMinDelayMinutes)
+    .max(AUTOMATION_LIMITS.followUpMaxDelayMinutes),
+  button: dmButtonSchema.nullable().default(null),
+})
+export type FollowUp = z.infer<typeof followUpSchema>
+
 const automationTriggerInputSchema = z.discriminatedUnion("postScope", [
   z.object({ postScope: z.literal("any_post") }),
   z.object({
@@ -166,6 +194,9 @@ const automationResponseShape = {
     )
     .nullable(),
   requireFollow: z.boolean(),
+  // Omitted by older clients. Updates preserve the stored values; null clears.
+  productCarousel: productCarouselSchema.nullable().optional(),
+  followUp: followUpSchema.nullable().optional(),
 }
 
 const automationConfigShape = {
@@ -173,13 +204,26 @@ const automationConfigShape = {
   trigger: automationTriggerInputSchema,
 }
 
-type MessageWithButtons = { dmMessage: string; dmButtons: DmButton[] }
+type MessageWithButtons = {
+  dmMessage: string
+  dmButtons: DmButton[]
+  productCarousel?: ProductCard[] | null
+}
 
 function checkMessageFitsButtons(
   ctx: z.core.ParsePayload<MessageWithButtons>
 ): void {
   const { dmMessage, dmButtons } = ctx.value
   const limit = AUTOMATION_LIMITS.dmMessageWithButtonsMaxLength
+
+  if (ctx.value.productCarousel && dmButtons.length > 0) {
+    ctx.issues.push({
+      code: "custom",
+      input: dmButtons,
+      path: ["dmButtons"],
+      message: "Choose link buttons or a product carousel for this DM.",
+    })
+  }
 
   if (dmButtons.length > 0 && dmMessage.length > limit) {
     ctx.issues.push({
@@ -258,6 +302,8 @@ export type Automation = {
   dmButtons: DmButton[]
   commentReply: string | null
   requireFollow: boolean
+  productCarousel: ProductCard[] | null
+  followUp: FollowUp | null
   createdAt: string
   updatedAt: string
 }
@@ -304,4 +350,14 @@ export type AutomationActivityPage = {
   entries: AutomationActivity[]
   total: number
   hasMore: boolean
+  followUps?: FollowUpActivity[]
+}
+
+export type FollowUpActivity = {
+  id: string
+  recipient: string | null
+  status: "pending" | "processing" | "sent" | "cancelled" | "failed"
+  dueAt: string
+  sentAt: string | null
+  reason: string | null
 }

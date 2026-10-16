@@ -2,7 +2,10 @@
 
 import { useEffect } from "react"
 import { MessageCircle } from "lucide-react"
-import type { DmDeliveryStatus } from "@workspace/api/contract"
+import type {
+  DmDeliveryStatus,
+  FollowUpActivity,
+} from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -25,6 +28,55 @@ const DM_STATUS: Record<DmDeliveryStatus, { label: string; dot: string }> = {
   pending: { label: "Scheduled", dot: "bg-muted-foreground/40" },
   skipped: { label: "Skipped", dot: "bg-muted-foreground/40" },
   failed: { label: "Failed", dot: "bg-destructive" },
+}
+
+const REMINDER_REASON: Record<string, string> = {
+  replied: "They replied",
+  clicked: "They opened a link",
+  outside_window: "Instagram’s messaging window closed",
+  already_answered: "The conversation continued",
+  automation_changed: "Automation edited or paused",
+  automation_removed: "Automation removed",
+  account_disconnected: "Account disconnected",
+  plan_changed: "Plan changed",
+  unverified_delivery: "Original DM could not be verified",
+  unverified_conversation: "Conversation could not be verified",
+  unverified_clicks: "Link activity could not be verified",
+  delivery_error: "Delivery could not be completed",
+}
+
+function FollowUpHistory({ entries }: { entries: FollowUpActivity[] }) {
+  if (entries.length === 0) return null
+  const labels = {
+    pending: "Scheduled",
+    processing: "Sending",
+    sent: "Sent",
+    cancelled: "Skipped",
+    failed: "Failed",
+  }
+  return (
+    <section className="grid gap-3" aria-label="Recent follow-up nudges">
+      <h2 className="text-base font-semibold">Recent follow-up nudges</h2>
+      <div className="ph-no-capture divide-y text-sm">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3"
+          >
+            <span className="min-w-0 flex-1 truncate font-medium">
+              {entry.recipient ?? "Instagram contact"}
+            </span>
+            <span>{labels[entry.status]}</span>
+            <span className="text-muted-foreground">
+              {entry.reason
+                ? (REMINDER_REASON[entry.reason] ?? "Reminder skipped")
+                : new Date(entry.sentAt ?? entry.dueAt).toLocaleString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 export function Activity({ id }: { id: string }) {
@@ -168,6 +220,7 @@ export function Activity({ id }: { id: string }) {
           </section>
         )
       )}
+      <FollowUpHistory entries={page?.followUps ?? []} />
     </Page>
   )
 }

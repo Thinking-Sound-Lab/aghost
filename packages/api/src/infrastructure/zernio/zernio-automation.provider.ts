@@ -90,6 +90,9 @@ export class ZernioAutomationProvider implements AutomationProvider {
           matchMode: config.matchMode,
           dmMessage: config.dmMessage,
           buttons: config.dmButtons.map(toZernioButton),
+          ...(config.productCarousel && {
+            template: toTemplate(config.productCarousel),
+          }),
           ...(config.commentReply && { commentReply: config.commentReply }),
           audience: toAudience(config),
           ...(config.openingDm && {
@@ -132,6 +135,10 @@ export class ZernioAutomationProvider implements AutomationProvider {
           dmMessage: config.dmMessage,
           // An empty list removes the buttons.
           buttons: config.dmButtons.map(toZernioButton),
+          // Explicitly clear the old body shape when switching message types.
+          template: config.productCarousel
+            ? toTemplate(config.productCarousel)
+            : null,
           // An empty string removes the public reply.
           commentReply: config.commentReply ?? "",
           // An audience without tapToUnlock turns tap-to-unlock off.
@@ -281,6 +288,20 @@ function toFollowGate(openingDm: OpeningDm): CommentAutomationFollowGate {
 
 function toZernioButton(button: DmButton): ZernioDmButton {
   return { type: "url", title: button.label, url: button.url }
+}
+
+function toTemplate(cards: NonNullable<AutomationConfig["productCarousel"]>) {
+  return {
+    type: "generic" as const,
+    elements: cards.map((card) => ({
+      title: card.title,
+      subtitle: card.subtitle,
+      imageUrl: card.imageUrl,
+      buttons: [
+        { type: "url" as const, title: card.buttonLabel, url: card.url },
+      ],
+    })),
+  }
 }
 
 function toStats(stats: CommentAutomationStats | undefined): AutomationStats {

@@ -6,6 +6,8 @@ import {
   MATCH_MODES,
   POST_SCOPES,
   dmButtonSchema,
+  productCarouselSchema,
+  followUpSchema,
   type AutomationStatus,
   type AutomationTrigger,
   type OpeningDm,
@@ -39,6 +41,8 @@ type AutomationConfigColumns = Pick<
   | "dm_buttons"
   | "comment_reply"
   | "require_follow"
+  | "product_carousel"
+  | "follow_up"
 >
 
 // A scheduled post's caption is read with the automation, so it stays current
@@ -121,6 +125,10 @@ function toRecord(row: AutomationRow): AutomationRecord {
     dmButtons: dmButtonsSchema.parse(row.dm_buttons),
     commentReply: row.comment_reply,
     requireFollow: row.require_follow,
+    productCarousel: row.product_carousel
+      ? productCarouselSchema.parse(row.product_carousel)
+      : null,
+    followUp: row.follow_up ? followUpSchema.parse(row.follow_up) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -148,6 +156,8 @@ function toConfigColumns(config: AutomationConfig): AutomationConfigColumns {
     dm_buttons: config.dmButtons,
     comment_reply: config.commentReply,
     require_follow: config.requireFollow,
+    product_carousel: config.productCarousel,
+    follow_up: config.followUp,
   }
 }
 

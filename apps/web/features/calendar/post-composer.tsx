@@ -486,6 +486,12 @@ export function PostComposer({
           openingDm={composer.response.openingDm}
           dmMessage={composer.response.dmMessage}
           buttons={composer.response.dmButtons.map((item) => item.label)}
+          productCarousel={
+            composer.response.dmFormat === "carousel"
+              ? (composer.response.productCarousel ?? null)
+              : null
+          }
+          followUp={composer.response.followUp ?? null}
         />
       </Panel>
     </div>

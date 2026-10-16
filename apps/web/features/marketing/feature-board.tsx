@@ -3,7 +3,9 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ClaudeCodeApp } from "./agent-apps"
 import { features } from "./content"
 import {
+  FollowUpScene,
   InboxScene,
+  ProductCarouselScene,
   Screen,
   StatsScene,
   buttonsScene,
@@ -84,6 +86,26 @@ const cards: Card[] = [
     gradient: "deep",
     wide: true,
     picture: <StatsScene />,
+  },
+  {
+    label: "Product carousel · Growth and Business",
+    gradient: "ocean",
+    span: "lg:col-span-3",
+    picture: (
+      <Screen>
+        <ProductCarouselScene />
+      </Screen>
+    ),
+  },
+  {
+    label: "Follow-up nudges · Business",
+    gradient: "blue",
+    span: "lg:col-span-2",
+    picture: (
+      <Screen>
+        <FollowUpScene />
+      </Screen>
+    ),
   },
   {
     label: "Inbox",

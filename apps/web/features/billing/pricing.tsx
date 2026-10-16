@@ -18,7 +18,7 @@ export function Pricing() {
       <PageIntro
         category="Pricing"
         title="Simple, flat pricing"
-        description="Pick how many Instagram accounts you need. Every plan includes content scheduling, DM automations, MCP and REST API access. More contacts and DMs never raise your price."
+        description="Automate replies, showcase products, and bring people back with a gentle nudge. Every plan includes Instagram scheduling, MCP and REST API access. More contacts and DMs never raise your price."
       />
       <div className="mx-auto grid max-w-6xl gap-8 px-5 sm:px-8">
         <BillingIntervalToggle
