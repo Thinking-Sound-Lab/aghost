@@ -3,7 +3,7 @@ import { Pricing } from "@/features/billing/pricing"
 import { openGraph } from "@/lib/site"
 
 const description =
-  "Flat pricing for agent-first Instagram automation. MCP and REST API access on every plan, with unlimited contacts and DMs."
+  "Flat pricing for Instagram scheduling and DM automation. MCP and REST API access on every plan, with unlimited contacts and DMs."
 
 export const metadata: Metadata = {
   title: "Pricing",

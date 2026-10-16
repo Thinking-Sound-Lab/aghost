@@ -82,6 +82,7 @@ function benefits(plan: Plan): string[] {
     ]
   return [
     accounts,
+    "Instagram post and story scheduling",
     "Unlimited automations, contacts and DMs",
     "Post and reel comment triggers",
     "Keyword or any-comment matching",
@@ -162,8 +163,8 @@ export function PlanCards({
             </ul>
             {id !== "pro" && (
               <p className="mt-auto pt-6 text-xs text-muted-foreground">
-                Unlimited automations, contacts and DMs. MCP and REST API
-                included.
+                Unlimited automations, contacts and DMs. Scheduling, MCP and
+                REST API included.
               </p>
             )}
           </section>
@@ -177,8 +178,9 @@ export function PricingTerms() {
   return (
     <div className="grid gap-2 text-sm text-muted-foreground">
       <p>
-        MCP, REST API and dashboard access on every plan. Contacts and DMs never
-        change your price. Instagram's messaging limits and fair use apply.
+        Instagram scheduling, MCP, REST API and dashboard access on every plan.
+        Contacts and DMs never change your price. Instagram's publishing and
+        messaging limits and fair use apply.
       </p>
       <p>All plans are billed in US dollars. Taxes are included.</p>
     </div>

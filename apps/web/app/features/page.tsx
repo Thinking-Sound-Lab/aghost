@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { FeatureBoard } from "@/features/marketing/feature-board"
+import { Scheduling } from "@/features/marketing/scheduling"
 import {
   MarketingCta,
   MarketingPage,
@@ -13,7 +14,7 @@ import {
 import { openGraph } from "@/lib/site"
 
 const description =
-  "Deliver links from Instagram comments with keyword triggers, public replies, follower rules, a shared inbox, and automation stats."
+  "Schedule Instagram posts, reels, carousels and stories, then deliver links from comments with DM automations, follower rules, a shared inbox and stats."
 export const metadata: Metadata = {
   title: "Instagram automation features",
   description,
@@ -31,10 +32,11 @@ export default function Page() {
     <MarketingPage>
       <PageIntro
         category="Features"
-        title="Everything you need to turn comments into DMs"
+        title="Schedule your content. Turn comments into DMs."
         description={description}
       />
-      <section aria-label="Automation features">
+      <Scheduling className="mt-0" />
+      <section aria-label="Automation features" className="mt-16">
         <h2 className="sr-only">Instagram automation features</h2>
         <FeatureBoard agentic />
       </section>

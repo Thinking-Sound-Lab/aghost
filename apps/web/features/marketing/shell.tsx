@@ -178,7 +178,8 @@ function MarketingFooter() {
         <div className="grid content-start gap-4">
           <Brand />
           <p className="max-w-xs text-white/60">
-            Agentic DM automation for Instagram. Comments in, links out.
+            Instagram scheduling and DM automation. Plan the post. Send the
+            link.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-10 text-[15px] sm:grid-cols-4">

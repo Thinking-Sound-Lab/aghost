@@ -31,6 +31,7 @@ import {
 import { Demo, demoAccount } from "./demo"
 import { FeatureBoard, gradients, mascotTones } from "./feature-board"
 import { LaunchVideo } from "./launch-video"
+import { Scheduling } from "./scheduling"
 import {
   AgentWindow,
   BuilderWindow,
@@ -96,6 +97,12 @@ function Hero() {
           <p className="mx-auto mt-7 max-w-2xl text-lg text-pretty text-white/70 sm:text-xl">
             {heroSummary}
           </p>
+          <Link
+            href="#scheduling"
+            className="mt-4 inline-block text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
+          >
+            See the scheduling calendar
+          </Link>
           <div className="mt-9 flex justify-center">
             <GetStarted className="px-8 py-4 text-base" />
           </div>
@@ -483,6 +490,7 @@ export function Landing() {
   return (
     <MarketingPage>
       <Hero />
+      <Scheduling />
       <UseCases />
       <Audiences />
       <LaunchVideo />
