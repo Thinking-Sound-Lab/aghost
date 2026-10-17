@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { growthCta } from "@/features/marketing/content"
 import { FeatureBoard } from "@/features/marketing/feature-board"
-import { Scheduling } from "@/features/marketing/scheduling"
-import { MarketingGuides } from "@/features/marketing/guides"
 import {
   MarketingCta,
   MarketingPage,
@@ -15,14 +14,14 @@ import {
 import { openGraph } from "@/lib/site"
 
 const description =
-  "Schedule Instagram posts, reels, carousels and stories, then deliver links from comments with DM automations, follower rules, a shared inbox and stats."
+  "Schedule Instagram content, automate comment replies, track link clicks, and manage your inbox with your AI agent or the aghost dashboard."
 export const metadata: Metadata = {
-  title: "Instagram automation features",
+  title: "Instagram growth tools and AI agent features",
   description,
   alternates: { canonical: "/features" },
   openGraph: {
     ...openGraph,
-    title: "Instagram automation features · aghost",
+    title: "Instagram growth tools and AI agent features · aghost",
     description,
     url: "/features",
   },
@@ -33,21 +32,14 @@ export default function Page() {
     <MarketingPage>
       <PageIntro
         category="Features"
-        title="Schedule your content. Turn comments into DMs."
+        title="Grow your Instagram with your AI agent"
         description={description}
       />
-      <Scheduling className="mt-0" />
-      <section aria-label="Automation features" className="mt-16">
-        <h2 className="sr-only">Instagram automation features</h2>
-        <FeatureBoard agentic />
-        <p className="mx-auto mt-8 max-w-3xl px-5 text-center text-lg text-white/70 sm:px-8">
-          Learn when to use native replies and when to trigger a DM from a
-          comment in our{" "}
-          <Link href="/blog/instagram-auto-reply" className={textLink}>
-            Instagram auto reply guide
-          </Link>
-          .
-        </p>
+      <section aria-labelledby="growth-features-heading">
+        <h2 id="growth-features-heading" className="sr-only">
+          Instagram growth features
+        </h2>
+        <FeatureBoard />
       </section>
       <section className={section}>
         <div
@@ -59,11 +51,12 @@ export default function Page() {
             </h2>
             <p className="max-w-3xl text-lg text-white/70">
               You need an Instagram Business or Creator account and an active
-              aghost plan. Delivery depends on Instagram’s permissions,{" "}
-              <Link href="/blog/instagram-dm-limits" className={textLink}>
-                messaging windows, and rate limits
-              </Link>
-              . MCP and REST API access are included on every plan.
+              aghost plan. Instagram scheduling, MCP, and REST API access are
+              included on every plan.
+            </p>
+            <p className="max-w-3xl text-lg text-white/70">
+              Comment-to-DM delivery depends on Instagram’s permissions,
+              messaging windows, and rate limits.
             </p>
             <Link
               href="/instagram-dm-automation"
@@ -73,25 +66,16 @@ export default function Page() {
             </Link>
           </div>
           <div className="flex flex-wrap gap-3 lg:justify-end">
+            <Link href="/agents" className={outlineButton}>
+              Connect your agent
+            </Link>
             <Link href="/pricing" className={outlineButton}>
               Compare plans
-            </Link>
-            <Link href="/#faq" className={outlineButton}>
-              Read the FAQ
             </Link>
           </div>
         </div>
       </section>
-      <MarketingGuides
-        title="Check the rules. Compare your options."
-        description="Understand Instagram's messaging limits and compare automation tools before choosing your campaign workflow."
-        slugs={[
-          "instagram-dm-limits",
-          "best-instagram-dm-automation-tools",
-          "manychat-pricing",
-        ]}
-      />
-      <MarketingCta />
+      <MarketingCta {...growthCta} />
     </MarketingPage>
   )
 }

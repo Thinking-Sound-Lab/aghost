@@ -11,7 +11,13 @@ export const productSummary =
 export const heroSummary =
   "Schedule your Instagram content and turn comments into DMs from one workspace. Let your AI agent prepare the posts and automations, or manage everything in the dashboard."
 
-export const schedulingFeature = {
+export const growthCta = {
+  title: "Ready to grow your Instagram?",
+  description:
+    "Bring your content, automations, and conversations together. Connect your AI agent and run it all from aghost.",
+}
+
+const schedulingFeature = {
   label: "Scheduling",
   title: "Schedule the post. Have the DMs ready.",
   text: "Schedule Instagram posts, reels, carousels and stories from one calendar. Add a comment-to-DM automation to a post or reel before it publishes.",
@@ -71,7 +77,7 @@ export const features = [
   {
     label: "Agentic",
     title: "Run it from your AI agent",
-    text: "An MCP server and a REST API let Claude Code, Codex, Cursor, or any MCP client build and manage your automations.",
+    text: "Let Claude Code, Codex, Cursor, or another AI agent schedule content, manage comment automations, check results, and reply in your inbox through MCP or the REST API.",
   },
   {
     label: "Comment automation",

@@ -19,7 +19,14 @@ import {
   MuseLogo,
 } from "./agent-logos"
 import { contactHref } from "./contact"
-import { agentClients, audiences, faqs, heroSummary, steps } from "./content"
+import {
+  agentClients,
+  audiences,
+  faqs,
+  growthCta,
+  heroSummary,
+  steps,
+} from "./content"
 import { FeatureBoard, mascotTones } from "./feature-board"
 import {
   AgentWindow,
@@ -362,7 +369,7 @@ function Features() {
         className="px-5 [&_h2]:text-[clamp(1.875rem,6vw,3rem)] [&_svg]:text-brand-blue"
       />
       <div className="mt-14">
-        <FeatureBoard agentic scheduling layout="overview" />
+        <FeatureBoard />
       </div>
       <div className="mt-10 text-center">
         <Link href="/features" className={outlineButton}>
@@ -428,10 +435,7 @@ export function Landing() {
         <CtaBand />
       </div>
       <Faq />
-      <MarketingCta
-        title="Ready to grow your Instagram?"
-        description="Bring your content, automations, and conversations together. Connect your AI agent and run it all from aghost."
-      />
+      <MarketingCta {...growthCta} />
     </MarketingPage>
   )
 }

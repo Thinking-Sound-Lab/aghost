@@ -38,7 +38,7 @@ export const publicPages = [
     href: "/features",
     label: "Features",
     description:
-      "Instagram scheduling, keyword triggers, follower rules, inbox, and stats",
+      "Instagram scheduling, AI agents, comment automations, analytics, and inbox tools",
   },
   {
     href: "/instagram-dm-automation",
