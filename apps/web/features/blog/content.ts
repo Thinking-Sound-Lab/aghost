@@ -4,11 +4,13 @@ import { instagramDmLimits } from "./content/instagram-dm-limits"
 import { manychatAlternatives } from "./content/manychat-alternatives"
 import { manychatPricing } from "./content/manychat-pricing"
 import { aghostVsChatfuel } from "./content/aghost-vs-chatfuel"
+import { howToScheduleInstagramPosts } from "./content/how-to-schedule-instagram-posts"
 import type { ArticleContent } from "./content/types"
 import { getArticle, type ArticleSlug } from "./catalog"
 
 // Article bodies are only imported by the server-rendered article route.
 const content = {
+  "how-to-schedule-instagram-posts": howToScheduleInstagramPosts,
   "instagram-auto-reply": instagramAutoReply,
   "manychat-pricing": manychatPricing,
   "manychat-alternatives": manychatAlternatives,

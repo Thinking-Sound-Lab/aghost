@@ -22,6 +22,10 @@ const covers: Record<
   ArticleSlug,
   { lines: [string, string]; tone: keyof typeof tones }
 > = {
+  "how-to-schedule-instagram-posts": {
+    lines: ["Instagram", "scheduling"],
+    tone: "blue",
+  },
   "instagram-auto-reply": { lines: ["Instagram", "auto reply"], tone: "green" },
   "manychat-pricing": { lines: ["ManyChat", "pricing 2026"], tone: "orange" },
   "manychat-alternatives": {

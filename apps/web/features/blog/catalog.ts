@@ -12,6 +12,16 @@ type ArticleMetadata = {
 // imported by the client-side header.
 const catalog = [
   {
+    slug: "how-to-schedule-instagram-posts",
+    title: "How to schedule Instagram posts, Reels, and Stories",
+    description:
+      "Learn how to schedule Instagram posts, Reels, carousels, and Stories, find scheduled content, and prepare a comment-to-DM campaign before publishing.",
+    category: "How to",
+    publishedAt: "2026-10-17",
+    updatedAt: "2026-10-17",
+    related: ["instagram-auto-reply", "aghost-vs-chatfuel"],
+  },
+  {
     slug: "instagram-auto-reply",
     title: "Instagram auto reply: setup, examples, and comment-to-DM",
     description:
@@ -69,7 +79,11 @@ const catalog = [
     category: "Comparisons",
     publishedAt: "2026-10-17",
     updatedAt: "2026-10-17",
-    related: ["manychat-alternatives", "instagram-auto-reply"],
+    related: [
+      "manychat-alternatives",
+      "instagram-auto-reply",
+      "how-to-schedule-instagram-posts",
+    ],
   },
 ] as const satisfies readonly ArticleMetadata[]
 

@@ -48,6 +48,55 @@ Cost: $0.0105 total ($0.008 US, $0.0025 India). Evidence is saved locally in
 
 ## Competing articles examined
 
+### Instagram scheduling addition: October 17, 2026
+
+The user supplied an OpenSEO screenshot of US keyword research for Instagram
+scheduling and requested a related article, with Postiz, Buffer, and Blotato as
+references. The screenshot reports the following volumes; this is user-provided
+evidence, not a new paid keyword lookup. Do not add related-query estimates
+together or interpret the displayed score as a verified ranking difficulty.
+
+| Query                                    | Reported US volume |
+| ---------------------------------------- | -----------------: |
+| can you schedule instagram posts         |              9,900 |
+| schedule instagram posts                 |              6,600 |
+| instagram scheduling tool                |              2,900 |
+| can you schedule instagram stories       |              1,300 |
+| how to find scheduled posts on instagram |              1,000 |
+
+`/blog/how-to-schedule-instagram-posts` answers that setup and management intent
+with native scheduling steps, the actual aghost calendar/composer workflow,
+an agent example requiring approval before scheduling, tool-evaluation notes,
+troubleshooting, and an original sample content plan. It is the blog's featured
+article and has contextual links from the shared homepage/Features scheduling
+section and related reading from the aghost comparison. Existing guides remain.
+The catalog supplies its canonical metadata, BlogPosting data, sitemap entry,
+and llms.txt listing. Publication and checked dates are October 17, 2026.
+
+References checked:
+
+- [Buffer's scheduling guide](https://buffer.com/resources/schedule-instagram-posts/)
+  for its documented native Instagram scheduling and management steps. Menu
+  wording and eligibility can vary; no numeric native scheduling horizon is
+  promised.
+- [Buffer's Instagram help guide](https://support.buffer.com/en-us/articles/using-instagram-with-buffer-YSjg2dXFV8)
+  for automatic versus notification publishing and supported-format caveats.
+- [Postiz's Instagram scheduler](https://postiz.com/channels/instagram)
+  for its calendar, team-review, and MCP workflows. Its marketing claims about
+  optimal times, reach, and Meta quotas are not reused.
+- [Blotato's scheduling workflow](https://help.blotato.com/blog/build-social-media-scheduler-n8n-make)
+  for timestamp/slot scheduling and n8n/Make integration, and its
+  [Instagram agent guide](https://www.blotato.com/blog/how-to-post-to-instagram-with-claude)
+  for MCP publishing. Agent access is not presented as exclusive to aghost.
+- aghost claims were checked against `packages/api/src/contract/post.ts`,
+  `packages/api/src/modules/posts/post.service.ts`,
+  `apps/web/features/calendar/post-composer.tsx`, and the composer/calendar
+  stores. The guide uses the shared `POST_LIMITS` contract for lead time and
+  carousel size; browser-local time and post/Reel-only comment automation are
+  explicit. No authenticated live publish or provider performance test is claimed.
+
+### Earlier automation references
+
 - [ManyChat's DM automation tool guide](https://manychat.com/blog/instagram-dm-automation-tools/)
   groups tools by marketing, sales, and support jobs. We used the search-intent
   pattern and source vendors directly for product facts.
@@ -108,7 +157,7 @@ screenshots, claims of tests, and conversion promises were not reused.
 
 ## Publication and maintenance
 
-The six routes render at build time. Each has a canonical URL, unique metadata,
+The seven routes render at build time. Each has a canonical URL, unique metadata,
 article Open Graph fields, a BlogPosting and breadcrumb graph, visible editorial
 attribution, checked dates, source links, a table of contents, related reading,
 and relevant product links. Sitemap and llms.txt list the routes, and the main

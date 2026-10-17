@@ -49,7 +49,8 @@ export const publicPages = [
   {
     href: "/blog",
     label: "Blog",
-    description: "Instagram DM guides, messaging limits, and tool comparisons",
+    description:
+      "Instagram scheduling and DM guides, messaging limits, and tool comparisons",
   },
   {
     href: "/agents",

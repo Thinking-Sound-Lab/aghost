@@ -12,6 +12,14 @@ export const sources = {
     "https://www.facebook.com/business/tools/meta-business-suite",
   metaInboxAutomations:
     "https://www.facebook.com/business/help/318238182723007",
+  bufferScheduling: "https://buffer.com/resources/schedule-instagram-posts/",
+  bufferInstagram:
+    "https://support.buffer.com/en-us/articles/using-instagram-with-buffer-YSjg2dXFV8",
+  postizInstagram: "https://postiz.com/channels/instagram",
+  blotatoScheduling:
+    "https://help.blotato.com/blog/build-social-media-scheduler-n8n-make",
+  blotatoInstagramAgent:
+    "https://www.blotato.com/blog/how-to-post-to-instagram-with-claude",
   manychatInstagram: "https://manychat.com/product/instagram",
   manychatPricing: "https://manychat.com/pricing",
   manychatEssential:

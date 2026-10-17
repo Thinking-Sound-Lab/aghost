@@ -2,7 +2,7 @@ import Link from "next/link"
 import { CalendarDays, Film, Images, Image, Zap } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { schedulingFeature } from "./content"
-import { primaryButton } from "./shell"
+import { primaryButton, textLink } from "./shell"
 
 const posts = [
   {
@@ -169,6 +169,12 @@ export function Scheduling({ className }: { className?: string }) {
           </ul>
           <Link href="/login" className={cn(primaryButton, "mt-1 w-fit")}>
             Start scheduling
+          </Link>
+          <Link
+            href="/blog/how-to-schedule-instagram-posts"
+            className={cn(textLink, "w-fit")}
+          >
+            How to schedule Instagram posts, Reels, and Stories
           </Link>
         </div>
         <div className="min-w-0 rounded-[1.5rem] bg-linear-to-br from-brand-blue to-[#08245f] p-3 sm:p-5">
