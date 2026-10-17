@@ -136,9 +136,10 @@ export const aghostVsChatfuel: ArticleContent = {
         <>
           <p>
             aghost Pro is {aghostPrice()}/month, billed monthly, for one
-            Instagram account. Its subscription does not increase with your
-            contact list. Use the <Link href="/pricing">pricing page</Link> to
-            compare account allowances and features across the plans.
+            Instagram account, including applicable tax. Its subscription does
+            not increase with your contact list. Use the{" "}
+            <Link href="/pricing">pricing page</Link> to compare account
+            allowances and features across the plans.
           </p>
           <p>
             Chatfuel’s public Business price showed $18/month equivalent, billed
@@ -149,11 +150,12 @@ export const aghostVsChatfuel: ArticleContent = {
           </p>
           <p>
             Annual and monthly subscriptions are different commitments. Prices
-            shown here are in USD before applicable taxes and extra usage.
-            Forecast an ordinary month and a busy launch using the same
-            campaign, account count, and required features. For Chatfuel, review
-            the <Source href={sources.chatfuelLimits}>usage rules</Source>{" "}
-            against the conversations you expect.
+            shown here are in USD. Confirm Chatfuel’s taxes and any extra usage
+            charges at checkout. Forecast an ordinary month and a busy launch
+            using the same campaign, account count, and required features. For
+            Chatfuel, review the{" "}
+            <Source href={sources.chatfuelLimits}>usage rules</Source> against
+            the conversations you expect.
           </p>
         </>
       ),

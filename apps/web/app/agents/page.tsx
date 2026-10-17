@@ -56,7 +56,7 @@ const exampleRequests = [
     prompt:
       "Prepare my reel for Friday at 6 PM in Asia/Kolkata. Attach an automation that DMs my guide to anyone who comments GUIDE. Show me the media, caption, publishing time, time zone, and DM before scheduling it.",
     check:
-      "Review the Instagram account, media, caption, publishing time, and attached automation in the calendar before confirming the schedule.",
+      "Review the Instagram account, media, caption, publishing time, and attached automation in your agent’s summary before approving scheduling. After scheduling, check the result in the calendar.",
   },
   {
     title: "Prepare a comment-to-DM campaign",

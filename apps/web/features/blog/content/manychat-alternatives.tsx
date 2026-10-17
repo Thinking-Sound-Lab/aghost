@@ -79,9 +79,10 @@ export const manychatAlternatives: ArticleContent = {
           />
           <p>
             Linked tool names open official product or pricing pages. These are
-            starting prices, before applicable taxes and extra usage. Annual
-            rates are monthly equivalents paid for the full year; they are not
-            month-to-month subscriptions. respond.io’s{" "}
+            starting prices in USD. aghost’s price includes applicable tax;
+            confirm other providers’ taxes and any extra usage charges at
+            checkout. Annual rates are monthly equivalents paid for the full
+            year; they are not month-to-month subscriptions. respond.io’s{" "}
             <Source href={sources.respondPricingGuide}>plan guide</Source> lists
             its monthly rates. A free trial is different from an ongoing free
             plan, and the cheapest plan may not include the automation you need.
