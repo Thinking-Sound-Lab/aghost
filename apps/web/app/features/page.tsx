@@ -88,7 +88,7 @@ export default function Page() {
         slugs={[
           "instagram-dm-limits",
           "best-instagram-dm-automation-tools",
-          "manychat-vs-chatfuel",
+          "manychat-pricing",
         ]}
       />
       <MarketingCta />

@@ -29,7 +29,7 @@ const catalog = [
     category: "Comparisons",
     publishedAt: "2026-10-12",
     updatedAt: "2026-10-12",
-    related: ["manychat-alternatives", "manychat-vs-chatfuel"],
+    related: ["manychat-alternatives", "aghost-vs-chatfuel"],
   },
   {
     slug: "manychat-alternatives",
@@ -62,14 +62,14 @@ const catalog = [
     related: ["manychat-alternatives", "instagram-dm-limits"],
   },
   {
-    slug: "manychat-vs-chatfuel",
-    title: "ManyChat vs Chatfuel: which fits your Instagram workflow?",
+    slug: "aghost-vs-chatfuel",
+    title: "aghost vs Chatfuel: Instagram automation compared",
     description:
-      "Compare ManyChat and Chatfuel for Instagram automation, AI conversations, contact-based pricing, usage limits, and human handoff.",
+      "Compare aghost and Chatfuel for Instagram comment-to-DM, AI-agent access, customer conversations, pricing, and campaign setup.",
     category: "Comparisons",
-    publishedAt: "2026-10-12",
-    updatedAt: "2026-10-12",
-    related: ["manychat-pricing", "manychat-alternatives"],
+    publishedAt: "2026-10-17",
+    updatedAt: "2026-10-17",
+    related: ["manychat-alternatives", "instagram-auto-reply"],
   },
 ] as const satisfies readonly ArticleMetadata[]
 

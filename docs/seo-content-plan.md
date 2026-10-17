@@ -13,18 +13,26 @@ queries together: their audiences can overlap. The provider's automatic language
 labels are inconsistent, so country database selection, not those labels, defines
 the market. No claim about rising demand is supported by this single snapshot.
 
-| Priority | Article                                    | Demand evidence                                                                            | Search intent and article job                                                                                                 |
-| -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1        | `/blog/instagram-auto-reply`               | `instagram auto reply`: US 2,400/month                                                     | Setup intent: native acknowledgment versus comment-triggered resource delivery; practical steps and original message examples |
-| 2        | `/blog/manychat-pricing`                   | `manychat pricing`: US 2,400/month                                                         | Buying intent: current plans, billing cycles, active contacts, worked cost examples                                           |
-| 3        | `/blog/manychat-alternatives`              | `manychat alternative`: US 390/month                                                       | Switching intent: five replacement candidates, constraints, and migration checklist                                           |
-| 4        | `/blog/instagram-dm-limits`                | `instagram dm limits`: US 90/month; `instagram message limit`: US 110/month                | Rules intent: organic private replies, messaging windows, API throughput, tool allowances                                     |
-| 5        | `/blog/best-instagram-dm-automation-tools` | Exact phrase unavailable; related `instagram dm automation`: US 320/month, India 720/month | Evaluation intent: shortlist six tools by job, then test a representative campaign                                            |
-| 6        | `/blog/manychat-vs-chatfuel`               | Exact comparison: US 90/month                                                              | Direct comparison intent: marketing workflow versus conversational workflow; different billing units                          |
+| Priority | Article                                    | Demand evidence                                                                            | Search intent and article job                                                                                                  |
+| -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1        | `/blog/instagram-auto-reply`               | `instagram auto reply`: US 2,400/month                                                     | Setup intent: native acknowledgment versus comment-triggered resource delivery; practical steps and original message examples  |
+| 2        | `/blog/manychat-pricing`                   | `manychat pricing`: US 2,400/month                                                         | Buying intent: current plans, billing cycles, active contacts, worked cost examples                                            |
+| 3        | `/blog/manychat-alternatives`              | `manychat alternative`: US 390/month                                                       | Switching intent: five replacement candidates, constraints, and migration checklist                                            |
+| 4        | `/blog/instagram-dm-limits`                | `instagram dm limits`: US 90/month; `instagram message limit`: US 110/month                | Rules intent: organic private replies, messaging windows, API throughput, tool allowances                                      |
+| 5        | `/blog/best-instagram-dm-automation-tools` | Exact phrase unavailable; related `instagram dm automation`: US 320/month, India 720/month | Evaluation intent: shortlist six tools by job, then test a representative campaign                                             |
+| 6        | `/blog/aghost-vs-chatfuel`                 | No verified demand estimate for this new comparison                                        | Direct buying comparison: aghost's Instagram campaigns and agent access versus Chatfuel's conversation and developer workflows |
 
 Priority balances estimated demand, product fit, commercial intent, and coverage.
 It is an editorial judgment, not a predicted ranking. The highest relevant setup
 and pricing terms appear first in the catalog; the blog groups them by reader task.
+
+October 17 update: direct aghost-versus-competitor comparisons take priority over
+competitor-versus-competitor articles. `/blog/aghost-vs-chatfuel` replaces the
+original ManyChat-versus-Chatfuel article, with a permanent redirect from its old
+URL. The original comparison query's volume is not evidence of demand for the
+new topic. The how-to and messaging-rules guides continue to cover distinct tasks.
+The new comparison acknowledges Chatfuel's SDK and publishing support; developer
+access is not presented as exclusive to aghost.
 
 Other returned terms included `instagram automation` (US 720, India 2,900) and
 `instagram chatbot` (US 320, India 260). `instagram dm not working` was much larger
@@ -125,7 +133,7 @@ in this research pass.
 
 - Comment-to-DM troubleshooting focused on automation, distinct from general
   Instagram app failures.
-- ManyChat vs LinkDM and ManyChat vs aghost, once keyword data and first-batch
+- aghost vs ManyChat and aghost vs LinkDM, once keyword data and first-batch
   Search Console impressions help prioritize them.
 - A free-plan comparison with allowances rechecked on the publication date.
 - Lead-magnet campaign examples for coaches, affiliates, and product launches.

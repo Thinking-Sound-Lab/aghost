@@ -30,6 +30,15 @@ const nextConfig: NextConfig = {
   devIndicators: { position: "bottom-right" },
   // PostHog's endpoints end with a slash, which a redirect would drop.
   skipTrailingSlashRedirect: true,
+  async redirects() {
+    return [
+      {
+        source: "/blog/manychat-vs-chatfuel",
+        destination: "/blog/aghost-vs-chatfuel",
+        permanent: true,
+      },
+    ]
+  },
   // Pages where the owner approves an agent app or uploads files for an
   // agent must not be framed by another site.
   async headers() {

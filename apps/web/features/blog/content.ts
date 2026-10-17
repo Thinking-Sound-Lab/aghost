@@ -3,7 +3,7 @@ import { instagramAutoReply } from "./content/instagram-auto-reply"
 import { instagramDmLimits } from "./content/instagram-dm-limits"
 import { manychatAlternatives } from "./content/manychat-alternatives"
 import { manychatPricing } from "./content/manychat-pricing"
-import { manychatVsChatfuel } from "./content/manychat-vs-chatfuel"
+import { aghostVsChatfuel } from "./content/aghost-vs-chatfuel"
 import type { ArticleContent } from "./content/types"
 import { getArticle, type ArticleSlug } from "./catalog"
 
@@ -14,7 +14,7 @@ const content = {
   "manychat-alternatives": manychatAlternatives,
   "instagram-dm-limits": instagramDmLimits,
   "best-instagram-dm-automation-tools": bestInstagramDmAutomationTools,
-  "manychat-vs-chatfuel": manychatVsChatfuel,
+  "aghost-vs-chatfuel": aghostVsChatfuel,
 } satisfies Record<ArticleSlug, ArticleContent>
 
 export function getArticleContent(slug: string): ArticleContent | undefined {

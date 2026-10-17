@@ -31,6 +31,8 @@ export const sources = {
   chatfuelInstagram: "https://chatfuel.com/instagram",
   chatfuelPricing: "https://chatfuel.com/pricing",
   chatfuelLimits: "https://limits.chatfuel.com/",
+  chatfuelSdk: "https://sdk.chatfuel.com/",
+  chatfuelSdkInstagram: "https://sdk.chatfuel.com/channels/instagram",
   respondInstagram: "https://respond.io/integrations/instagram",
   respondInbox: "https://respond.io/team-inbox",
   respondPricing: "https://respond.io/pricing",

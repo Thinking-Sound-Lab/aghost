@@ -504,7 +504,7 @@ export function Landing() {
         description="Set up auto replies, compare costs, and choose a workflow that fits your audience."
         slugs={[
           "instagram-auto-reply",
-          "manychat-pricing",
+          "aghost-vs-chatfuel",
           "manychat-alternatives",
         ]}
       />

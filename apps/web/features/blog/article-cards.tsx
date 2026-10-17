@@ -33,7 +33,7 @@ const covers: Record<
     lines: ["6 best", "DM tools"],
     tone: "cyan",
   },
-  "manychat-vs-chatfuel": { lines: ["ManyChat", "vs Chatfuel"], tone: "ink" },
+  "aghost-vs-chatfuel": { lines: ["aghost", "vs Chatfuel"], tone: "ink" },
 }
 
 /** Sized from its own width, so it reads the same as a card or a hero. */
