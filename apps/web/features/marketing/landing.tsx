@@ -21,8 +21,6 @@ import {
 import { contactHref } from "./contact"
 import { agentClients, audiences, faqs, heroSummary, steps } from "./content"
 import { FeatureBoard, mascotTones } from "./feature-board"
-import { LaunchVideo } from "./launch-video"
-import { MarketingGuides } from "./guides"
 import {
   AgentWindow,
   BuilderWindow,
@@ -244,21 +242,21 @@ function Agents() {
     {
       name: "Claude Code",
       Logo: ClaudeLogo,
-      text: "Build and switch on automations from your terminal, in plain words.",
+      text: "Schedule your content and prepare comment automations in plain words.",
       tone: "orange",
       picture: <ClaudeCodeApp />,
     },
     {
       name: "Codex",
       Logo: CodexLogo,
-      text: "Ask how an automation is doing, then ask your agent to improve it.",
+      text: "Check campaign results and link clicks, then plan what to try next.",
       tone: "blue",
       picture: <CodexApp />,
     },
     {
       name: "Cursor",
       Logo: CursorLogo,
-      text: "Read the inbox and answer DMs without leaving your editor.",
+      text: "Manage posts, automations, and your inbox without leaving your editor.",
       tone: "cyan",
       picture: <CursorApp />,
     },
@@ -280,10 +278,10 @@ function Agents() {
         id="agents-heading"
         title={
           <>
-            Let your <Scribble>AI agent</Scribble> run your DMs
+            Let your <Scribble>AI agent</Scribble> run your Instagram
           </>
         }
-        description={`Give ${agentClients.join(", ")}, or any MCP client an API key. It builds automations, reads their stats, and answers your inbox. You review it all in the dashboard.`}
+        description={`Connect ${agentClients.join(", ")}, or any MCP client to aghost. Ask it to schedule content, prepare comment automations, check campaign results, and manage your inbox. Review everything in the dashboard.`}
       />
       <ul className="mt-14 grid gap-4 lg:grid-cols-2">
         {clients.map(({ name, Logo, text, tone, picture }, index) => (
@@ -425,22 +423,15 @@ export function Landing() {
       <HowItWorks />
       <Features />
       <Audiences />
-      <LaunchVideo />
       <Agents />
-      <MarketingGuides
-        title="Plan your next Instagram campaign"
-        description="Set up auto replies, compare costs, and choose a workflow that fits your audience."
-        slugs={[
-          "instagram-auto-reply",
-          "aghost-vs-chatfuel",
-          "manychat-alternatives",
-        ]}
-      />
       <div className="mt-28">
         <CtaBand />
       </div>
       <Faq />
-      <MarketingCta />
+      <MarketingCta
+        title="Ready to grow your Instagram?"
+        description="Bring your content, automations, and conversations together. Connect your AI agent and run it all from aghost."
+      />
     </MarketingPage>
   )
 }
