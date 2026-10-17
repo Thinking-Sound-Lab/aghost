@@ -27,11 +27,14 @@ export const sources = {
   manychatPlans:
     "https://help.manychat.com/hc/en-us/articles/25800347122716-Manychat-subscription-How-to-choose-the-right-one-for-you",
   linkdm: "https://www.linkdm.com/",
+  linkdmPricing: "https://www.linkdm.com/pricing",
   chatfuelInstagram: "https://chatfuel.com/instagram",
   chatfuelPricing: "https://chatfuel.com/pricing",
   chatfuelLimits: "https://limits.chatfuel.com/",
   respondInstagram: "https://respond.io/integrations/instagram",
   respondInbox: "https://respond.io/team-inbox",
+  respondPricing: "https://respond.io/pricing",
+  respondPricingGuide: "https://respond.io/blog/respondio-pricing",
 } as const
 
 export function Source({

@@ -35,10 +35,10 @@ const catalog = [
     slug: "manychat-alternatives",
     title: "5 ManyChat alternatives for Instagram automation in 2026",
     description:
-      "Compare aghost, LinkDM, Chatfuel, respond.io, and Meta Business Suite as ManyChat alternatives for Instagram comments, DMs, and team conversations.",
+      "Compare five ManyChat alternatives for Instagram by price, free allowance, billing terms, and workflow: aghost, LinkDM, Chatfuel, respond.io, and Meta Business Suite.",
     category: "Comparisons",
     publishedAt: "2026-10-12",
-    updatedAt: "2026-10-12",
+    updatedAt: "2026-10-17",
     related: ["manychat-pricing", "best-instagram-dm-automation-tools"],
   },
   {

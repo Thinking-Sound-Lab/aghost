@@ -32,6 +32,7 @@ import { Demo, demoAccount } from "./demo"
 import { FeatureBoard, gradients, mascotTones } from "./feature-board"
 import { LaunchVideo } from "./launch-video"
 import { Scheduling } from "./scheduling"
+import { MarketingGuides } from "./guides"
 import {
   AgentWindow,
   BuilderWindow,
@@ -498,6 +499,15 @@ export function Landing() {
       <Demo cta={<GetStarted />} />
       <Agents />
       <Features />
+      <MarketingGuides
+        title="Plan your next Instagram campaign"
+        description="Set up auto replies, compare costs, and choose a workflow that fits your audience."
+        slugs={[
+          "instagram-auto-reply",
+          "manychat-pricing",
+          "manychat-alternatives",
+        ]}
+      />
       <div className="mt-28">
         <CtaBand />
       </div>

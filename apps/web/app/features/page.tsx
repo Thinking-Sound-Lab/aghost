@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { FeatureBoard } from "@/features/marketing/feature-board"
 import { Scheduling } from "@/features/marketing/scheduling"
+import { MarketingGuides } from "@/features/marketing/guides"
 import {
   MarketingCta,
   MarketingPage,
@@ -39,6 +40,14 @@ export default function Page() {
       <section aria-label="Automation features" className="mt-16">
         <h2 className="sr-only">Instagram automation features</h2>
         <FeatureBoard agentic />
+        <p className="mx-auto mt-8 max-w-3xl px-5 text-center text-lg text-white/70 sm:px-8">
+          Learn when to use native replies and when to trigger a DM from a
+          comment in our{" "}
+          <Link href="/blog/instagram-auto-reply" className={textLink}>
+            Instagram auto reply guide
+          </Link>
+          .
+        </p>
       </section>
       <section className={section}>
         <div
@@ -50,9 +59,11 @@ export default function Page() {
             </h2>
             <p className="max-w-3xl text-lg text-white/70">
               You need an Instagram Business or Creator account and an active
-              aghost plan. Delivery depends on Instagram’s permissions,
-              messaging windows, and rate limits. MCP and REST API access are
-              included on every plan.
+              aghost plan. Delivery depends on Instagram’s permissions,{" "}
+              <Link href="/blog/instagram-dm-limits" className={textLink}>
+                messaging windows, and rate limits
+              </Link>
+              . MCP and REST API access are included on every plan.
             </p>
             <Link
               href="/instagram-dm-automation"
@@ -71,6 +82,15 @@ export default function Page() {
           </div>
         </div>
       </section>
+      <MarketingGuides
+        title="Check the rules. Compare your options."
+        description="Understand Instagram's messaging limits and compare automation tools before choosing your campaign workflow."
+        slugs={[
+          "instagram-dm-limits",
+          "best-instagram-dm-automation-tools",
+          "manychat-vs-chatfuel",
+        ]}
+      />
       <MarketingCta />
     </MarketingPage>
   )
