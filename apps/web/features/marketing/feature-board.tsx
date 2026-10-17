@@ -36,6 +36,7 @@ export const mascotTones = {
 }
 
 type Card = {
+  id?: string
   label: string
   gradient: keyof typeof gradients
   picture: ReactNode
@@ -48,6 +49,7 @@ const agentCard: Card = {
 }
 
 const schedulingCard: Card = {
+  id: "scheduling",
   label: "Scheduling",
   gradient: "blue",
   picture: (
@@ -136,8 +138,9 @@ export function FeatureBoard() {
         return (
           <li
             key={card.label}
+            id={card.id}
             className={cn(
-              "grid min-w-0 content-start gap-8 overflow-hidden rounded-[2rem] p-7 sm:p-10",
+              "grid min-w-0 scroll-mt-24 content-start gap-8 overflow-hidden rounded-[2rem] p-7 sm:p-10",
               gradients[card.gradient],
               wide ? "lg:col-span-5 lg:grid-cols-2 lg:items-center" : span,
               !wide && "lg:flex lg:flex-col lg:justify-between"
