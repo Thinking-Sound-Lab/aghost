@@ -20,8 +20,7 @@ import {
 } from "./agent-logos"
 import { contactHref } from "./contact"
 import { agentClients, audiences, faqs, heroSummary, steps } from "./content"
-import { mascotTones } from "./feature-board"
-import { GrowthFeatureBoard } from "./growth-features"
+import { FeatureBoard, mascotTones } from "./feature-board"
 import { LaunchVideo } from "./launch-video"
 import { MarketingGuides } from "./guides"
 import {
@@ -357,7 +356,7 @@ function Features() {
         className="px-5"
       />
       <div className="mt-14">
-        <GrowthFeatureBoard />
+        <FeatureBoard agentic scheduling />
       </div>
       <div className="mt-10 text-center">
         <Link href="/features" className={outlineButton}>

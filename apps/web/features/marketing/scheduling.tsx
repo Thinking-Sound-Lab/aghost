@@ -29,7 +29,7 @@ const posts = [
 ]
 
 /** An example of the calendar's month view and mobile agenda, with no live data. */
-export function CalendarPreview({ compact = false }: { compact?: boolean }) {
+export function CalendarPreview() {
   return (
     <figure className="min-w-0 overflow-hidden rounded-2xl bg-[#101010] text-white shadow-2xl ring-1 shadow-black/20 ring-white/15">
       <figcaption className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
@@ -55,8 +55,7 @@ export function CalendarPreview({ compact = false }: { compact?: boolean }) {
               <div
                 key={index}
                 className={cn(
-                  "min-w-0 bg-[#101010] p-1.5",
-                  compact ? "min-h-12" : "min-h-16",
+                  "min-h-16 min-w-0 bg-[#101010] p-1.5",
                   post?.day === 15 && "bg-[#15241b]"
                 )}
               >

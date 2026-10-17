@@ -15,6 +15,7 @@ import {
   tapScene,
 } from "./illustrations"
 import { Pill } from "./shell"
+import { CalendarPreview } from "./scheduling"
 
 /** Card backgrounds, from the brand's blue and cyan, plus its green. */
 export const gradients = {
@@ -48,6 +49,13 @@ const agentCard: Card = {
   gradient: "deep",
   wide: true,
   picture: <ClaudeCodeApp />,
+}
+
+const schedulingCard: Card = {
+  label: "Scheduling",
+  gradient: "blue",
+  wide: true,
+  picture: <CalendarPreview />,
 }
 
 const cards: Card[] = [
@@ -122,10 +130,21 @@ function feature(label: string) {
 }
 
 /** The features as a grid of gradient cards, each with a small picture. */
-export function FeatureBoard({ agentic = false }: { agentic?: boolean }) {
+export function FeatureBoard({
+  agentic = false,
+  scheduling = false,
+}: {
+  agentic?: boolean
+  scheduling?: boolean
+}) {
+  const visibleCards = [
+    ...(scheduling ? [schedulingCard] : []),
+    ...(agentic ? [agentCard] : []),
+    ...cards,
+  ]
   return (
     <ul className="mx-auto grid max-w-7xl gap-4 px-5 sm:px-8 lg:grid-cols-5">
-      {(agentic ? [agentCard, ...cards] : cards).map((card) => {
+      {visibleCards.map((card) => {
         const { title, text } = feature(card.label)
         const light = card.gradient === "green"
         return (
