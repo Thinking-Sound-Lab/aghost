@@ -7,22 +7,7 @@ html:has(.marketing) {
   color-scheme: dark;
 }
 
-/* Scrolls a row that holds its items twice, so the loop has no seam. */
-@keyframes marketing-marquee {
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-.marketing-marquee {
-  animation: marketing-marquee 70s linear infinite;
-}
-
-.marketing-marquee-reverse {
-  animation-direction: reverse;
-}
-
-/* The same loop upwards, for a column that holds its items twice. */
+/* Loops a column that holds its items twice, used on the sign-in page. */
 @keyframes marketing-scroll {
   to {
     transform: translateY(-50%);
@@ -70,23 +55,9 @@ html:has(.marketing) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marketing-marquee,
   .marketing-scroll,
   .marketing-rotate {
     animation: none;
-  }
-
-  /* A still row would hide most cards past the edge, so wrap them instead
-     and drop the copies the loop needed. */
-  .marketing-marquee {
-    width: auto;
-    flex-wrap: wrap;
-    justify-content: center;
-    padding-inline: 1.25rem;
-  }
-
-  .marketing-marquee > [aria-hidden="true"] {
-    display: none;
   }
 }
 

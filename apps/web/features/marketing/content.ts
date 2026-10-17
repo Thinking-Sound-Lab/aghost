@@ -33,20 +33,6 @@ export const audiences = [
   },
 ]
 
-/** What a comment can ask for, and what the DM delivers. Examples only. */
-export const useCases = [
-  { keyword: "GUIDE", sends: "Sends the free guide", where: "Reel" },
-  { keyword: "CODE", sends: "Sends a discount code", where: "Post" },
-  { keyword: "BOOK", sends: "Sends the booking link", where: "Reel" },
-  { keyword: "RECIPE", sends: "Sends the full recipe", where: "Reel" },
-  { keyword: "LINK", sends: "Sends the product page", where: "Post" },
-  { keyword: "COURSE", sends: "Sends the course sign-up", where: "Reel" },
-  { keyword: "PRESET", sends: "Sends the preset pack", where: "Post" },
-  { keyword: "SIZE", sends: "Sends the size chart", where: "Post" },
-  { keyword: "WAITLIST", sends: "Sends the waitlist form", where: "Reel" },
-  { keyword: "EBOOK", sends: "Sends the ebook download", where: "Post" },
-]
-
 const planPrices = PLAN_IDS.map((id) => {
   const plan = PLANS[id]
   const accounts = `${plan.instagramAccounts} Instagram account${plan.instagramAccounts > 1 ? "s" : ""}`
