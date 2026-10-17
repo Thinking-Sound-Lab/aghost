@@ -349,14 +349,22 @@ function Agents() {
 
 function Features() {
   return (
-    <section id="features" aria-labelledby="features-heading" className="mt-32">
+    <section
+      id="features"
+      aria-labelledby="features-heading"
+      className="mt-32 scroll-mt-24"
+    >
       <SectionHeading
         id="features-heading"
-        title="Everything you need to grow on Instagram"
-        className="px-5"
+        title={
+          <>
+            Everything you need to <Scribble>grow on Instagram</Scribble>
+          </>
+        }
+        className="px-5 [&_h2]:text-[clamp(1.875rem,6vw,3rem)] [&_svg]:text-brand-blue"
       />
       <div className="mt-14">
-        <FeatureBoard agentic scheduling />
+        <FeatureBoard agentic scheduling layout="overview" />
       </div>
       <div className="mt-10 text-center">
         <Link href="/features" className={outlineButton}>

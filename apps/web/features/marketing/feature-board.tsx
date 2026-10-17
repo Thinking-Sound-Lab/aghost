@@ -55,7 +55,11 @@ const schedulingCard: Card = {
   label: "Scheduling",
   gradient: "blue",
   wide: true,
-  picture: <CalendarPreview />,
+  picture: (
+    <div className="overflow-hidden rounded-2xl lg:h-88">
+      <CalendarPreview />
+    </div>
+  ),
 }
 
 const cards: Card[] = [
@@ -133,9 +137,11 @@ function feature(label: string) {
 export function FeatureBoard({
   agentic = false,
   scheduling = false,
+  layout = "standard",
 }: {
   agentic?: boolean
   scheduling?: boolean
+  layout?: "standard" | "overview"
 }) {
   const visibleCards = [
     ...(scheduling ? [schedulingCard] : []),
@@ -144,17 +150,27 @@ export function FeatureBoard({
   ]
   return (
     <ul className="mx-auto grid max-w-7xl gap-4 px-5 sm:px-8 lg:grid-cols-5">
-      {visibleCards.map((card) => {
+      {visibleCards.map((card, index) => {
         const { title, text } = feature(card.label)
         const light = card.gradient === "green"
+        const overview = layout === "overview"
+        // Alternate 60/40 and 40/60 pairs, with a full-width card between them.
+        const wide = overview ? index % 3 === 2 : card.wide
+        const larger = index % 6 === 0 || index % 6 === 4
+        const span = overview
+          ? larger
+            ? "lg:col-span-3"
+            : "lg:col-span-2"
+          : card.span
+        const pictureFirst = overview && index % 3 === 1
         return (
           <li
             key={card.label}
             className={cn(
               "grid min-w-0 content-start gap-8 overflow-hidden rounded-[2rem] p-7 sm:p-10",
               gradients[card.gradient],
-              card.wide ? "lg:col-span-5 lg:grid-cols-2 lg:items-center" : "",
-              card.span
+              wide ? "lg:col-span-5 lg:grid-cols-2 lg:items-center" : span,
+              overview && !wide && "lg:flex lg:flex-col lg:justify-between"
             )}
           >
             <div className="grid content-start gap-4">
@@ -173,7 +189,18 @@ export function FeatureBoard({
                 {text}
               </p>
             </div>
-            {card.picture}
+            <div
+              aria-hidden={overview || undefined}
+              className={cn(
+                "min-w-0",
+                overview &&
+                  !wide &&
+                  "lg:max-h-88 lg:overflow-hidden lg:rounded-2xl",
+                pictureFirst && "lg:order-first"
+              )}
+            >
+              {card.picture}
+            </div>
           </li>
         )
       })}
