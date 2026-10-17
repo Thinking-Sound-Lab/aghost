@@ -1,8 +1,5 @@
-import Link from "next/link"
 import { CalendarDays, Film, Images, Image, Zap } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
-import { schedulingFeature } from "./content"
-import { primaryButton } from "./shell"
 
 const posts = [
   {
@@ -29,7 +26,7 @@ const posts = [
 ]
 
 /** An example of the calendar's month view and mobile agenda, with no live data. */
-function CalendarPreview() {
+export function CalendarPreview() {
   return (
     <figure className="min-w-0 overflow-hidden rounded-2xl bg-[#101010] text-white shadow-2xl ring-1 shadow-black/20 ring-white/15">
       <figcaption className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
@@ -130,51 +127,5 @@ function CalendarPreview() {
         </p>
       </div>
     </figure>
-  )
-}
-
-export function Scheduling({ className }: { className?: string }) {
-  return (
-    <section
-      id="scheduling"
-      aria-labelledby="scheduling-heading"
-      className={cn(
-        "mx-auto mt-24 max-w-7xl scroll-mt-24 px-5 sm:px-8",
-        className
-      )}
-    >
-      <div className="grid items-center gap-10 rounded-[2rem] bg-[#161616] p-6 ring-1 ring-white/10 sm:p-10 lg:grid-cols-[2fr_3fr] lg:gap-12">
-        <div className="grid content-start gap-6">
-          <h2
-            id="scheduling-heading"
-            className="max-w-lg text-4xl leading-[1.1] font-extrabold tracking-[-0.035em] text-balance sm:text-5xl"
-          >
-            {schedulingFeature.title}
-          </h2>
-          <p className="max-w-xl text-lg text-white/70">
-            {schedulingFeature.text}
-          </p>
-          <ul className="grid gap-4 text-sm text-white/75">
-            <li className="flex items-start gap-3">
-              <CalendarDays
-                aria-hidden="true"
-                className="size-5 shrink-0 text-brand-cyan"
-              />
-              See your upcoming content in one calendar.
-            </li>
-            <li className="flex items-start gap-3">
-              <Zap aria-hidden="true" className="size-5 shrink-0 text-brand" />
-              Prepare the keyword, DM and link before your post goes live.
-            </li>
-          </ul>
-          <Link href="/login" className={cn(primaryButton, "mt-1 w-fit")}>
-            Start scheduling
-          </Link>
-        </div>
-        <div className="min-w-0 rounded-[1.5rem] bg-linear-to-br from-brand-blue to-[#08245f] p-3 sm:p-5">
-          <CalendarPreview />
-        </div>
-      </div>
-    </section>
   )
 }

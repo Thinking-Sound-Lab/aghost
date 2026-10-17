@@ -22,6 +22,10 @@ const covers: Record<
   ArticleSlug,
   { lines: [string, string]; tone: keyof typeof tones }
 > = {
+  "how-to-schedule-instagram-posts": {
+    lines: ["Instagram", "scheduling"],
+    tone: "blue",
+  },
   "instagram-auto-reply": { lines: ["Instagram", "auto reply"], tone: "green" },
   "manychat-pricing": { lines: ["ManyChat", "pricing 2026"], tone: "orange" },
   "manychat-alternatives": {
@@ -33,7 +37,7 @@ const covers: Record<
     lines: ["6 best", "DM tools"],
     tone: "cyan",
   },
-  "manychat-vs-chatfuel": { lines: ["ManyChat", "vs Chatfuel"], tone: "ink" },
+  "aghost-vs-chatfuel": { lines: ["aghost", "vs Chatfuel"], tone: "ink" },
 }
 
 /** Sized from its own width, so it reads the same as a card or a hero. */

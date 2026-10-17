@@ -11,9 +11,9 @@ import {
 } from "@/features/marketing/shell"
 import { openGraph, site } from "@/lib/site"
 
-const title = "Instagram DM automation guides and tool comparisons"
+const title = "Instagram scheduling and DM automation guides"
 const description =
-  "Practical Instagram DM guides: auto reply setup, Meta messaging limits, ManyChat pricing and alternatives, and automation tool comparisons."
+  "Practical Instagram scheduling and DM guides: posts, Reels and Stories, auto replies, messaging rules, pricing, and automation tool comparisons."
 const url = new URL("/blog", site.url).href
 
 export const metadata: Metadata = {
@@ -73,15 +73,16 @@ export default function Page() {
             id="blog-heading"
             className="text-5xl leading-[1.1] font-extrabold tracking-[-0.04em] text-balance sm:text-6xl"
           >
-            The aghost blog: Instagram DMs,{" "}
+            The aghost blog: Instagram scheduling, DMs,{" "}
             <span className="whitespace-nowrap">
               <Scribble>AI agents</Scribble>,
             </span>{" "}
             and automation
           </h1>
           <p className="mx-auto mt-8 max-w-2xl text-lg text-pretty text-white/70 sm:text-xl">
-            Guides for the work behind your content: choosing a tool, delivering
-            a requested link, and understanding Instagram’s rules.
+            Guides for the work behind your content: scheduling a post, choosing
+            a tool, delivering a requested link, and understanding Instagram’s
+            rules.
           </p>
         </div>
       </section>

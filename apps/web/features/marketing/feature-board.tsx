@@ -15,6 +15,7 @@ import {
   tapScene,
 } from "./illustrations"
 import { Pill } from "./shell"
+import { CalendarPreview } from "./scheduling"
 
 /** Card backgrounds, from the brand's blue and cyan, plus its green. */
 export const gradients = {
@@ -35,62 +36,65 @@ export const mascotTones = {
 }
 
 type Card = {
+  id?: string
   label: string
   gradient: keyof typeof gradients
-  /** Wide cards sit alone on their row, the text beside the picture. */
-  wide?: boolean
-  span?: string
   picture: ReactNode
 }
 
 const agentCard: Card = {
   label: "Agentic",
   gradient: "deep",
-  wide: true,
   picture: <ClaudeCodeApp />,
 }
 
+const schedulingCard: Card = {
+  id: "scheduling",
+  label: "Scheduling",
+  gradient: "blue",
+  picture: (
+    <div className="overflow-hidden rounded-2xl lg:h-88">
+      <CalendarPreview />
+    </div>
+  ),
+}
+
 const cards: Card[] = [
+  schedulingCard,
+  agentCard,
   {
     label: "Comment automation",
     gradient: "blue",
-    span: "lg:col-span-3",
     picture: <Screen>{keywordScene}</Screen>,
   },
   {
     label: "Public replies",
     gradient: "teal",
-    span: "lg:col-span-2",
     picture: <Screen>{replyScene}</Screen>,
   },
   {
     label: "Link buttons",
     gradient: "green",
-    wide: true,
     picture: <Screen>{buttonsScene}</Screen>,
   },
   {
     label: "Tap to open",
     gradient: "ocean",
-    span: "lg:col-span-2",
     picture: <Screen>{tapScene}</Screen>,
   },
   {
     label: "Follower growth",
     gradient: "blue",
-    span: "lg:col-span-3",
     picture: <Screen>{followScene}</Screen>,
   },
   {
     label: "Analytics",
     gradient: "deep",
-    wide: true,
     picture: <StatsScene />,
   },
   {
     label: "Product carousel · Growth and Business",
     gradient: "ocean",
-    span: "lg:col-span-3",
     picture: (
       <Screen>
         <ProductCarouselScene />
@@ -100,7 +104,6 @@ const cards: Card[] = [
   {
     label: "Follow-up nudges · Business",
     gradient: "blue",
-    span: "lg:col-span-2",
     picture: (
       <Screen>
         <FollowUpScene />
@@ -110,7 +113,6 @@ const cards: Card[] = [
   {
     label: "Inbox",
     gradient: "teal",
-    wide: true,
     picture: <InboxScene />,
   },
 ]
@@ -122,20 +124,26 @@ function feature(label: string) {
 }
 
 /** The features as a grid of gradient cards, each with a small picture. */
-export function FeatureBoard({ agentic = false }: { agentic?: boolean }) {
+export function FeatureBoard() {
   return (
     <ul className="mx-auto grid max-w-7xl gap-4 px-5 sm:px-8 lg:grid-cols-5">
-      {(agentic ? [agentCard, ...cards] : cards).map((card) => {
+      {cards.map((card, index) => {
         const { title, text } = feature(card.label)
         const light = card.gradient === "green"
+        // Alternate 60/40 and 40/60 pairs, with a full-width card between them.
+        const wide = index % 3 === 2
+        const larger = index % 6 === 0 || index % 6 === 4
+        const span = larger ? "lg:col-span-3" : "lg:col-span-2"
+        const pictureFirst = index % 3 === 1
         return (
           <li
             key={card.label}
+            id={card.id}
             className={cn(
-              "grid min-w-0 content-start gap-8 overflow-hidden rounded-[2rem] p-7 sm:p-10",
+              "grid min-w-0 scroll-mt-24 content-start gap-8 overflow-hidden rounded-[2rem] p-7 sm:p-10",
               gradients[card.gradient],
-              card.wide ? "lg:col-span-5 lg:grid-cols-2 lg:items-center" : "",
-              card.span
+              wide ? "lg:col-span-5 lg:grid-cols-2 lg:items-center" : span,
+              !wide && "lg:flex lg:flex-col lg:justify-between"
             )}
           >
             <div className="grid content-start gap-4">
@@ -154,7 +162,16 @@ export function FeatureBoard({ agentic = false }: { agentic?: boolean }) {
                 {text}
               </p>
             </div>
-            {card.picture}
+            <div
+              aria-hidden="true"
+              className={cn(
+                "min-w-0",
+                !wide && "lg:max-h-88 lg:overflow-hidden lg:rounded-2xl",
+                pictureFirst && "lg:order-first"
+              )}
+            >
+              {card.picture}
+            </div>
           </li>
         )
       })}

@@ -295,11 +295,11 @@ export function CtaBand() {
       <div className="flex flex-col items-start justify-between gap-8 rounded-[2rem] bg-linear-to-br from-brand to-brand-cyan px-8 py-12 text-black sm:px-14 md:flex-row md:items-center">
         <div className="max-w-xl">
           <h2 className="text-4xl font-extrabold tracking-[-0.035em] text-balance sm:text-5xl">
-            Stop sending the same DM by hand
+            Grow your Instagram with your AI agent
           </h2>
           <p className="mt-4 text-lg text-black/75">
-            Connect Instagram and send your first automated DM in minutes. Every
-            plan includes MCP and REST API access for your agent.
+            Schedule content, set up comment automations, track link clicks, and
+            manage your inbox. Your AI agent brings it all together in aghost.
           </p>
         </div>
         <Link
@@ -315,16 +315,21 @@ export function CtaBand() {
 }
 
 /** The closing panel of every page, with the mascot's orbs along its floor. */
-export function MarketingCta() {
+export function MarketingCta({
+  title = "Ready to get started?",
+  description = "Every comment that asks for the link gets it, while you get back to creating.",
+}: {
+  title?: string
+  description?: string
+}) {
   return (
     <section className="mx-auto mt-28 max-w-7xl px-5 sm:px-8">
       <div className="relative overflow-hidden rounded-[2.5rem] bg-[#1b1b1b] px-6 pt-20 pb-44 text-center sm:pb-52">
         <h2 className="text-5xl font-extrabold tracking-[-0.04em] text-balance sm:text-6xl">
-          Ready to get started?
+          {title}
         </h2>
         <p className="mx-auto mt-5 max-w-xl text-lg text-white/70">
-          Every comment that asks for the link gets it, while you get back to
-          creating.
+          {description}
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <GetStarted />

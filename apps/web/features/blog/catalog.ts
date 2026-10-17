@@ -12,6 +12,16 @@ type ArticleMetadata = {
 // imported by the client-side header.
 const catalog = [
   {
+    slug: "how-to-schedule-instagram-posts",
+    title: "How to schedule Instagram posts, Reels, and Stories",
+    description:
+      "Learn how to schedule Instagram posts, Reels, carousels, and Stories, find scheduled content, and prepare a comment-to-DM campaign before publishing.",
+    category: "How to",
+    publishedAt: "2026-10-17",
+    updatedAt: "2026-10-17",
+    related: ["instagram-auto-reply", "aghost-vs-chatfuel"],
+  },
+  {
     slug: "instagram-auto-reply",
     title: "Instagram auto reply: setup, examples, and comment-to-DM",
     description:
@@ -29,16 +39,16 @@ const catalog = [
     category: "Comparisons",
     publishedAt: "2026-10-12",
     updatedAt: "2026-10-12",
-    related: ["manychat-alternatives", "manychat-vs-chatfuel"],
+    related: ["manychat-alternatives", "aghost-vs-chatfuel"],
   },
   {
     slug: "manychat-alternatives",
     title: "5 ManyChat alternatives for Instagram automation in 2026",
     description:
-      "Compare aghost, LinkDM, Chatfuel, respond.io, and Meta Business Suite as ManyChat alternatives for Instagram comments, DMs, and team conversations.",
+      "Compare five ManyChat alternatives for Instagram by price, free allowance, billing terms, and workflow: aghost, LinkDM, Chatfuel, respond.io, and Meta Business Suite.",
     category: "Comparisons",
     publishedAt: "2026-10-12",
-    updatedAt: "2026-10-12",
+    updatedAt: "2026-10-17",
     related: ["manychat-pricing", "best-instagram-dm-automation-tools"],
   },
   {
@@ -62,14 +72,18 @@ const catalog = [
     related: ["manychat-alternatives", "instagram-dm-limits"],
   },
   {
-    slug: "manychat-vs-chatfuel",
-    title: "ManyChat vs Chatfuel: which fits your Instagram workflow?",
+    slug: "aghost-vs-chatfuel",
+    title: "aghost vs Chatfuel: Instagram automation compared",
     description:
-      "Compare ManyChat and Chatfuel for Instagram automation, AI conversations, contact-based pricing, usage limits, and human handoff.",
+      "Compare aghost and Chatfuel for Instagram comment-to-DM, AI-agent access, customer conversations, pricing, and campaign setup.",
     category: "Comparisons",
-    publishedAt: "2026-10-12",
-    updatedAt: "2026-10-12",
-    related: ["manychat-pricing", "manychat-alternatives"],
+    publishedAt: "2026-10-17",
+    updatedAt: "2026-10-17",
+    related: [
+      "manychat-alternatives",
+      "instagram-auto-reply",
+      "how-to-schedule-instagram-posts",
+    ],
   },
 ] as const satisfies readonly ArticleMetadata[]
 

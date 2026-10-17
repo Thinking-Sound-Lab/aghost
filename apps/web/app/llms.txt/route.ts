@@ -25,7 +25,7 @@ aghost handles Instagram engagement: comment-triggered DMs, optional public repl
 ## Product information
 
 - [Instagram DM automation guide](${site.url}/instagram-dm-automation): What comment-to-DM automation is, how to set it up, and how it fits into social media management
-- [Features](${site.url}/features): Supported triggers, messages, inbox, and analytics
+- [Features](${site.url}/features): Instagram scheduling, AI agents, comment automations, analytics, and inbox tools
 - [Pricing](${site.url}/pricing): Current monthly and yearly plans in USD
 - [Contact](${site.url}/contact): Support and privacy requests
 

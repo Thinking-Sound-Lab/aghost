@@ -32,13 +32,13 @@ export const publicPages = [
   {
     href: "/",
     label: "Home",
-    description: "Instagram comment-to-DM automation",
+    description: "Instagram scheduling and comment-to-DM automation",
   },
   {
     href: "/features",
     label: "Features",
     description:
-      "Keyword triggers, follower rules, inbox, and automation stats",
+      "Instagram scheduling, AI agents, comment automations, analytics, and inbox tools",
   },
   {
     href: "/instagram-dm-automation",
@@ -49,12 +49,14 @@ export const publicPages = [
   {
     href: "/blog",
     label: "Blog",
-    description: "Instagram DM guides, messaging limits, and tool comparisons",
+    description:
+      "Instagram scheduling and DM guides, messaging limits, and tool comparisons",
   },
   {
     href: "/agents",
     label: "AI agents",
-    description: "Connect Claude Code, Codex, Cursor, or another agent",
+    description:
+      "Instagram MCP and REST API setup for Claude Code, Codex, Cursor, and other agents",
   },
   {
     href: "/about",

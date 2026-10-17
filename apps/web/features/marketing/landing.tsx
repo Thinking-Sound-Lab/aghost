@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { ChevronDown, Code2, ShoppingBag, Smile } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
-import { Instagram } from "@/components/instagram-icon"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
 import { site } from "@/lib/site"
 import {
@@ -24,14 +23,11 @@ import {
   agentClients,
   audiences,
   faqs,
+  growthCta,
   heroSummary,
   steps,
-  useCases,
 } from "./content"
-import { Demo, demoAccount } from "./demo"
-import { FeatureBoard, gradients, mascotTones } from "./feature-board"
-import { LaunchVideo } from "./launch-video"
-import { Scheduling } from "./scheduling"
+import { FeatureBoard, mascotTones } from "./feature-board"
 import {
   AgentWindow,
   BuilderWindow,
@@ -51,6 +47,8 @@ import {
   outlineButton,
   textLink,
 } from "./shell"
+
+const demoAccount = { username: "aghost", picture: "/mascot.png" }
 
 /** The agents the headline cycles through. */
 const agents = [
@@ -90,19 +88,13 @@ function Hero() {
             id="hero-heading"
             className="text-[clamp(2.5rem,6.2vw,4.75rem)] leading-[1.08] font-extrabold tracking-[-0.045em] text-balance"
           >
-            Turn Instagram comments into DMs on autopilot with
+            Grow on Instagram on autopilot with
             <span className="sr-only"> your AI agent</span>
             <AgentNames />
           </h1>
           <p className="mx-auto mt-7 max-w-2xl text-lg text-pretty text-white/70 sm:text-xl">
             {heroSummary}
           </p>
-          <Link
-            href="#scheduling"
-            className="mt-4 inline-block text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
-          >
-            See the scheduling calendar
-          </Link>
           <div className="mt-9 flex justify-center">
             <GetStarted className="px-8 py-4 text-base" />
           </div>
@@ -178,64 +170,6 @@ function Hero() {
   )
 }
 
-function UseCaseRow({
-  items,
-  reverse = false,
-}: {
-  items: typeof useCases
-  reverse?: boolean
-}) {
-  const tones = [gradients.blue, gradients.teal, gradients.ocean]
-  return (
-    <div className="overflow-hidden">
-      <ul
-        className={cn(
-          "marketing-marquee flex w-max gap-4",
-          reverse && "marketing-marquee-reverse"
-        )}
-      >
-        {[...items, ...items].map((item, index) => (
-          <li
-            key={index}
-            aria-hidden={index >= items.length}
-            className={cn(
-              "grid w-72 gap-1 rounded-3xl p-6",
-              tones[index % tones.length]
-            )}
-          >
-            <p className="text-4xl font-extrabold tracking-[-0.04em]">
-              “{item.keyword}”
-            </p>
-            <p className="text-lg font-semibold">{item.sends}</p>
-            <p className="mt-3 flex items-center gap-2 text-sm text-white/75">
-              <Instagram size={16} />
-              Comment on a {item.where.toLowerCase()}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function UseCases() {
-  const half = Math.ceil(useCases.length / 2)
-  return (
-    <section aria-labelledby="use-cases-heading" className="mt-32">
-      <SectionHeading
-        id="use-cases-heading"
-        title="Comment a word. Get the link."
-        description="Pick a keyword and write the DM. Everyone who comments it gets your link in their inbox, day or night. A few ideas:"
-        className="px-5"
-      />
-      <div className="mt-12 grid gap-4 [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
-        <UseCaseRow items={useCases.slice(0, half)} />
-        <UseCaseRow items={useCases.slice(half)} reverse />
-      </div>
-    </section>
-  )
-}
-
 const audienceIcons = [
   <Smile key="creators" className="size-14 text-brand" strokeWidth={1.5} />,
   <ShoppingBag
@@ -286,7 +220,7 @@ function HowItWorks() {
         id="how-heading"
         title={
           <>
-            Live in <Scribble>three steps</Scribble>
+            Live in <Scribble>3 steps</Scribble>
           </>
         }
         description="Your dashboard is always there. Bring an agent if you want a hand."
@@ -315,21 +249,21 @@ function Agents() {
     {
       name: "Claude Code",
       Logo: ClaudeLogo,
-      text: "Build and switch on automations from your terminal, in plain words.",
+      text: "Schedule your content and prepare comment automations in plain words.",
       tone: "orange",
       picture: <ClaudeCodeApp />,
     },
     {
       name: "Codex",
       Logo: CodexLogo,
-      text: "Ask how an automation is doing, then ask your agent to improve it.",
+      text: "Check campaign results and link clicks, then plan what to try next.",
       tone: "blue",
       picture: <CodexApp />,
     },
     {
       name: "Cursor",
       Logo: CursorLogo,
-      text: "Read the inbox and answer DMs without leaving your editor.",
+      text: "Manage posts, automations, and your inbox without leaving your editor.",
       tone: "cyan",
       picture: <CursorApp />,
     },
@@ -351,10 +285,10 @@ function Agents() {
         id="agents-heading"
         title={
           <>
-            Let your <Scribble>AI agent</Scribble> run your DMs
+            Let your <Scribble>AI agent</Scribble> run your Instagram
           </>
         }
-        description={`Give ${agentClients.join(", ")}, or any MCP client an API key. It builds automations, reads their stats, and answers your inbox. You review it all in the dashboard.`}
+        description={`Connect ${agentClients.join(", ")}, or any MCP client to aghost. Ask it to schedule content, prepare comment automations, check campaign results, and manage your inbox. Review everything in the dashboard.`}
       />
       <ul className="mt-14 grid gap-4 lg:grid-cols-2">
         {clients.map(({ name, Logo, text, tone, picture }, index) => (
@@ -420,16 +354,19 @@ function Agents() {
 
 function Features() {
   return (
-    <section id="features" aria-labelledby="features-heading" className="mt-32">
+    <section
+      id="features"
+      aria-labelledby="features-heading"
+      className="mt-32 scroll-mt-24"
+    >
       <SectionHeading
         id="features-heading"
         title={
           <>
-            Everything you need to turn comments into{" "}
-            <Scribble>conversations</Scribble>
+            Everything you need to <Scribble>grow on Instagram</Scribble>
           </>
         }
-        className="px-5"
+        className="px-5 [&_h2]:text-[clamp(1.875rem,6vw,3rem)] [&_svg]:text-brand-blue"
       />
       <div className="mt-14">
         <FeatureBoard />
@@ -490,19 +427,15 @@ export function Landing() {
   return (
     <MarketingPage>
       <Hero />
-      <Scheduling />
-      <UseCases />
-      <Audiences />
-      <LaunchVideo />
       <HowItWorks />
-      <Demo cta={<GetStarted />} />
-      <Agents />
       <Features />
+      <Audiences />
+      <Agents />
       <div className="mt-28">
         <CtaBand />
       </div>
       <Faq />
-      <MarketingCta />
+      <MarketingCta {...growthCta} />
     </MarketingPage>
   )
 }

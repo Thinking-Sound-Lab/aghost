@@ -22,12 +22,12 @@ import { openGraph, site } from "@/lib/site"
 const description =
   "Connect Claude Code, Codex, Cursor, or any HTTP MCP client to schedule Instagram content, manage DM automations, read stats and answer your inbox in aghost."
 export const metadata: Metadata = {
-  title: "AI agents, MCP, and REST API",
+  title: "Instagram MCP server and REST API for AI agents",
   description,
   alternates: { canonical: "/agents" },
   openGraph: {
     ...openGraph,
-    title: "AI agents, MCP, and REST API · aghost",
+    title: "Instagram MCP server and REST API for AI agents · aghost",
     description,
     url: "/agents",
   },
@@ -50,12 +50,36 @@ const connectionSteps = [
 
 const clientGradients = [gradients.blue, gradients.teal, gradients.ocean]
 
+const exampleRequests = [
+  {
+    title: "Schedule a reel with its DM",
+    prompt:
+      "Prepare my reel for Friday at 6 PM in Asia/Kolkata. Attach an automation that DMs my guide to anyone who comments GUIDE. Show me the media, caption, publishing time, time zone, and DM before scheduling it.",
+    check:
+      "Review the Instagram account, media, caption, publishing time, and attached automation in your agent’s summary before approving scheduling. After scheduling, check the result in the calendar.",
+  },
+  {
+    title: "Prepare a comment-to-DM campaign",
+    prompt:
+      "Prepare a paused automation for my latest reel. Match the whole word GUIDE and send the download URL I provide in a DM button. Show me the selected post, message, and link before switching it on.",
+    check:
+      "Check the selected reel, keyword, message, button URL, and paused status in the dashboard. Activate the automation when it is ready.",
+  },
+  {
+    title: "Check campaign results",
+    prompt:
+      "Show comments, DMs sent, and link clicks for my guide automation. Summarize any failed messages or messages waiting for a tap. Leave the campaign as it is.",
+    check:
+      "Compare the summary with the automation’s stats and individual DM activity. Results appear after people interact with the campaign.",
+  },
+] as const
+
 export default function Page() {
   return (
     <MarketingPage>
       <PageIntro
         category="AI agents"
-        title="Run aghost from your AI agent"
+        title="Run Instagram from your AI agent"
         description={description}
       />
       <section
@@ -138,20 +162,41 @@ export default function Page() {
           ))}
         </div>
       </section>
-      <section className={`${section} grid gap-4 lg:grid-cols-2`}>
-        <div className={`${card} ${prose}`}>
-          <h2>Start with a clear request</h2>
-          <blockquote className="border-l-4 border-brand pl-5 text-xl font-semibold text-white">
-            “Prepare my reel for Friday at 6 PM. Attach an automation that DMs
-            my free guide to anyone who comments GUIDE. Show me the media,
-            caption, publishing time and DM before scheduling it.”
-          </blockquote>
-          <p className="text-base">
-            Review the media, caption, publishing time and message in your
-            dashboard. Scheduling a post will publish it at the chosen time;
-            attached automations can send real messages after it is published.
-          </p>
-        </div>
+      <section aria-labelledby="examples-heading" className={section}>
+        <SectionHeading
+          id="examples-heading"
+          title="Three ways to put your agent to work"
+          description="Example requests for Claude Code, Codex, Cursor, or another connected MCP client. Supply your own media and links, then review the result in aghost."
+        />
+        <ul className="mt-10 grid gap-4 lg:grid-cols-3">
+          {exampleRequests.map((example) => (
+            <li
+              key={example.title}
+              className={`${card} grid content-start gap-5`}
+            >
+              <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+                {example.title}
+              </h3>
+              <blockquote className="border-l-4 border-brand pl-4 text-white/85">
+                “{example.prompt}”
+              </blockquote>
+              <div className="grid gap-2 text-sm leading-relaxed text-white/70">
+                <p className="font-semibold text-white">What to check</p>
+                <p>{example.check}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="mx-auto mt-6 max-w-3xl text-center text-white/70">
+          Scheduled posts publish at the chosen time. Active automations can
+          send real messages after a qualifying interaction. Review Instagram’s{" "}
+          <Link href="/blog/instagram-dm-limits" className={textLink}>
+            messaging windows and limits
+          </Link>{" "}
+          when planning your campaign.
+        </p>
+      </section>
+      <section className={section}>
         <div className={`${card} ${prose}`}>
           <h2>Keep the keys</h2>
           <p>

@@ -13,18 +13,26 @@ queries together: their audiences can overlap. The provider's automatic language
 labels are inconsistent, so country database selection, not those labels, defines
 the market. No claim about rising demand is supported by this single snapshot.
 
-| Priority | Article                                    | Demand evidence                                                                            | Search intent and article job                                                                                                 |
-| -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1        | `/blog/instagram-auto-reply`               | `instagram auto reply`: US 2,400/month                                                     | Setup intent: native acknowledgment versus comment-triggered resource delivery; practical steps and original message examples |
-| 2        | `/blog/manychat-pricing`                   | `manychat pricing`: US 2,400/month                                                         | Buying intent: current plans, billing cycles, active contacts, worked cost examples                                           |
-| 3        | `/blog/manychat-alternatives`              | `manychat alternative`: US 390/month                                                       | Switching intent: five replacement candidates, constraints, and migration checklist                                           |
-| 4        | `/blog/instagram-dm-limits`                | `instagram dm limits`: US 90/month; `instagram message limit`: US 110/month                | Rules intent: organic private replies, messaging windows, API throughput, tool allowances                                     |
-| 5        | `/blog/best-instagram-dm-automation-tools` | Exact phrase unavailable; related `instagram dm automation`: US 320/month, India 720/month | Evaluation intent: shortlist six tools by job, then test a representative campaign                                            |
-| 6        | `/blog/manychat-vs-chatfuel`               | Exact comparison: US 90/month                                                              | Direct comparison intent: marketing workflow versus conversational workflow; different billing units                          |
+| Priority | Article                                    | Demand evidence                                                                            | Search intent and article job                                                                                                  |
+| -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1        | `/blog/instagram-auto-reply`               | `instagram auto reply`: US 2,400/month                                                     | Setup intent: native acknowledgment versus comment-triggered resource delivery; practical steps and original message examples  |
+| 2        | `/blog/manychat-pricing`                   | `manychat pricing`: US 2,400/month                                                         | Buying intent: current plans, billing cycles, active contacts, worked cost examples                                            |
+| 3        | `/blog/manychat-alternatives`              | `manychat alternative`: US 390/month                                                       | Switching intent: five replacement candidates, constraints, and migration checklist                                            |
+| 4        | `/blog/instagram-dm-limits`                | `instagram dm limits`: US 90/month; `instagram message limit`: US 110/month                | Rules intent: organic private replies, messaging windows, API throughput, tool allowances                                      |
+| 5        | `/blog/best-instagram-dm-automation-tools` | Exact phrase unavailable; related `instagram dm automation`: US 320/month, India 720/month | Evaluation intent: shortlist six tools by job, then test a representative campaign                                             |
+| 6        | `/blog/aghost-vs-chatfuel`                 | No verified demand estimate for this new comparison                                        | Direct buying comparison: aghost's Instagram campaigns and agent access versus Chatfuel's conversation and developer workflows |
 
 Priority balances estimated demand, product fit, commercial intent, and coverage.
 It is an editorial judgment, not a predicted ranking. The highest relevant setup
 and pricing terms appear first in the catalog; the blog groups them by reader task.
+
+October 17 update: direct aghost-versus-competitor comparisons take priority over
+competitor-versus-competitor articles. `/blog/aghost-vs-chatfuel` replaces the
+original ManyChat-versus-Chatfuel article, with a permanent redirect from its old
+URL. The original comparison query's volume is not evidence of demand for the
+new topic. The how-to and messaging-rules guides continue to cover distinct tasks.
+The new comparison acknowledges Chatfuel's SDK and publishing support; developer
+access is not presented as exclusive to aghost.
 
 Other returned terms included `instagram automation` (US 720, India 2,900) and
 `instagram chatbot` (US 320, India 260). `instagram dm not working` was much larger
@@ -39,6 +47,55 @@ Cost: $0.0105 total ($0.008 US, $0.0025 India). Evidence is saved locally in
 `ef15ad727be54d0e838b5ed1784bb76f`.
 
 ## Competing articles examined
+
+### Instagram scheduling addition: October 17, 2026
+
+The user supplied an OpenSEO screenshot of US keyword research for Instagram
+scheduling and requested a related article, with Postiz, Buffer, and Blotato as
+references. The screenshot reports the following volumes; this is user-provided
+evidence, not a new paid keyword lookup. Do not add related-query estimates
+together or interpret the displayed score as a verified ranking difficulty.
+
+| Query                                    | Reported US volume |
+| ---------------------------------------- | -----------------: |
+| can you schedule instagram posts         |              9,900 |
+| schedule instagram posts                 |              6,600 |
+| instagram scheduling tool                |              2,900 |
+| can you schedule instagram stories       |              1,300 |
+| how to find scheduled posts on instagram |              1,000 |
+
+`/blog/how-to-schedule-instagram-posts` answers that setup and management intent
+with native scheduling steps, the actual aghost calendar/composer workflow,
+an agent example requiring approval before scheduling, tool-evaluation notes,
+troubleshooting, and an original sample content plan. It is the blog's featured
+article and has contextual links from the shared homepage/Features scheduling
+section and related reading from the aghost comparison. Existing guides remain.
+The catalog supplies its canonical metadata, BlogPosting data, sitemap entry,
+and llms.txt listing. Publication and checked dates are October 17, 2026.
+
+References checked:
+
+- [Buffer's scheduling guide](https://buffer.com/resources/schedule-instagram-posts/)
+  for its documented native Instagram scheduling and management steps. Menu
+  wording and eligibility can vary; no numeric native scheduling horizon is
+  promised.
+- [Buffer's Instagram help guide](https://support.buffer.com/en-us/articles/using-instagram-with-buffer-YSjg2dXFV8)
+  for automatic versus notification publishing and supported-format caveats.
+- [Postiz's Instagram scheduler](https://postiz.com/channels/instagram)
+  for its calendar, team-review, and MCP workflows. Its marketing claims about
+  optimal times, reach, and Meta quotas are not reused.
+- [Blotato's scheduling workflow](https://help.blotato.com/blog/build-social-media-scheduler-n8n-make)
+  for timestamp/slot scheduling and n8n/Make integration, and its
+  [Instagram agent guide](https://www.blotato.com/blog/how-to-post-to-instagram-with-claude)
+  for MCP publishing. Agent access is not presented as exclusive to aghost.
+- aghost claims were checked against `packages/api/src/contract/post.ts`,
+  `packages/api/src/modules/posts/post.service.ts`,
+  `apps/web/features/calendar/post-composer.tsx`, and the composer/calendar
+  stores. The guide uses the shared `POST_LIMITS` contract for lead time and
+  carousel size; browser-local time and post/Reel-only comment automation are
+  explicit. No authenticated live publish or provider performance test is claimed.
+
+### Earlier automation references
 
 - [ManyChat's DM automation tool guide](https://manychat.com/blog/instagram-dm-automation-tools/)
   groups tools by marketing, sales, and support jobs. We used the search-intent
@@ -100,7 +157,7 @@ screenshots, claims of tests, and conversion promises were not reused.
 
 ## Publication and maintenance
 
-The six routes render at build time. Each has a canonical URL, unique metadata,
+The seven routes render at build time. Each has a canonical URL, unique metadata,
 article Open Graph fields, a BlogPosting and breadcrumb graph, visible editorial
 attribution, checked dates, source links, a table of contents, related reading,
 and relevant product links. Sitemap and llms.txt list the routes, and the main
@@ -125,7 +182,7 @@ in this research pass.
 
 - Comment-to-DM troubleshooting focused on automation, distinct from general
   Instagram app failures.
-- ManyChat vs LinkDM and ManyChat vs aghost, once keyword data and first-batch
+- aghost vs ManyChat and aghost vs LinkDM, once keyword data and first-batch
   Search Console impressions help prioritize them.
 - A free-plan comparison with allowances rechecked on the publication date.
 - Lead-magnet campaign examples for coaches, affiliates, and product launches.

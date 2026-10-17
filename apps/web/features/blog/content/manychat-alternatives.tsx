@@ -23,40 +23,70 @@ export const manychatAlternatives: ArticleContent = {
   sections: [
     {
       id: "alternatives-at-a-glance",
-      title: "Compare the five alternatives by replacement job",
+      title: "Compare prices, free allowances, and replacement jobs",
       body: (
         <>
           <ComparisonTable
-            caption="A shortlist based on the workflow you need to replace"
-            headings={["Alternative", "Consider it for", "Check before moving"]}
+            caption="ManyChat alternatives: USD prices and allowances checked October 17, 2026"
+            headings={[
+              "Alternative",
+              "Price and billing",
+              "Free plan or trial",
+              "Workflow and limits",
+            ]}
             rows={[
               [
-                "aghost",
-                "Instagram comment-to-DM and agent operation",
-                "Whether you need broader channels or a visual flow builder",
+                <Link key="aghost" href="/pricing">
+                  aghost
+                </Link>,
+                <>Pro {aghostPrice()}/month, billed monthly</>,
+                "No free tier listed",
+                "Comment-to-DM, scheduling, and agent access. Pro includes one Instagram account; broader channels and a visual flow builder are not included.",
               ],
               [
-                "LinkDM",
-                "Creator link-delivery campaigns",
-                "The allowances and features in your chosen plan",
+                <Source key="linkdm" href={sources.linkdmPricing}>
+                  LinkDM
+                </Source>,
+                "Free; Pro $19/month, billed monthly",
+                "1,000 DMs/month on Free; one Instagram account",
+                "Creator link campaigns. Pro lists up to 25,000 DMs/month and three accounts; check which triggers require a paid plan.",
               ],
               [
-                "Chatfuel",
-                "AI or keyword-based conversations",
-                "AI usage, handoff, and your required integrations",
+                <Source key="chatfuel" href={sources.chatfuelPricing}>
+                  Chatfuel
+                </Source>,
+                "Business from $18/month equivalent, billed $216/year",
+                "Free trial advertised; check its current allowance",
+                "AI conversations and human handoff. Check AI credits, processing limits, and required Instagram integrations.",
               ],
               [
-                "respond.io",
-                "Conversations handled by a team",
-                "Routing, seats, channels, and operating cost",
+                <Source key="respond" href={sources.respondPricing}>
+                  respond.io
+                </Source>,
+                "Starter $99/month; $79/month equivalent billed $948/year",
+                "7-day trial: five users and 1,000 monthly active contacts; broadcasts excluded",
+                "Team inbox. Starter includes five users; workflow automation requires Growth. Check contacts, AI credits, and extra-seat charges.",
               ],
               [
-                "Meta Business Suite",
-                "Basic native inbox replies",
-                "The Instagram automations your account actually offers",
+                <Source key="meta" href={sources.metaBusinessSuite}>
+                  Meta Business Suite
+                </Source>,
+                "Free native tools; advertising costs are separate",
+                "Basic inbox tools; availability depends on your account",
+                "Native replies. Confirm the Instagram triggers your account offers before relying on it for a comment-to-DM campaign.",
               ],
             ]}
           />
+          <p>
+            Linked tool names open official product or pricing pages. These are
+            starting prices in USD. aghost’s price includes applicable tax;
+            confirm other providers’ taxes and any extra usage charges at
+            checkout. Annual rates are monthly equivalents paid for the full
+            year; they are not month-to-month subscriptions. respond.io’s{" "}
+            <Source href={sources.respondPricingGuide}>plan guide</Source> lists
+            its monthly rates. A free trial is different from an ongoing free
+            plan, and the cheapest plan may not include the automation you need.
+          </p>
           <p>
             A replacement need not reproduce every feature in your old tool. It
             does need to preserve the promise you make in your content: the
@@ -96,10 +126,12 @@ export const manychatAlternatives: ArticleContent = {
       body: (
         <>
           <p>
-            <Source href={sources.linkdm}>LinkDM</Source> focuses on sending
-            links from Instagram engagement. Its public site lists a free
-            allowance of 1,000 DMs per month and Pro at $19/month. It also
-            describes queues for Pro users when its send limit is reached.
+            <Source href={sources.linkdmPricing}>LinkDM</Source> focuses on
+            sending links from Instagram engagement. Its public site lists a
+            free allowance of 1,000 DMs per month and Pro at $19/month. It also
+            lists up to 25,000 DMs per month and three Instagram accounts on
+            Pro. Check the current plan comparison for overflow and queue
+            features before assuming they are included.
           </p>
           <p>
             Evaluate it with your busiest campaign, not only a single successful
