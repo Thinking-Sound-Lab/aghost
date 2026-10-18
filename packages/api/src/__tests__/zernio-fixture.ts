@@ -5,6 +5,7 @@ import {
   type ServerResponse,
 } from "node:http"
 import { once } from "node:events"
+import { ZERNIO_UPLOAD_ORIGIN } from "../infrastructure/zernio/zernio-post.provider"
 
 type Body = Record<string, unknown>
 type RecordedRequest = {
@@ -179,7 +180,8 @@ export async function startZernioFixture() {
     if (url.pathname === "/v1/media/presign" && method === "POST") {
       const name = String(body.filename)
       reply(200, {
-        uploadUrl: `https://storage.example/upload/${name}?signature=fixture`,
+        // Presigned like Zernio's, at the storage the upload box may reach.
+        uploadUrl: `${ZERNIO_UPLOAD_ORIGIN}/temp/${name}?signature=fixture`,
         publicUrl: `https://media.example/temp/${name}`,
         key: `temp/${name}`,
         expiresIn: 3600,

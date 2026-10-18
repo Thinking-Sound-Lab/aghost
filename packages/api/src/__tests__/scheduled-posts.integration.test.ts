@@ -21,6 +21,7 @@ import type {
   UploadLink,
 } from "../contract/post"
 import type { ApiApp } from "../http/app"
+import { ZERNIO_UPLOAD_ORIGIN } from "../infrastructure/zernio/zernio-post.provider"
 import { recordingAnalytics } from "./analytics-fixture"
 import {
   grantPlan,
@@ -745,7 +746,7 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     expect(upload.statusCode).toBe(201)
     const media = upload.json<MediaUpload>()
     expect(media).toMatchObject({
-      uploadUrl: "https://storage.example/upload/launch.mp4?signature=fixture",
+      uploadUrl: `${ZERNIO_UPLOAD_ORIGIN}/temp/launch.mp4?signature=fixture`,
       media: { url: "https://media.example/temp/launch.mp4", type: "video" },
     })
     expect(Date.parse(media.expiresAt)).toBeGreaterThan(Date.now())
@@ -1030,6 +1031,19 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     })
     expect(meta("create_media_upload")).toBeUndefined()
 
+    // What the box does: upload each file, then hand them over at once.
+    const made = await client.callTool({
+      name: "create_upload_link",
+      arguments: {},
+    })
+    const link = (made.structuredContent as { data: UploadLink }).data
+    const upload = await client.callTool({
+      name: "create_media_upload",
+      arguments: { filename: "reel.mp4", contentType: "video/mp4", size: 2048 },
+    })
+    const { uploadUrl, media } = (
+      upload.structuredContent as { data: MediaUpload }
+    ).data
     // The box may reach only the storage that upload URLs point to.
     const { contents } = await client.readResource({
       uri: "ui://aghost/upload",
@@ -1042,11 +1056,7 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
         _meta: {
           ui: {
             csp: {
-              connectDomains: [
-                expect.stringMatching(
-                  /^https:\/\/[a-z0-9.-]+\.r2\.cloudflarestorage\.com$/
-                ),
-              ],
+              connectDomains: [new URL(uploadUrl).origin],
             },
             prefersBorder: true,
           },
@@ -1057,17 +1067,6 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
       text: expect.stringContaining("{{LIMITS}}"),
     })
 
-    // What the box does: upload each file, then hand them over at once.
-    const made = await client.callTool({
-      name: "create_upload_link",
-      arguments: {},
-    })
-    const link = (made.structuredContent as { data: UploadLink }).data
-    const upload = await client.callTool({
-      name: "create_media_upload",
-      arguments: { filename: "reel.mp4", contentType: "video/mp4", size: 2048 },
-    })
-    const { media } = (upload.structuredContent as { data: MediaUpload }).data
     const completed = await client.callTool({
       name: "complete_upload_link",
       arguments: { uploadLinkId: link.id, media: [media] },

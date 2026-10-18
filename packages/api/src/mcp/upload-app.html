@@ -229,6 +229,8 @@
           // create_upload_link's result, once the app passes it on.
           link: null,
           // The files in the order the owner chose them; `media` once uploaded.
+          // Removing one also cancels its upload, so a stalled file never
+          // holds up the others.
           items: [],
           sending: false,
           // After sending: whether the agent was told in the chat.
@@ -369,6 +371,7 @@
             file,
             kind: LIMITS.types[file.type],
             media: null,
+            request: null,
             view: null,
           }))
           state.items.push(...added)
@@ -376,14 +379,16 @@
           for (const item of added) void upload(item)
         }
 
-        /** Sends the bytes from this browser straight to storage. */
-        function put(url, file, onProgress) {
+        /** Sends the file's bytes from this browser straight to storage. */
+        function put(item, url) {
           return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest()
+            item.request = xhr
             xhr.open("PUT", url)
-            xhr.setRequestHeader("Content-Type", file.type)
+            xhr.setRequestHeader("Content-Type", item.file.type)
             xhr.upload.addEventListener("progress", (event) => {
-              if (event.lengthComputable) onProgress(event.loaded / event.total)
+              if (event.lengthComputable)
+                item.view.percent.textContent = `${Math.round((event.loaded / event.total) * 100)}%`
             })
             xhr.addEventListener("load", () =>
               xhr.status >= 200 && xhr.status < 300
@@ -393,9 +398,12 @@
             xhr.addEventListener("error", () =>
               reject(new Error("Check your connection and try again."))
             )
-            xhr.send(file)
+            xhr.addEventListener("abort", () => reject(new Error("Removed.")))
+            xhr.send(item.file)
           })
         }
+
+        const kept = (item) => state.items.includes(item)
 
         async function upload(item) {
           try {
@@ -404,12 +412,12 @@
               contentType: item.file.type,
               size: item.file.size,
             })
-            await put(target.uploadUrl, item.file, (fraction) => {
-              item.view.percent.textContent = `${Math.round(fraction * 100)}%`
-            })
+            if (!kept(item)) return
+            await put(item, target.uploadUrl)
             item.media = target.media
             render()
           } catch (error) {
+            if (!kept(item)) return
             state.items = state.items.filter((other) => other !== item)
             fail(`Couldn't upload ${item.file.name}. ${error.message}`, true)
           }
@@ -518,6 +526,7 @@
           remove.append(icon("remove"))
           remove.addEventListener("click", () => {
             state.items = state.items.filter((other) => other !== item)
+            item.request?.abort()
             render()
           })
           tile.append(progress, remove)
@@ -566,7 +575,7 @@
           const tiles = state.items.map((item) => {
             const view = viewOf(item)
             view.progress.hidden = item.media !== null
-            view.remove.hidden = !waiting || state.sending || !item.media
+            view.remove.hidden = !waiting || state.sending
             return view.tile
           })
           if (waiting && !state.sending && state.items.length < LIMITS.maxItems)
