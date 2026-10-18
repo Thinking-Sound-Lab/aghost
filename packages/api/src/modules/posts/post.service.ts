@@ -2,6 +2,7 @@ import type { CreateAutomationInput } from "../../contract/automation"
 import {
   MEDIA_CONTENT_TYPES,
   POST_LIMITS,
+  isReelMedia,
   type CreateMediaUploadInput,
   type MediaUpload,
   type ParsedSchedulePostInput,
@@ -196,7 +197,18 @@ export class PostService {
             ? "This post failed to publish. Delete it and schedule it again."
             : "This post is already published and can no longer be changed."
         )
-      const content = contentOf(input)
+      const content = contentOf({
+        ...input,
+        trialReel:
+          input.trialReel === undefined ? current.trialReel : input.trialReel,
+      })
+      // Validate the effective settings too: an older client may omit
+      // trialReel while replacing the video with a photo or carousel.
+      if (content.trialReel && !isReelMedia(content.media))
+        throw new ValidationError({
+          trialReel:
+            "A Trial Reel needs exactly one video and cannot be a story",
+        })
       assertAhead(content.scheduledFor)
       // A story has no comments for an automation, and the provider's record
       // of which one a post is cannot be relied on to change.
@@ -402,6 +414,7 @@ function contentOf(
     kind: input.kind,
     caption: input.caption || null,
     media: input.media,
+    trialReel: input.trialReel ?? null,
     scheduledFor: new Date(input.scheduledFor).toISOString(),
   }
 }

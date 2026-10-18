@@ -197,7 +197,18 @@ function toTarget(providerAccountId: string, content: PostContent) {
   // Sent in full each time: an update replaces what was stored, so a story
   // that becomes a post loses its story setting.
   const platformSpecificData: InstagramPlatformData =
-    content.kind === "story" ? { contentType: "story" } : {}
+    content.kind === "story"
+      ? { contentType: "story" }
+      : content.trialReel
+        ? {
+            trialParams: {
+              graduationStrategy:
+                content.trialReel.graduationStrategy === "automatic"
+                  ? "SS_PERFORMANCE"
+                  : "MANUAL",
+            },
+          }
+        : {}
   return {
     platform: "instagram",
     accountId: providerAccountId,

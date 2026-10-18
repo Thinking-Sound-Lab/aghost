@@ -113,7 +113,7 @@ export function PostComposer({
   )
   const screen = story ? "story" : composer.preview
   const room =
-    (story ? 1 : POST_LIMITS.maxMediaItems) -
+    (story || draft.trialReel ? 1 : POST_LIMITS.maxMediaItems) -
     draft.media.length -
     composer.uploads.length
 
@@ -321,8 +321,10 @@ export function PostComposer({
                       <input
                         type="file"
                         disabled={busy || composer.uploads.length > 0}
-                        accept={ACCEPT}
-                        multiple={!story}
+                        accept={
+                          draft.trialReel ? "video/mp4,video/quicktime" : ACCEPT
+                        }
+                        multiple={!story && !draft.trialReel}
                         className="sr-only"
                         onChange={(event) => {
                           const files = [...(event.target.files ?? [])]
@@ -343,10 +345,80 @@ export function PostComposer({
                     {fields.media ??
                       (story
                         ? "One photo or video, shown for 24 hours."
-                        : "One video posts as a reel. Add up to 10 for a carousel.")}
+                        : draft.trialReel
+                          ? "One video, shown to non-followers first."
+                          : "One video posts as a reel. Add up to 10 for a carousel.")}
                   </span>
                 )}
               </div>
+
+              {!story && (editable || draft.trialReel) && (
+                <Card
+                  title={editable ? "Trial Reel" : "Trial Reel launch settings"}
+                  enabled={draft.trialReel !== null}
+                  onToggle={
+                    editable
+                      ? (on) =>
+                          composer.patch({
+                            trialReel: on
+                              ? { graduationStrategy: "manual" }
+                              : null,
+                          })
+                      : undefined
+                  }
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {editable
+                      ? "Show one video to non-followers first. Attach a comment-to-DM automation below."
+                      : "This reel was scheduled to reach non-followers first."}
+                  </p>
+                  {draft.trialReel && (
+                    <Field
+                      error={fields["trialReel.graduationStrategy"]}
+                      hint={
+                        draft.trialReel.graduationStrategy === "automatic"
+                          ? "Instagram decides whether to share it with everyone based on performance."
+                          : "Share it with everyone later from the Instagram app."
+                      }
+                    >
+                      <select
+                        aria-label="Trial Reel sharing"
+                        disabled={!editable}
+                        value={draft.trialReel.graduationStrategy}
+                        onChange={(event) =>
+                          composer.patch({
+                            trialReel: {
+                              graduationStrategy:
+                                event.target.value === "automatic"
+                                  ? "automatic"
+                                  : "manual",
+                            },
+                          })
+                        }
+                        className="h-8 w-full rounded-lg bg-card px-2 text-sm"
+                      >
+                        <option value="manual">
+                          Share with everyone manually
+                        </option>
+                        <option value="automatic">
+                          Share automatically if it performs well
+                        </option>
+                      </select>
+                    </Field>
+                  )}
+                  {fields.trialReel && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {fields.trialReel}
+                    </p>
+                  )}
+                  {post?.status === "published" && (
+                    <p className="text-xs text-muted-foreground">
+                      These are the launch settings. Check Instagram to see
+                      whether the reel has since been shared with everyone.
+                    </p>
+                  )}
+                </Card>
+              )}
 
               {!story && (
                 <Field

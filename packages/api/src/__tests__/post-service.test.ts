@@ -28,6 +28,7 @@ function stored(
     kind: "post",
     caption: null,
     media: [{ url: "https://media.example/a.jpg", type: "image" }],
+    trialReel: null,
     scheduledFor: new Date(Date.now() + hoursAway * 3_600_000).toISOString(),
     status,
     platformPostId: null,
@@ -127,6 +128,7 @@ describe("scheduled posts outside the owner's requests", () => {
       media: [{ url: "https://media.example/a.jpg", type: "image" }],
       scheduledFor: new Date(Date.now() + 86_400_000).toISOString(),
       automation: null,
+      trialReel: null,
     })
     // The request passed the HTTP paywall, then waited behind billing.
     expect(plan.assertCanUseWorkspace).not.toHaveBeenCalled()

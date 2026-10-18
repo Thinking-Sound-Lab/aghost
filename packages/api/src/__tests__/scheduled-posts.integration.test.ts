@@ -130,6 +130,10 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     ...overrides,
   })
 
+  const reelMedia: PostMedia[] = [
+    { url: "https://media.example/temp/trial.mp4", type: "video" },
+  ]
+
   async function schedule(overrides: Partial<SchedulePostInput> = {}) {
     const response = await session("/scheduled-posts", "POST", post(overrides))
     expect(response.statusCode).toBe(201)
@@ -277,6 +281,172 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     expect(
       (await session(`/accounts/${account.id}/publishing`)).json()
     ).toEqual({ canPublish: true })
+  })
+
+  it.each(["manual", "automatic"] as const)(
+    "schedules a %s Trial Reel with a pending automation and returns its launch settings",
+    async (graduationStrategy) => {
+      const trialReel = { graduationStrategy }
+      const created = await schedule({
+        media: reelMedia,
+        trialReel,
+        automation: automation(),
+      })
+      const remoteId = await providerIdOf(created.id)
+      expect(created.trialReel).toEqual(trialReel)
+      expect(created.automationIds).toHaveLength(1)
+      expect(fixture.posts.get(remoteId)).toMatchObject({
+        mediaItems: reelMedia,
+        platforms: [
+          {
+            platformSpecificData: {
+              trialParams: {
+                graduationStrategy:
+                  graduationStrategy === "manual" ? "MANUAL" : "SS_PERFORMANCE",
+              },
+            },
+          },
+        ],
+      })
+      expect([...fixture.automations.values()]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ postId: remoteId, isActive: true }),
+        ])
+      )
+      expect(
+        (await session(`/scheduled-posts/${created.id}`)).json().trialReel
+      ).toEqual(trialReel)
+      const { data, error } = await admin
+        .from("scheduled_posts")
+        .select("trial_graduation_strategy")
+        .eq("id", created.id)
+        .single()
+      expect(error).toBeNull()
+      expect(data?.trial_graduation_strategy).toBe(graduationStrategy)
+    }
+  )
+
+  it("preserves trial settings for older edits, rejects incompatible media, and explicitly clears a trial", async () => {
+    const created = await schedule({
+      media: reelMedia,
+      trialReel: { graduationStrategy: "manual" },
+    })
+    const remoteId = await providerIdOf(created.id)
+    const edit = {
+      kind: "post",
+      caption: "Edited trial",
+      media: reelMedia,
+      scheduledFor: inHours(30),
+    }
+    const preserved = await session(
+      `/scheduled-posts/${created.id}`,
+      "PATCH",
+      edit
+    )
+    expect(preserved.statusCode).toBe(200)
+    expect(preserved.json().trialReel).toEqual(created.trialReel)
+    expect(fixture.posts.get(remoteId)).toMatchObject({
+      platforms: [
+        {
+          platformSpecificData: {
+            trialParams: { graduationStrategy: "MANUAL" },
+          },
+        },
+      ],
+    })
+    const before = fixture.requests.length
+    const incompatible = await session(
+      `/scheduled-posts/${created.id}`,
+      "PATCH",
+      {
+        ...edit,
+        media: [{ url: "https://media.example/photo.jpg", type: "image" }],
+      }
+    )
+    expect(incompatible.statusCode).toBe(422)
+    expect(incompatible.json().error.fields).toHaveProperty("trialReel")
+    expect(fixture.requests.length).toBe(before)
+    // The additive migration protects trial rows from incompatible writes too.
+    const invalidRow = await admin
+      .from("scheduled_posts")
+      .update({
+        media: [{ url: "https://media.example/photo.jpg", type: "image" }],
+      })
+      .eq("id", created.id)
+    expect(invalidRow.error?.code).toBe("23514")
+    const cleared = await session(`/scheduled-posts/${created.id}`, "PATCH", {
+      ...edit,
+      trialReel: null,
+    })
+    expect(cleared.statusCode).toBe(200)
+    expect(cleared.json().trialReel).toBeNull()
+    expect(fixture.posts.get(remoteId)).toMatchObject({
+      platforms: [{ platformSpecificData: {} }],
+    })
+    const target = (
+      fixture.posts.get(remoteId)!.platforms as {
+        platformSpecificData: object
+      }[]
+    )[0]!
+    expect(target.platformSpecificData).not.toHaveProperty("trialParams")
+  })
+
+  it("restores the original Trial Reel settings if adding an automation fails", async () => {
+    const created = await schedule({
+      media: reelMedia,
+      trialReel: { graduationStrategy: "manual" },
+    })
+    const remoteId = await providerIdOf(created.id)
+    fixture.state.automationFailureStatus = 500
+    const failed = await session(`/scheduled-posts/${created.id}`, "PATCH", {
+      kind: "post",
+      caption: "Comment LINK",
+      media: reelMedia,
+      scheduledFor: inHours(48),
+      trialReel: { graduationStrategy: "automatic" },
+      automation: automation(),
+    })
+    expect(failed.statusCode).toBe(502)
+    expect(
+      (await session(`/scheduled-posts/${created.id}`)).json()
+    ).toMatchObject({
+      trialReel: created.trialReel,
+      caption: created.caption,
+      scheduledFor: created.scheduledFor,
+      automationIds: [],
+    })
+    expect(fixture.posts.get(remoteId)).toMatchObject({
+      platforms: [
+        {
+          platformSpecificData: {
+            trialParams: { graduationStrategy: "MANUAL" },
+          },
+        },
+      ],
+    })
+  })
+
+  it("rejects Trial Reels with stories, photos, carousels or unknown strategies before publishing", async () => {
+    const before = fixture.requests.length
+    for (const overrides of [
+      { kind: "story", caption: "", media: reelMedia },
+      { media: [{ url: "https://media.example/photo.jpg", type: "image" }] },
+      { media: [...reelMedia, ...reelMedia] },
+      { media: reelMedia, trialReel: { graduationStrategy: "unrecognized" } },
+    ]) {
+      const response = await session("/scheduled-posts", "POST", {
+        ...post(),
+        trialReel: { graduationStrategy: "manual" },
+        ...overrides,
+      })
+      expect(response.statusCode).toBe(422)
+      expect(
+        Object.keys(response.json().error.fields).some((key) =>
+          key.startsWith("trialReel")
+        )
+      ).toBe(true)
+    }
+    expect(fixture.requests.length).toBe(before)
   })
 
   it("schedules a carousel with an automation that Zernio arms when the post publishes", async () => {
@@ -781,8 +951,23 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     const scheduled = await rest(token, "/scheduled-posts", "POST", {
       ...post(),
       media: [media.media],
+      trialReel: { graduationStrategy: "automatic" },
     })
     expect(scheduled.statusCode).toBe(201)
+    expect(scheduled.json<ScheduledPost>().trialReel).toEqual({
+      graduationStrategy: "automatic",
+    })
+    expect(
+      fixture.posts.get(await providerIdOf(scheduled.json<ScheduledPost>().id))
+    ).toMatchObject({
+      platforms: [
+        {
+          platformSpecificData: {
+            trialParams: { graduationStrategy: "SS_PERFORMANCE" },
+          },
+        },
+      ],
+    })
     const id = scheduled.json<ScheduledPost>().id
     expect(
       (
@@ -803,6 +988,19 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
       operationId: "schedule_post",
       "x-required-scope": "posts:write",
     })
+    const trialSchema =
+      document.paths["/scheduled-posts"].post.requestBody.content[
+        "application/json"
+      ].schema.properties.trialReel
+    expect(trialSchema.anyOf).toContainEqual(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          graduationStrategy: expect.objectContaining({
+            enum: ["manual", "automatic"],
+          }),
+        }),
+      })
+    )
     expect(
       document.paths["/scheduled-posts"].get.parameters.map(
         (parameter: { name: string }) => parameter.name
@@ -822,7 +1020,8 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
         requestInit: { headers: { Authorization: `Bearer ${full}` } },
       })
     )
-    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(
+    const tools = (await client.listTools()).tools
+    expect(tools.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "list_scheduled_posts",
         "get_scheduled_post",
@@ -832,23 +1031,57 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
         "delete_scheduled_post",
       ])
     )
+    expect(
+      tools.find((tool) => tool.name === "schedule_post")?.inputSchema
+        .properties
+    ).toHaveProperty("trialReel")
     const updated = await client.callTool({
       name: "update_scheduled_post",
       arguments: {
         postId: id,
-        input: post({ automation: { ...automation(), status: "paused" } }),
+        input: post({
+          media: reelMedia,
+          trialReel: { graduationStrategy: "manual" },
+          automation: { ...automation(), status: "paused" },
+        }),
       },
     })
     expect(updated.isError).not.toBe(true)
+    expect(
+      (updated.structuredContent as { data: ScheduledPost }).data.trialReel
+    ).toEqual({ graduationStrategy: "manual" })
+    expect(fixture.posts.get(await providerIdOf(id))).toMatchObject({
+      platforms: [
+        {
+          platformSpecificData: {
+            trialParams: { graduationStrategy: "MANUAL" },
+          },
+        },
+      ],
+    })
     expect(
       (updated.structuredContent as { data: ScheduledPost }).data.automationIds
     ).toHaveLength(1)
     const created = await client.callTool({
       name: "schedule_post",
-      arguments: post({ automation: { ...automation(), status: "paused" } }),
+      arguments: post({
+        media: reelMedia,
+        trialReel: { graduationStrategy: "automatic" },
+        automation: { ...automation(), status: "paused" },
+      }),
     })
     expect(created.isError).not.toBe(true)
     const data = (created.structuredContent as { data: ScheduledPost }).data
+    expect(data.trialReel).toEqual({ graduationStrategy: "automatic" })
+    expect(fixture.posts.get(await providerIdOf(data.id))).toMatchObject({
+      platforms: [
+        {
+          platformSpecificData: {
+            trialParams: { graduationStrategy: "SS_PERFORMANCE" },
+          },
+        },
+      ],
+    })
     expect(data.automationIds).toHaveLength(1)
     const linked = await client.callTool({
       name: "get_automation",

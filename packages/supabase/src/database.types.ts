@@ -398,6 +398,7 @@ export type Database = {
           published_at: string | null
           scheduled_for: string
           status: string
+          trial_graduation_strategy: string | null
           updated_at: string
           workspace_id: string
           zernio_post_id: string
@@ -416,6 +417,7 @@ export type Database = {
           published_at?: string | null
           scheduled_for: string
           status: string
+          trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id: string
           zernio_post_id: string
@@ -433,6 +435,7 @@ export type Database = {
           published_at?: string | null
           scheduled_for?: string
           status?: string
+          trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id?: string
           zernio_post_id?: string

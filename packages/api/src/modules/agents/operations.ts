@@ -221,7 +221,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_scheduled_post",
     description:
-      "Get a scheduled post's content, time, publishing status and the automations that answer its comments. Once published it has a platformPostId and permalink; a failed post has an error.",
+      "Get a scheduled post's content, time, Trial Reel launch settings and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
     scope: "posts:read",
     schema: postId,
     run: async ({ workspace, services }, { postId }) =>
@@ -262,7 +262,7 @@ export const AGENT_OPERATIONS = [
   }),
   operation({
     name: "schedule_post",
-    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. A post with one video publishes as a reel, and 2-10 items as a carousel. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
+    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
     scope: "posts:write",
     schema: schedulePostSchema,
     run: async ({ workspace, services, apiKey }, input) => {
@@ -276,7 +276,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "update_scheduled_post",
     description:
-      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write. If that automation fails, the previous post is restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
+      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
     scope: "posts:write",
     schema: postId.extend({ input: updateScheduledPostSchema }),
     destructive: true,

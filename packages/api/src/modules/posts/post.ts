@@ -2,6 +2,7 @@ import type {
   PostKind,
   PostMedia,
   ScheduledPostStatus,
+  TrialReel,
 } from "../../contract/post"
 
 export type ScheduledPostRecord = {
@@ -13,6 +14,7 @@ export type ScheduledPostRecord = {
   caption: string | null
   media: PostMedia[]
   scheduledFor: string
+  trialReel: TrialReel | null
   status: ScheduledPostStatus
   platformPostId: string | null
   permalink: string | null
@@ -26,7 +28,7 @@ export type ScheduledPostRecord = {
 /** What is published, and when. */
 export type PostContent = Pick<
   ScheduledPostRecord,
-  "kind" | "caption" | "media" | "scheduledFor"
+  "kind" | "caption" | "media" | "scheduledFor" | "trialReel"
 >
 
 /** How far publishing got, as the provider reports it. */
