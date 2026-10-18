@@ -32,24 +32,18 @@ const catalog = [
     related: ["instagram-dm-limits", "best-instagram-dm-automation-tools"],
   },
   {
-    slug: "manychat-pricing",
-    title: "ManyChat pricing in 2026: plans, contacts, and real costs",
+    slug: "aghost-vs-manychat",
+    title: "aghost vs ManyChat: Instagram automation compared",
     description:
-      "Understand ManyChat's 2026 plans, monthly versus annual billing, active-contact overages, and example costs before choosing an Instagram automation tool.",
+      "Compare aghost and ManyChat for Instagram comment-to-DM, scheduling, product cards, follow-ups, AI-agent access, and flat versus contact-based pricing.",
     category: "Comparisons",
-    publishedAt: "2026-10-12",
-    updatedAt: "2026-10-12",
-    related: ["manychat-alternatives", "aghost-vs-chatfuel"],
-  },
-  {
-    slug: "manychat-alternatives",
-    title: "5 ManyChat alternatives for Instagram automation in 2026",
-    description:
-      "Compare five ManyChat alternatives for Instagram by price, free allowance, billing terms, and workflow: aghost, LinkDM, Chatfuel, respond.io, and Meta Business Suite.",
-    category: "Comparisons",
-    publishedAt: "2026-10-12",
-    updatedAt: "2026-10-17",
-    related: ["manychat-pricing", "best-instagram-dm-automation-tools"],
+    publishedAt: "2026-10-18",
+    updatedAt: "2026-10-18",
+    related: [
+      "instagram-auto-reply",
+      "best-instagram-dm-automation-tools",
+      "aghost-vs-chatfuel",
+    ],
   },
   {
     slug: "instagram-dm-limits",
@@ -69,7 +63,7 @@ const catalog = [
     category: "Comparisons",
     publishedAt: "2026-10-12",
     updatedAt: "2026-10-12",
-    related: ["manychat-alternatives", "instagram-dm-limits"],
+    related: ["aghost-vs-manychat", "instagram-dm-limits"],
   },
   {
     slug: "aghost-vs-chatfuel",
@@ -80,7 +74,7 @@ const catalog = [
     publishedAt: "2026-10-17",
     updatedAt: "2026-10-17",
     related: [
-      "manychat-alternatives",
+      "aghost-vs-manychat",
       "instagram-auto-reply",
       "how-to-schedule-instagram-posts",
     ],

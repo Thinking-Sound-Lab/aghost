@@ -33,6 +33,16 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/blog/manychat-alternatives",
+        destination: "/blog/aghost-vs-manychat",
+        permanent: true,
+      },
+      {
+        source: "/blog/manychat-pricing",
+        destination: "/blog/aghost-vs-manychat#pricing",
+        permanent: true,
+      },
+      {
         source: "/blog/manychat-vs-chatfuel",
         destination: "/blog/aghost-vs-chatfuel",
         permanent: true,
