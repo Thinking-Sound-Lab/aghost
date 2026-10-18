@@ -219,6 +219,14 @@ function PostChip({ post }: { post: ScheduledPost }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1 font-medium whitespace-nowrap tabular-nums">
           {clock.format(new Date(post.scheduledFor))}
+          {post.trialReel && (
+            <span
+              className="rounded bg-muted px-1 text-[10px] font-normal text-muted-foreground"
+              title="Scheduled to launch as a Trial Reel; check Instagram for its current sharing status"
+            >
+              Trial
+            </span>
+          )}
           {post.automationIds.length > 0 && (
             <Zap
               aria-label="Has an automation"

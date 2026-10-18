@@ -40,6 +40,25 @@ export type ScheduledPostStatus = (typeof SCHEDULED_POST_STATUSES)[number]
 type MediaType = (typeof MEDIA_TYPES)[number]
 export type MediaContentType = keyof typeof MEDIA_CONTENT_TYPES
 
+export const trialReelSchema = z
+  .object({
+    graduationStrategy: z
+      .enum(["manual", "automatic"])
+      .describe(
+        "manual: share with everyone later in Instagram. automatic: let Instagram share based on performance with non-followers."
+      ),
+  })
+  .describe(
+    "Launch one video as a Trial Reel, shown to non-followers first. These are launch settings, not the reel's current graduation status."
+  )
+
+export type TrialReel = z.infer<typeof trialReelSchema>
+
+/** One video publishes as a reel; multiple items publish as a carousel. */
+export function isReelMedia(media: PostMedia[]): boolean {
+  return media.length === 1 && media[0]?.type === "video"
+}
+
 const MAX_BYTES: Record<MediaType, number> = {
   image: POST_LIMITS.imageMaxBytes,
   video: POST_LIMITS.videoMaxBytes,
@@ -90,14 +109,20 @@ type PostShape = {
   kind: PostKind
   caption: string
   media: PostMedia[]
+  trialReel?: TrialReel | null
   automation?: unknown
 }
 
 function checkKind(ctx: z.core.ParsePayload<PostShape>): void {
-  const { kind, caption, media, automation } = ctx.value
-  if (kind !== "story") return
+  const { kind, caption, media, trialReel, automation } = ctx.value
   const issue = (path: string, message: string) =>
     ctx.issues.push({ code: "custom", input: ctx.value, path: [path], message })
+  if (trialReel && (kind !== "post" || !isReelMedia(media)))
+    issue(
+      "trialReel",
+      "A Trial Reel needs exactly one video and cannot be a story"
+    )
+  if (kind !== "story") return
   if (media.length > 1) issue("media", "A story has one photo or video")
   if (caption) issue("caption", "Stories have no caption")
   if (automation) issue("automation", "Stories have no comments to answer")
@@ -107,6 +132,7 @@ export const schedulePostSchema = z
   .object({
     instagramAccountId: z.uuid("Choose an Instagram account"),
     ...postContentShape,
+    trialReel: trialReelSchema.nullable().default(null),
     // Answers comments on this post once it is published.
     automation: postAutomationSchema.nullable().default(null),
   })
@@ -115,6 +141,13 @@ export const schedulePostSchema = z
 export const updateScheduledPostSchema = z
   .object({
     ...postContentShape,
+    // Older clients omit this field when editing. Keep the saved setting.
+    trialReel: trialReelSchema
+      .nullable()
+      .optional()
+      .describe(
+        "Omit to preserve Trial Reel settings; null makes a regular reel."
+      ),
     automation: postAutomationSchema.nullable().default(null),
   })
   .check(checkKind)
@@ -224,6 +257,8 @@ export type ScheduledPost = {
   caption: string | null
   media: PostMedia[]
   scheduledFor: string
+  /** How the reel was configured to launch, not its current graduation state. */
+  trialReel: TrialReel | null
   status: ScheduledPostStatus
   /** Instagram's id for the post, once it is published. */
   platformPostId: string | null

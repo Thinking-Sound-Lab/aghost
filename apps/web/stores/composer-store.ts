@@ -7,6 +7,7 @@ import {
   type PostKind,
   type PostMedia,
   type ScheduledPost,
+  type TrialReel,
 } from "@workspace/api/contract"
 import { ApiClientError } from "@workspace/api/client"
 import {
@@ -26,6 +27,7 @@ type Draft = {
   kind: PostKind
   caption: string
   media: PostMedia[]
+  trialReel: TrialReel | null
   /** Local date and time, as a datetime-local input holds it. */
   scheduledAt: string
 }
@@ -132,6 +134,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     kind: "post",
     caption: "",
     media: [],
+    trialReel: null,
     scheduledAt: "",
   },
   uploads: [],
@@ -156,6 +159,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
         kind: "post",
         caption: "",
         media: [],
+        trialReel: null,
         scheduledAt: suggestedTime(day),
       },
       uploads: [],
@@ -181,6 +185,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
             kind: post.kind,
             caption: post.caption ?? "",
             media: post.media,
+            trialReel: post.trialReel ?? null,
             scheduledAt: localInput(new Date(post.scheduledFor)),
           },
           status: "ready",
@@ -207,7 +212,15 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       status: "idle",
     }),
   patch: (patch) =>
-    set({ draft: { ...get().draft, ...patch }, fields: {}, error: null }),
+    set({
+      draft: {
+        ...get().draft,
+        ...patch,
+        ...(patch.kind === "story" && { trialReel: null }),
+      },
+      fields: {},
+      error: null,
+    }),
   selectAccount: async (id) => {
     const revision = get().revision
     set({
@@ -232,16 +245,26 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       return
     }
     const room =
-      (draft.kind === "story" ? 1 : POST_LIMITS.maxMediaItems) -
+      (draft.kind === "story" || draft.trialReel
+        ? 1
+        : POST_LIMITS.maxMediaItems) -
       draft.media.length -
       uploads.length
     if (files.length > room) {
       set({
-        error:
-          draft.kind === "story"
+        error: draft.trialReel
+          ? "A Trial Reel needs exactly one video."
+          : draft.kind === "story"
             ? "A story has one photo or video."
             : `A post can have up to ${POST_LIMITS.maxMediaItems} photos or videos.`,
       })
+      return
+    }
+    if (
+      draft.trialReel &&
+      files.some((file) => !file.type.startsWith("video/"))
+    ) {
+      set({ error: "A Trial Reel needs exactly one video." })
       return
     }
     const problem = fileProblem(files)
@@ -290,6 +313,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       kind: state.draft.kind,
       caption: state.draft.kind === "story" ? "" : state.draft.caption,
       media: state.draft.media,
+      trialReel: state.draft.trialReel,
       scheduledFor,
     }
     const automation =

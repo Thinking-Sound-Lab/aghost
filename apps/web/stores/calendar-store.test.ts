@@ -19,6 +19,7 @@ function post(id: string, scheduledFor: Date): ScheduledPost {
     instagramAccountId: "11111111-1111-4111-8111-111111111111",
     kind: "post",
     caption: "Caption",
+    trialReel: null,
     media: [{ url: "https://media.example/cover.jpg", type: "image" }],
     scheduledFor: scheduledFor.toISOString(),
     status: "scheduled",

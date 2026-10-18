@@ -5,6 +5,7 @@ import {
   POST_KINDS,
   SCHEDULED_POST_STATUSES,
   postMediaSchema,
+  trialReelSchema,
   type ScheduledPostRange,
   type ScheduledPostStatus,
 } from "../../contract/post"
@@ -38,6 +39,11 @@ function toRecord(
     kind: kindSchema.parse(row.kind),
     caption: row.caption,
     media: mediaSchema.parse(row.media),
+    trialReel: row.trial_graduation_strategy
+      ? trialReelSchema.parse({
+          graduationStrategy: row.trial_graduation_strategy,
+        })
+      : null,
     scheduledFor: new Date(row.scheduled_for).toISOString(),
     status: statusSchema.parse(row.status),
     platformPostId: row.platform_post_id,
@@ -55,6 +61,7 @@ function toContentColumns(content: PostContent) {
     kind: content.kind,
     caption: content.caption,
     media: content.media,
+    trial_graduation_strategy: content.trialReel?.graduationStrategy ?? null,
     scheduled_for: content.scheduledFor,
   }
 }
