@@ -114,3 +114,16 @@ export type InsightPostReport =
       /** Daily snapshots of the post's cumulative view count. */
       views: InsightPoint[]
     }
+
+export type InsightContentReport =
+  | InsightsUnavailable
+  | Pick<
+      Extract<InsightReport, { status: "ready" }>,
+      | "status"
+      | "range"
+      | "posts"
+      | "page"
+      | "pages"
+      | "totalPosts"
+      | "contentUpdatedAt"
+    >

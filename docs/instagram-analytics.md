@@ -22,6 +22,10 @@ content published directly on Instagram when Zernio has synced it. Its metrics
 are lifetime totals. Sorting and pagination run on the provider, not only the
 visible page. A content detail shows daily snapshots of cumulative views from
 Zernio's timeline; this is not a claim about new views earned on each day.
+Content sorting and pagination use `GET /api/insights/content`, keeping the
+account summary, reach graph, and posting-time data in place without repeating
+account-insights requests. A period change or explicit refresh reloads account
+metrics; a UTC date rollover detected during browsing also refreshes the range.
 
 Reel watch-time values are converted from milliseconds into seconds at the
 provider boundary. Watch metrics are hidden for other media. Skip rate is Meta's
@@ -37,7 +41,8 @@ or database migration is required.
 ## API boundaries and verification
 
 The signed-in dashboard uses `GET /api/insights` and
-`GET /api/insights/posts/:id`, plus `GET /api/insights/posting-times`. All resolve the account inside the authenticated
+`GET /api/insights/posts/:id`, `GET /api/insights/content`, and
+`GET /api/insights/posting-times`. All resolve the account inside the authenticated
 workspace before contacting Zernio. Single-post reads additionally verify the
 per-platform account and filter timeline rows to that Instagram post before
 returning any metrics.
@@ -75,6 +80,8 @@ The same Analytics add-on and account permission are required. Add-on errors
 errors and retries are independent of the main report. Timezone and ranking
 tests, stale-response tests, scoped SDK fixture tests, and local HTTP lifecycle
 tests cover this flow; real-account timing data still needs a live check.
+The local/UTC preference survives period changes, sorting, pagination, and
+refreshes, including when the timing section temporarily unmounts.
 
 Follower-online counts are not used: the provider documents their hour-key
 timezone as unknown. Historical posting timestamps have a documented UTC base.

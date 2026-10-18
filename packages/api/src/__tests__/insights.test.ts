@@ -44,6 +44,7 @@ describe("workspace-scoped Instagram insights", () => {
     const provider: InsightsProvider = {
       getReport: vi.fn(async () => ({ status: "not_enabled" as const })),
       getPost: vi.fn(async () => ({ status: "not_enabled" as const })),
+      getContent: vi.fn(async () => ({ status: "not_enabled" as const })),
       getPostingTimes: vi.fn(async () => ({
         status: "ready" as const,
         slots: [],
@@ -76,6 +77,10 @@ describe("workspace-scoped Instagram insights", () => {
       service.getPostingTimes(workspace, query)
     ).rejects.toMatchObject({ code: "not_found" })
     expect(provider.getPostingTimes).not.toHaveBeenCalled()
+    await expect(service.getContent(workspace, query)).rejects.toMatchObject({
+      code: "not_found",
+    })
+    expect(provider.getContent).not.toHaveBeenCalled()
   })
 
   it("offers reconnection for disconnected accounts without contacting Instagram", async () => {
@@ -88,6 +93,10 @@ describe("workspace-scoped Instagram insights", () => {
       status: "reconnect_required",
     })
     expect(provider.getPostingTimes).not.toHaveBeenCalled()
+    expect(await service.getContent(workspace, query)).toEqual({
+      status: "reconnect_required",
+    })
+    expect(provider.getContent).not.toHaveBeenCalled()
   })
 
   it("anchors account-scoped timing to the current time without applying a date filter", async () => {
@@ -107,6 +116,15 @@ describe("workspace-scoped Instagram insights", () => {
     const { provider, service } = setup()
     await service.getReport(workspace, query)
     expect(provider.getReport).toHaveBeenCalledWith(
+      {
+        profileId: workspace.providerProfileId,
+        accountId: account.providerAccountId,
+      },
+      { fromDate: "2026-12-27", toDate: "2027-01-02" },
+      query
+    )
+    await service.getContent(workspace, query)
+    expect(provider.getContent).toHaveBeenCalledWith(
       {
         profileId: workspace.providerProfileId,
         accountId: account.providerAccountId,
@@ -217,6 +235,35 @@ describe("Instagram insight SDK adapter", () => {
     const pending = await provider.getReport(owner(), range, query)
     if (pending.status !== "ready") throw new Error("Expected insights")
     expect(pending.posts[0]?.metrics.views).toBeNull()
+  })
+
+  it("loads sorted content without fetching unchanged account totals or daily reach", async () => {
+    const result = await provider.getContent(owner(), range, {
+      page: 2,
+      sort: "shares",
+    })
+    expect(result.status).toBe("ready")
+    expect(result).not.toHaveProperty("summary")
+    const paths = fixture.requests.map((item) => item.path)
+    expect(paths.filter((path) => path === "/v1/analytics")).toHaveLength(1)
+    expect(paths.some((path) => path.includes("account-insights"))).toBe(false)
+    expect(
+      Object.fromEntries(
+        fixture.requests.find((item) => item.path === "/v1/analytics")!.query
+      )
+    ).toMatchObject({
+      profileId: "profile",
+      accountId: fixture.accountId,
+      platform: "instagram",
+      fromDate: range.fromDate,
+      toDate: range.toDate,
+      page: "2",
+      sortBy: "shares",
+    })
+    fixture.state.analyticsOutsideAccount = true
+    await expect(
+      provider.getContent(owner(), range, query)
+    ).rejects.toMatchObject({ code: "provider_error" })
   })
 
   it("doesn't show reel-only counters for feed posts", async () => {

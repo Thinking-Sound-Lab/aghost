@@ -15,6 +15,7 @@ import type {
   InsightReport,
   InsightsUnavailable,
   InsightTimingData,
+  InsightContentReport,
 } from "../../contract/insights"
 import type {
   InsightAccount,
@@ -40,6 +41,18 @@ const timingResponse = z.object({
 
 export class ZernioInsightsProvider implements InsightsProvider {
   constructor(private readonly zernio: ZernioAccess) {}
+
+  getContent(
+    account: InsightAccount,
+    range: InsightRange,
+    query: Pick<InsightQuery, "page" | "sort">
+  ): Promise<InsightContentReport> {
+    return available(async () => {
+      if (!(await this.canRead(account.accountId)))
+        return { status: "reconnect_required" }
+      return this.readContent(account, range, query)
+    })
+  }
 
   getPostingTimes(
     account: InsightAccount
@@ -113,34 +126,10 @@ export class ZernioInsightsProvider implements InsightsProvider {
             },
           })
         ),
-        request("load post performance", () =>
-          client.analytics.getAnalytics({
-            throwOnError: true,
-            query: {
-              profileId: account.profileId,
-              accountId: account.accountId,
-              platform: "instagram",
-              ...range,
-              page: query.page,
-              limit: PAGE_SIZE,
-              sortBy: query.sort,
-              order: "desc",
-            },
-          })
-        ),
+        this.readContent(account, range, query),
       ])
 
-      if (
-        "hasAnalyticsAccess" in content &&
-        content.hasAnalyticsAccess === false
-      )
-        return { status: "not_enabled" }
-      if (!("posts" in content) && !("pagination" in content))
-        throw new ProviderError(
-          "Couldn't load post performance. The response was not a list."
-        )
-      const list = content as AnalyticsListResponse
-      if (list.hasAnalyticsAccess === false) return { status: "not_enabled" }
+      if (content.status !== "ready") return content
       for (const result of [totals, daily]) {
         if (
           result.accountId !== account.accountId ||
@@ -152,8 +141,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
       }
 
       return {
-        status: "ready",
-        range,
+        ...content,
         summary: {
           views: number(totals.metrics?.views?.total),
           reach: number(totals.metrics?.reach?.total),
@@ -161,11 +149,6 @@ export class ZernioInsightsProvider implements InsightsProvider {
           totalInteractions: number(totals.metrics?.total_interactions?.total),
         },
         dailyReach: series(range, daily.metrics?.reach?.values ?? []),
-        posts: (list.posts ?? []).map((post) => listedPost(post, account)),
-        page: list.pagination?.page ?? query.page,
-        pages: list.pagination?.pages ?? 1,
-        totalPosts: list.pagination?.total ?? list.posts?.length ?? 0,
-        contentUpdatedAt: list.overview?.lastSync ?? null,
       }
     })
   }
@@ -240,6 +223,44 @@ export class ZernioInsightsProvider implements InsightsProvider {
         ),
       }
     })
+  }
+
+  private async readContent(
+    account: InsightAccount,
+    range: InsightRange,
+    query: Pick<InsightQuery, "page" | "sort">
+  ): Promise<InsightContentReport> {
+    const result = await request("load post performance", () =>
+      this.zernio().analytics.getAnalytics({
+        throwOnError: true,
+        query: {
+          profileId: account.profileId,
+          accountId: account.accountId,
+          platform: "instagram",
+          ...range,
+          page: query.page,
+          limit: PAGE_SIZE,
+          sortBy: query.sort,
+          order: "desc",
+        },
+      })
+    )
+    if ("hasAnalyticsAccess" in result && result.hasAnalyticsAccess === false)
+      return { status: "not_enabled" }
+    if (!("posts" in result) && !("pagination" in result))
+      throw new ProviderError(
+        "Couldn't load post performance. The response was not a list."
+      )
+    const list = result as AnalyticsListResponse
+    return {
+      status: "ready",
+      range,
+      posts: (list.posts ?? []).map((post) => listedPost(post, account)),
+      page: list.pagination?.page ?? query.page,
+      pages: list.pagination?.pages ?? 1,
+      totalPosts: list.pagination?.total ?? list.posts?.length ?? 0,
+      contentUpdatedAt: list.overview?.lastSync ?? null,
+    }
   }
 
   private async canRead(accountId: string): Promise<boolean> {

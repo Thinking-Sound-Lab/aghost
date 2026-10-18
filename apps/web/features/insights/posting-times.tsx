@@ -218,15 +218,18 @@ export function PostingTimes({
   error,
   retry,
   notice,
+  utc,
+  onUtcChange,
 }: {
   report: InsightTimingReport | null
   loading: boolean
   error: string | null
   retry: () => void
   notice: ReactNode
+  utc: boolean
+  onUtcChange: (utc: boolean) => void
 }) {
   const [localZone, setLocalZone] = useState<string | null>(null)
-  const [utc, setUtc] = useState(false)
   useEffect(
     () => setLocalZone(Intl.DateTimeFormat().resolvedOptions().timeZone),
     []
@@ -261,7 +264,7 @@ export function PostingTimes({
             <NativeSelect
               className="max-w-48 text-xs"
               value={utc ? "UTC" : "local"}
-              onChange={(event) => setUtc(event.target.value === "UTC")}
+              onChange={(event) => onUtcChange(event.target.value === "UTC")}
             >
               <option value="local">{localZone.replaceAll("_", " ")}</option>
               {localZone !== "UTC" && <option value="UTC">UTC</option>}

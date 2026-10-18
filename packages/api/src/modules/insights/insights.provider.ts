@@ -3,6 +3,7 @@ import type {
   InsightQuery,
   InsightRange,
   InsightReport,
+  InsightContentReport,
   InsightTimingData,
   InsightsUnavailable,
 } from "../../contract/insights"
@@ -13,6 +14,11 @@ export type InsightAccount = {
 }
 
 export interface InsightsProvider {
+  getContent(
+    account: InsightAccount,
+    range: InsightRange,
+    query: Pick<InsightQuery, "page" | "sort">
+  ): Promise<InsightContentReport>
   getPostingTimes(
     account: InsightAccount
   ): Promise<InsightTimingData | InsightsUnavailable>

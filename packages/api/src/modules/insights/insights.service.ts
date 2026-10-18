@@ -6,6 +6,7 @@ import type {
   InsightReport,
   InsightPeriod,
   InsightTimingReport,
+  InsightContentReport,
 } from "../../contract/insights"
 import type { AccountRepository } from "../accounts/account.repository"
 import type { WorkspaceRecord } from "../workspaces/workspace"
@@ -18,6 +19,15 @@ export class InsightsService {
     private readonly accounts: Pick<AccountRepository, "findById">,
     private readonly now: () => Date = () => new Date()
   ) {}
+
+  async getContent(
+    workspace: WorkspaceRecord,
+    query: InsightQuery
+  ): Promise<InsightContentReport> {
+    const account = await this.account(workspace, query.accountId)
+    if (!account) return { status: "reconnect_required" }
+    return this.provider.getContent(account, this.range(query.days), query)
+  }
 
   async getPostingTimes(
     workspace: WorkspaceRecord,

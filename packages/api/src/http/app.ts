@@ -484,6 +484,13 @@ export function createApp({
             presentAutomation
           )
         })
+        routes.get("/insights/content", async (request) => {
+          const { services, workspace } = request.identity
+          return services.insights.getContent(
+            workspace,
+            validate(insightQuerySchema, request.query)
+          )
+        })
         routes.get("/insights/posting-times", async (request) => {
           const { services, workspace } = request.identity
           return services.insights.getPostingTimes(

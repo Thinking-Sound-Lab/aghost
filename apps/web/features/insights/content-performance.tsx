@@ -18,6 +18,7 @@ import type {
 import { Button } from "@workspace/ui/components/button"
 import { NativeSelect } from "@workspace/ui/components/native-select"
 import { count } from "@/lib/format"
+import { ErrorBanner, Loading } from "@/components/interface"
 
 export const kindLabels: Record<InsightPost["kind"], string> = {
   reel: "Reel",
@@ -66,15 +67,25 @@ export function ContentPerformance({
   onSort,
   onPage,
   onOpen,
+  loading,
+  error,
+  retry,
 }: {
   report: Extract<InsightReport, { status: "ready" }>
   sort: InsightQuery["sort"]
   onSort: (sort: InsightQuery["sort"]) => void
   onPage: (page: number) => void
   onOpen: (postId: string) => void
+  loading: boolean
+  error: string | null
+  retry: () => void
 }) {
   return (
-    <section className="grid gap-4" aria-labelledby="content-performance-title">
+    <section
+      className="grid gap-4"
+      aria-labelledby="content-performance-title"
+      aria-busy={loading}
+    >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="grid gap-1">
           <h2 id="content-performance-title" className="text-sm font-semibold">
@@ -101,7 +112,10 @@ export function ContentPerformance({
           </NativeSelect>
         </label>
       </header>
-      {!report.posts.length ? (
+      <ErrorBanner message={error} retry={retry} />
+      {loading ? (
+        <Loading className="min-h-40" />
+      ) : error ? null : !report.posts.length ? (
         <div className="rounded-md border border-dashed px-6 py-10 text-center">
           <p className="text-sm font-medium">No content found in this period</p>
           <p className="mt-1 text-xs text-muted-foreground">

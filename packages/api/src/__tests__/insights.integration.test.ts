@@ -11,6 +11,7 @@ import type {
   InsightReport,
   InsightPostReport,
   InsightTimingReport,
+  InsightContentReport,
 } from "../contract/insights"
 import {
   grantPlan,
@@ -125,10 +126,42 @@ describe("Instagram analytics HTTP lifecycle", () => {
     expect((await get(timing, 99)).statusCode).toBe(401)
     expect((await get(timing, 2)).statusCode).toBe(402)
     expect((await get(timing, 1)).statusCode).toBe(404)
+    const content = `/insights/content?accountId=${account.id}`
+    expect((await get(content, 99)).statusCode).toBe(401)
+    expect((await get(content, 2)).statusCode).toBe(402)
+    expect((await get(content, 1)).statusCode).toBe(404)
     expect(fixture.requests).toHaveLength(0)
   })
 
+  it("browses content without requesting account insights", async () => {
+    const response = await get(
+      `/insights/content?accountId=${account.id}&days=7&sort=saves&page=2`
+    )
+    expect(response.statusCode).toBe(200)
+    const report = response.json<InsightContentReport>()
+    if (report.status !== "ready") throw new Error("Expected content")
+    expect(report.posts[0]?.metrics.views).toBe(12_500)
+    expect(report).not.toHaveProperty("summary")
+    expect(
+      fixture.requests.some((item) => item.path.includes("account-insights"))
+    ).toBe(false)
+    expect(
+      Object.fromEntries(
+        fixture.requests.find((item) => item.path === "/v1/analytics")!.query
+      )
+    ).toMatchObject({
+      page: "2",
+      sortBy: "saves",
+      accountId: fixture.accountId,
+      platform: "instagram",
+    })
+  })
+
   it("validates query parameters before contacting Instagram", async () => {
+    expect(
+      (await get(`/insights/content?accountId=${account.id}&page=0`)).statusCode
+    ).toBe(422)
+    expect(fixture.requests).toHaveLength(0)
     const invalid = await get(`/insights?accountId=${account.id}&days=365`)
     expect(invalid.statusCode).toBe(422)
     expect(invalid.json().error.code).toBe("validation_failed")

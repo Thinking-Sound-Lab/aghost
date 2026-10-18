@@ -345,6 +345,8 @@ export function Analytics() {
                 />
               </section>
               <PostingTimes
+                utc={store.timingUtc}
+                onUtcChange={store.setTimingUtc}
                 report={store.timing}
                 loading={store.timingLoading}
                 error={store.timingError}
@@ -359,6 +361,9 @@ export function Analytics() {
                 }
               />
               <ContentPerformance
+                loading={store.contentLoading}
+                error={store.contentError}
+                retry={() => void store.loadContent()}
                 report={ready}
                 sort={store.sort}
                 onSort={(sort) => void store.order(sort)}
