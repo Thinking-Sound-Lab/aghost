@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
 import { AUTOMATION_LIMITS, POST_LIMITS } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { NativeSelect } from "@workspace/ui/components/native-select"
 import {
   Dialog,
   DialogContent,
@@ -156,20 +157,20 @@ export function AutomationEditor({ id }: { id?: string }) {
               onFocus={() => useEditorStore.setState({ preview: "post" })}
             >
               {accounts.length > 1 && (
-                <select
+                <NativeSelect
                   aria-label="Instagram account"
                   value={draft.instagramAccountId}
                   onChange={(event) =>
                     void editor.selectAccount(event.target.value)
                   }
-                  className="h-8 rounded-lg bg-input/50 px-2 text-sm"
+                  className="rounded-lg border-transparent bg-input/50"
                 >
                   {accounts.map((item) => (
                     <option key={item.id} value={item.id}>
                       @{item.username}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               )}
               <Option
                 name="post"

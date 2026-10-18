@@ -19,6 +19,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
+import { NativeSelect } from "@workspace/ui/components/native-select"
 import { Textarea } from "@workspace/ui/components/textarea"
 import {
   ConfirmButton,
@@ -202,21 +203,21 @@ export function PostComposer({
               onFocus={() => useComposerStore.setState({ preview: "post" })}
             >
               {accounts.length > 1 && (
-                <select
+                <NativeSelect
                   aria-label="Instagram account"
                   value={draft.instagramAccountId}
                   disabled={!!post}
                   onChange={(event) =>
                     void composer.selectAccount(event.target.value)
                   }
-                  className="h-8 rounded-lg bg-input/50 px-2 text-sm"
+                  className="rounded-lg border-transparent bg-input/50"
                 >
                   {accounts.map((item) => (
                     <option key={item.id} value={item.id}>
                       @{item.username}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               )}
               {editable && composer.canPublish === false && account && (
                 <div className="flex items-center gap-3 rounded-md bg-muted p-4">
@@ -381,7 +382,7 @@ export function PostComposer({
                           : "Share it with everyone later from the Instagram app."
                       }
                     >
-                      <select
+                      <NativeSelect
                         aria-label="Trial Reel sharing"
                         disabled={!editable}
                         value={draft.trialReel.graduationStrategy}
@@ -395,7 +396,7 @@ export function PostComposer({
                             },
                           })
                         }
-                        className="h-8 w-full rounded-lg bg-card px-2 text-sm"
+                        className="rounded-lg border-transparent bg-card"
                       >
                         <option value="manual">
                           Share with everyone manually
@@ -403,7 +404,7 @@ export function PostComposer({
                         <option value="automatic">
                           Share automatically if it performs well
                         </option>
-                      </select>
+                      </NativeSelect>
                     </Field>
                   )}
                   {fields.trialReel && (

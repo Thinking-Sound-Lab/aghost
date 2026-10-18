@@ -1,0 +1,420 @@
+import type {
+  AnalyticsListResponse,
+  AnalyticsSinglePostResponse,
+  PostAnalytics,
+} from "@zernio/node"
+import { ZernioApiError } from "@zernio/node"
+import { z } from "zod"
+import type {
+  InsightMetrics,
+  InsightPoint,
+  InsightPost,
+  InsightPostReport,
+  InsightQuery,
+  InsightRange,
+  InsightReport,
+  InsightsUnavailable,
+  InsightTimingData,
+} from "../../contract/insights"
+import type {
+  InsightAccount,
+  InsightsProvider,
+} from "../../modules/insights/insights.provider"
+import { NotFoundError, ProviderError } from "../../shared/errors"
+import { causeOf, hasStatus, request, type ZernioAccess } from "./zernio-client"
+
+const PAGE_SIZE = 20
+type ListedPost = NonNullable<AnalyticsListResponse["posts"]>[number]
+const timingResponse = z.object({
+  slots: z
+    .array(
+      z.object({
+        day_of_week: z.number().int().min(0).max(6),
+        hour: z.number().int().min(0).max(23),
+        avg_engagement: z.number().nonnegative(),
+        post_count: z.number().int().min(1),
+      })
+    )
+    .max(168),
+})
+
+export class ZernioInsightsProvider implements InsightsProvider {
+  constructor(private readonly zernio: ZernioAccess) {}
+
+  getPostingTimes(
+    account: InsightAccount
+  ): Promise<InsightTimingData | InsightsUnavailable> {
+    return available(async () => {
+      if (!(await this.canRead(account.accountId)))
+        return { status: "reconnect_required" }
+      const result = await request("load suggested posting times", () =>
+        this.zernio().analytics.getBestTimeToPost({
+          throwOnError: true,
+          query: {
+            profileId: account.profileId,
+            accountId: account.accountId,
+            platform: "instagram",
+            source: "all",
+          },
+        })
+      )
+      const parsed = timingResponse.safeParse(result)
+      if (!parsed.success)
+        throw new ProviderError(
+          "Couldn't load posting times. The response had invalid time slots."
+        )
+      const slots = parsed.data.slots.map((slot) => ({
+        dayOfWeek: slot.day_of_week,
+        hour: slot.hour,
+        averageEngagement: slot.avg_engagement,
+        postCount: slot.post_count,
+      }))
+      if (
+        new Set(slots.map((slot) => `${slot.dayOfWeek}:${slot.hour}`)).size !==
+        slots.length
+      )
+        throw new ProviderError(
+          "Couldn't load posting times. The response had duplicate time slots."
+        )
+      return { status: "ready", slots }
+    })
+  }
+
+  getReport(
+    account: InsightAccount,
+    range: InsightRange,
+    query: Pick<InsightQuery, "page" | "sort">
+  ): Promise<InsightReport> {
+    return available(async () => {
+      if (!(await this.canRead(account.accountId)))
+        return { status: "reconnect_required" }
+
+      const client = this.zernio()
+      const [totals, daily, content] = await Promise.all([
+        request("load Instagram performance", () =>
+          client.analytics.getInstagramAccountInsights({
+            throwOnError: true,
+            query: {
+              accountId: account.accountId,
+              ...range,
+              metricType: "total_value",
+              metrics: "views,reach,accounts_engaged,total_interactions",
+            },
+          })
+        ),
+        request("load daily Instagram reach", () =>
+          client.analytics.getInstagramAccountInsights({
+            throwOnError: true,
+            query: {
+              accountId: account.accountId,
+              ...range,
+              metricType: "time_series",
+              metrics: "reach",
+            },
+          })
+        ),
+        request("load post performance", () =>
+          client.analytics.getAnalytics({
+            throwOnError: true,
+            query: {
+              profileId: account.profileId,
+              accountId: account.accountId,
+              platform: "instagram",
+              ...range,
+              page: query.page,
+              limit: PAGE_SIZE,
+              sortBy: query.sort,
+              order: "desc",
+            },
+          })
+        ),
+      ])
+
+      if (
+        "hasAnalyticsAccess" in content &&
+        content.hasAnalyticsAccess === false
+      )
+        return { status: "not_enabled" }
+      if (!("posts" in content) && !("pagination" in content))
+        throw new ProviderError(
+          "Couldn't load post performance. The response was not a list."
+        )
+      const list = content as AnalyticsListResponse
+      if (list.hasAnalyticsAccess === false) return { status: "not_enabled" }
+      for (const result of [totals, daily]) {
+        if (
+          result.accountId !== account.accountId ||
+          result.platform !== "instagram"
+        )
+          throw new ProviderError(
+            "Couldn't load analytics. The response was for another account."
+          )
+      }
+
+      return {
+        status: "ready",
+        range,
+        summary: {
+          views: number(totals.metrics?.views?.total),
+          reach: number(totals.metrics?.reach?.total),
+          accountsEngaged: number(totals.metrics?.accounts_engaged?.total),
+          totalInteractions: number(totals.metrics?.total_interactions?.total),
+        },
+        dailyReach: series(range, daily.metrics?.reach?.values ?? []),
+        posts: (list.posts ?? []).map((post) => listedPost(post, account)),
+        page: list.pagination?.page ?? query.page,
+        pages: list.pagination?.pages ?? 1,
+        totalPosts: list.pagination?.total ?? list.posts?.length ?? 0,
+        contentUpdatedAt: list.overview?.lastSync ?? null,
+      }
+    })
+  }
+
+  getPost(
+    account: InsightAccount,
+    postId: string,
+    range: InsightRange
+  ): Promise<InsightPostReport> {
+    return available(async () => {
+      if (!(await this.canRead(account.accountId)))
+        return { status: "reconnect_required" }
+
+      const client = this.zernio()
+      const result = await request("load post performance", () =>
+        client.analytics.getAnalytics({
+          throwOnError: true,
+          query: {
+            postId,
+            profileId: account.profileId,
+            accountId: account.accountId,
+            platform: "instagram",
+          },
+        })
+      )
+      // Single-post lookups can ignore the list filters. Prove ownership from
+      // the per-platform account before reading the timeline or any metrics.
+      const detail = result as AnalyticsSinglePostResponse
+      const platform = detail.platformAnalytics?.find(
+        (item) =>
+          item.platform === "instagram" && item.accountId === account.accountId
+      )
+      if (!platform) throw new NotFoundError("Post")
+      const timeline = await request("load the post's view history", () =>
+        client.analytics.getPostTimeline({
+          throwOnError: true,
+          query: {
+            postId,
+            fromDate: `${range.fromDate}T00:00:00.000Z`,
+            toDate: `${range.toDate}T23:59:59.999Z`,
+          },
+        })
+      )
+      const post = toPost({
+        id: postId,
+        platformPostId: platform.platformPostId ?? null,
+        content: detail.content,
+        publishedAt: detail.publishedAt,
+        permalink: platform.platformPostUrl,
+        thumbnailUrl: detail.thumbnailUrl,
+        mediaType: detail.mediaType,
+        mediaProductType: detail.mediaProductType,
+        analytics:
+          platform.syncStatus === "pending" ||
+          platform.syncStatus === "unavailable"
+            ? null
+            : platform.analytics,
+      })
+      return {
+        status: "ready",
+        post,
+        views: series(
+          range,
+          (timeline.timeline ?? [])
+            .filter(
+              (item) =>
+                item.platform === "instagram" &&
+                Boolean(post.platformPostId) &&
+                item.platformPostId === post.platformPostId
+            )
+            .map((item) => ({ date: item.date, value: item.views }))
+        ),
+      }
+    })
+  }
+
+  private async canRead(accountId: string): Promise<boolean> {
+    const health = await request("check analytics access", () =>
+      this.zernio().accounts.getAccountHealth({
+        throwOnError: true,
+        path: { accountId },
+      })
+    )
+    if (typeof health.permissions?.canFetchAnalytics !== "boolean")
+      throw new ProviderError(
+        "Couldn't check analytics access. The response had no permissions."
+      )
+    return health.permissions.canFetchAnalytics
+  }
+}
+
+async function available<T>(
+  work: () => Promise<T>
+): Promise<T | InsightsUnavailable> {
+  try {
+    return await work()
+  } catch (error) {
+    const cause = causeOf(error)
+    if (
+      hasStatus(cause, 402) ||
+      (cause instanceof ZernioApiError &&
+        cause.statusCode === 403 &&
+        cause.body &&
+        "requiresAddon" in cause.body &&
+        cause.body.requiresAddon === true)
+    )
+      return { status: "not_enabled" }
+    if (hasStatus(cause, 401) || hasStatus(cause, 403) || hasStatus(cause, 412))
+      return { status: "reconnect_required" }
+    throw error
+  }
+}
+
+function listedPost(post: ListedPost, account: InsightAccount): InsightPost {
+  const platform = post.platforms?.find(
+    (item) =>
+      item.platform === "instagram" && item.accountId === account.accountId
+  )
+  if (
+    (post.profileId && post.profileId !== account.profileId) ||
+    (post.platforms?.length && !platform) ||
+    (post.platform && post.platform !== "instagram")
+  )
+    throw new ProviderError(
+      "Couldn't load post performance. A post belonged to another account."
+    )
+  if (!post._id)
+    throw new ProviderError("Couldn't load post performance. A post had no id.")
+  return toPost({
+    id: post._id,
+    platformPostId: platform?.platformPostId ?? null,
+    content: post.content,
+    publishedAt: post.publishedAt,
+    permalink: platform?.platformPostUrl ?? post.platformPostUrl,
+    thumbnailUrl: post.thumbnailUrl,
+    mediaType: post.mediaType,
+    mediaProductType: post.mediaProductType,
+    analytics: platform
+      ? platform.syncStatus === "pending" ||
+        platform.syncStatus === "unavailable"
+        ? null
+        : platform.analytics
+      : post.analytics,
+  })
+}
+
+function toPost(input: {
+  id: string
+  platformPostId: string | null
+  content?: string
+  publishedAt?: string | null
+  permalink?: string | null
+  thumbnailUrl?: string | null
+  mediaType?: string | null
+  mediaProductType?: string
+  analytics?: PostAnalytics | null
+}): InsightPost {
+  const kind =
+    input.mediaProductType === "STORY"
+      ? "story"
+      : input.mediaProductType === "REELS"
+        ? "reel"
+        : input.mediaType === "carousel"
+          ? "carousel"
+          : input.mediaProductType === "FEED" || input.mediaType === "image"
+            ? "post"
+            : "unknown"
+  return {
+    id: input.id,
+    platformPostId: input.platformPostId,
+    caption: input.content || null,
+    publishedAt: input.publishedAt ?? null,
+    permalink: httpsUrl(input.permalink),
+    thumbnailUrl: httpsUrl(input.thumbnailUrl),
+    kind,
+    metrics: metrics(input.analytics, kind === "reel"),
+    updatedAt: input.analytics?.lastUpdated ?? null,
+  }
+}
+
+function metrics(
+  data: PostAnalytics | null | undefined,
+  reel: boolean
+): InsightMetrics {
+  const likes = number(data?.likes)
+  const comments = number(data?.comments)
+  const saves = number(data?.saves)
+  const shares = number(data?.shares)
+  const reach = number(data?.reach)
+  return {
+    views: number(data?.views),
+    reach,
+    likes,
+    comments,
+    saves,
+    shares,
+    reposts: number(data?.reposts),
+    engagementRate:
+      reach &&
+      likes !== null &&
+      comments !== null &&
+      saves !== null &&
+      shares !== null
+        ? ((likes + comments + saves + shares) / reach) * 100
+        : null,
+    averageWatchSeconds: reel ? seconds(data?.igReelsAvgWatchTime) : null,
+    totalWatchSeconds: reel ? seconds(data?.igReelsVideoViewTotalTime) : null,
+    skipRate:
+      reel &&
+      number(data?.reelsSkipRate) !== null &&
+      data!.reelsSkipRate! <= 100
+        ? data!.reelsSkipRate!
+        : null,
+  }
+}
+
+function number(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : null
+}
+
+function seconds(value: unknown): number | null {
+  const milliseconds = number(value)
+  return milliseconds === null ? null : milliseconds / 1000
+}
+
+function httpsUrl(value: string | null | undefined): string | null {
+  if (!value) return null
+  try {
+    return new URL(value).protocol === "https:" ? value : null
+  } catch {
+    return null
+  }
+}
+
+function series(
+  range: InsightRange,
+  values: { date?: string; value?: number }[]
+): InsightPoint[] {
+  const byDay = new Map(
+    values.map((item) => [item.date?.slice(0, 10), number(item.value)])
+  )
+  const points: InsightPoint[] = []
+  const day = new Date(`${range.fromDate}T00:00:00Z`)
+  while (day.toISOString().slice(0, 10) <= range.toDate) {
+    const date = day.toISOString().slice(0, 10)
+    points.push({ date, value: byDay.get(date) ?? null })
+    day.setUTCDate(day.getUTCDate() + 1)
+  }
+  return points
+}

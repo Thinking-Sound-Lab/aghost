@@ -5,5 +5,5 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
   // Store tests import shared TSX helpers; Next.js leaves JSX for its bundler.
   oxc: { jsx: { runtime: "automatic" } },
-  test: { include: ["stores/**/*.test.ts"] },
+  test: { include: ["stores/**/*.test.ts", "features/**/*.test.ts"] },
 })

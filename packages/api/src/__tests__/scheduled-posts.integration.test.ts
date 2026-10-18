@@ -237,7 +237,9 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
         .filter((request) => request.path === "/v1/connect/instagram")
         .at(-1)!
       expect(authorize.query.get("reconnectAccountId")).toBe(fixture.accountId)
-      expect(authorize.query.get("scopes")).toBe("posting,comments,messaging")
+      expect(authorize.query.get("scopes")).toBe(
+        "posting,analytics,comments,messaging"
+      )
       expect(recorded.namesFor(ownerId)).toContain(
         "instagram_reconnect_started"
       )
