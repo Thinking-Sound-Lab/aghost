@@ -22,16 +22,14 @@ export const sources = {
     "https://www.blotato.com/blog/how-to-post-to-instagram-with-claude",
   manychatInstagram: "https://manychat.com/product/instagram",
   manychatPricing: "https://manychat.com/pricing",
-  manychatEssential:
-    "https://help.manychat.com/hc/en-us/articles/25800276116508-Essential-plan",
-  manychatPro:
-    "https://help.manychat.com/hc/en-us/articles/25800228332572-Pro-plan",
+  manychatComments:
+    "https://help.manychat.com/hc/en-us/articles/14281316989724-Instagram-Post-and-Reel-Comments-trigger",
+  manychatQuickAutomation:
+    "https://help.manychat.com/hc/en-us/articles/16654065283100-Quick-Automation-Auto-DM-links-from-comments",
+  manychatApi:
+    "https://help.manychat.com/hc/en-us/articles/14959510331420-How-to-generate-a-token-for-the-Manychat-API-and-where-to-get-parameters",
   manychatContacts:
     "https://help.manychat.com/hc/en-us/articles/25800323349020-Active-Contacts",
-  manychatBusiness:
-    "https://help.manychat.com/hc/en-us/articles/25800254159900-Business-plan",
-  manychatAdvanced:
-    "https://help.manychat.com/hc/en-us/articles/25800308984988-Advanced-plan",
   manychatPlans:
     "https://help.manychat.com/hc/en-us/articles/25800347122716-Manychat-subscription-How-to-choose-the-right-one-for-you",
   linkdm: "https://www.linkdm.com/",

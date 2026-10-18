@@ -27,9 +27,8 @@ const covers: Record<
     tone: "blue",
   },
   "instagram-auto-reply": { lines: ["Instagram", "auto reply"], tone: "green" },
-  "manychat-pricing": { lines: ["ManyChat", "pricing 2026"], tone: "orange" },
-  "manychat-alternatives": {
-    lines: ["5 ManyChat", "alternatives"],
+  "aghost-vs-manychat": {
+    lines: ["aghost", "vs ManyChat"],
     tone: "blue",
   },
   "instagram-dm-limits": { lines: ["DM limits", "7 days · 24 h"], tone: "red" },

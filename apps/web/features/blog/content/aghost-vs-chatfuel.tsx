@@ -212,11 +212,12 @@ export const aghostVsChatfuel: ArticleContent = {
             dashboard.
           </p>
           <p>
-            Comparing more options? The{" "}
-            <Link href="/blog/manychat-alternatives">
-              ManyChat alternatives guide
+            Also considering ManyChat? The{" "}
+            <Link href="/blog/aghost-vs-manychat">
+              aghost vs ManyChat comparison
             </Link>{" "}
-            covers five tools, their costs, and the workflow each is suited to.
+            covers Instagram campaigns, agent access, and the differences
+            between flat and contact-based billing.
           </p>
         </>
       ),

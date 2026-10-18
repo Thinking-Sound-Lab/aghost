@@ -45,7 +45,7 @@
 .blog-prose h2 {
   margin-bottom: 20px;
   font-size: clamp(28px, 3vw, 36px);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: #fff;
@@ -55,7 +55,7 @@
 .blog-prose h3 {
   margin-block: 28px 10px;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.4;
   color: #fff;
 }

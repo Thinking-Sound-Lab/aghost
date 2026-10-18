@@ -16,15 +16,24 @@ the market. No claim about rising demand is supported by this single snapshot.
 | Priority | Article                                    | Demand evidence                                                                            | Search intent and article job                                                                                                  |
 | -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | 1        | `/blog/instagram-auto-reply`               | `instagram auto reply`: US 2,400/month                                                     | Setup intent: native acknowledgment versus comment-triggered resource delivery; practical steps and original message examples  |
-| 2        | `/blog/manychat-pricing`                   | `manychat pricing`: US 2,400/month                                                         | Buying intent: current plans, billing cycles, active contacts, worked cost examples                                            |
-| 3        | `/blog/manychat-alternatives`              | `manychat alternative`: US 390/month                                                       | Switching intent: five replacement candidates, constraints, and migration checklist                                            |
-| 4        | `/blog/instagram-dm-limits`                | `instagram dm limits`: US 90/month; `instagram message limit`: US 110/month                | Rules intent: organic private replies, messaging windows, API throughput, tool allowances                                      |
-| 5        | `/blog/best-instagram-dm-automation-tools` | Exact phrase unavailable; related `instagram dm automation`: US 320/month, India 720/month | Evaluation intent: shortlist six tools by job, then test a representative campaign                                             |
-| 6        | `/blog/aghost-vs-chatfuel`                 | No verified demand estimate for this new comparison                                        | Direct buying comparison: aghost's Instagram campaigns and agent access versus Chatfuel's conversation and developer workflows |
+| 2        | `/blog/aghost-vs-manychat`                 | No verified demand estimate for this direct comparison                                     | Direct buying comparison: Instagram campaigns, sales features, agent operation, billing models, and switching requirements     |
+| 3        | `/blog/instagram-dm-limits`                | `instagram dm limits`: US 90/month; `instagram message limit`: US 110/month                | Rules intent: organic private replies, messaging windows, API throughput, tool allowances                                      |
+| 4        | `/blog/best-instagram-dm-automation-tools` | Exact phrase unavailable; related `instagram dm automation`: US 320/month, India 720/month | Evaluation intent: shortlist six tools by job, then test a representative campaign                                             |
+| 5        | `/blog/aghost-vs-chatfuel`                 | No verified demand estimate for this new comparison                                        | Direct buying comparison: aghost's Instagram campaigns and agent access versus Chatfuel's conversation and developer workflows |
 
 Priority balances estimated demand, product fit, commercial intent, and coverage.
-It is an editorial judgment, not a predicted ranking. The highest relevant setup
-and pricing terms appear first in the catalog; the blog groups them by reader task.
+It is an editorial judgment, not a predicted ranking. The blog groups articles
+by reader task, with the scheduling guide featured above the other posts.
+
+October 18 update: at the user's request, remove the standalone ManyChat pricing
+article and replace the five-alternatives article with `/blog/aghost-vs-manychat`.
+Both old URLs permanently redirect to the direct comparison; the pricing URL
+opens its billing-model section. The comparison covers actual product boundaries,
+Growth product carousels, Business follow-up nudges, and external agent operation.
+The older `manychat pricing` estimate (US 2,400/month) and `manychat alternative`
+estimate (US 390/month) do not establish demand for this new direct comparison.
+The catalog now contains six articles, with only their current URLs in the
+sitemap, llms.txt, related reading, and blog collection data.
 
 October 17 update: direct aghost-versus-competitor comparisons take priority over
 competitor-versus-competitor articles. `/blog/aghost-vs-chatfuel` replaces the
@@ -139,10 +148,11 @@ screenshots, claims of tests, and conversion promises were not reused.
   [Advanced](https://help.manychat.com/hc/en-us/articles/25800308984988-Advanced-plan), and
   [active contacts](https://help.manychat.com/hc/en-us/articles/25800323349020-Active-Contacts):
   use the model introduced March 2, 2026, with region/account rollout caveats.
-  Annual prices are labeled as monthly equivalents paid upfront. Worked examples
-  are calculations, not live checkout quotes. The Essential help page rounds its
-  annual overage differently from the pricing page; examples use verified monthly
-  rates to avoid that discrepancy.
+  The October 18 direct comparison keeps the distinction between flat pricing
+  and active-contact billing and links current official pricing; it does not
+  reproduce the removed pricing article's detailed plan calculations. ManyChat's
+  Instagram product, comment-trigger instructions, quick automation guide, and
+  API token guide were also rechecked for workflow and developer-access claims.
 - [LinkDM](https://www.linkdm.com/),
   [Chatfuel Instagram](https://chatfuel.com/instagram),
   [Chatfuel pricing](https://chatfuel.com/pricing),
@@ -157,7 +167,7 @@ screenshots, claims of tests, and conversion promises were not reused.
 
 ## Publication and maintenance
 
-The seven routes render at build time. Each has a canonical URL, unique metadata,
+The six routes render at build time. Each has a canonical URL, unique metadata,
 article Open Graph fields, a BlogPosting and breadcrumb graph, visible editorial
 attribution, checked dates, source links, a table of contents, related reading,
 and relevant product links. Sitemap and llms.txt list the routes, and the main
@@ -182,8 +192,8 @@ in this research pass.
 
 - Comment-to-DM troubleshooting focused on automation, distinct from general
   Instagram app failures.
-- aghost vs ManyChat and aghost vs LinkDM, once keyword data and first-batch
-  Search Console impressions help prioritize them.
+- aghost vs LinkDM, once keyword data and Search Console impressions help
+  prioritize it alongside the existing direct comparisons.
 - A free-plan comparison with allowances rechecked on the publication date.
 - Lead-magnet campaign examples for coaches, affiliates, and product launches.
 

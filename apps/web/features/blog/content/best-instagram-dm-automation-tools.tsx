@@ -123,9 +123,12 @@ export const bestInstagramDmAutomationTools: ArticleContent = {
           <p>
             Test the full path you plan to build, including branching and data
             capture. Then model the bill for an ordinary campaign and a busy
-            month. Our <Link href="/blog/manychat-pricing">pricing guide</Link>{" "}
-            explains the current active-contact structure and why a headline
-            price alone can be misleading.
+            month. Our{" "}
+            <Link href="/blog/aghost-vs-manychat">
+              aghost vs ManyChat comparison
+            </Link>{" "}
+            explains the workflow differences and how their billing models
+            affect that decision.
           </p>
         </>
       ),
