@@ -50,6 +50,7 @@ function post(automationIds: string[] = []): ScheduledPost {
     kind: "post",
     caption: "Original caption",
     media: [media],
+    trialReel: null,
     scheduledFor: new Date(Date.now() + 86_400_000).toISOString(),
     status: "scheduled",
     platformPostId: null,
@@ -126,6 +127,81 @@ describe("the scheduling composer across failures and navigation", () => {
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
     vi.mocked(api.automations.stats).mockResolvedValue({})
+  })
+
+  it.each(["manual", "automatic"] as const)(
+    "schedules a %s Trial Reel with its comment-to-DM automation",
+    async (graduationStrategy) => {
+      await draft(true)
+      const trialReel = { graduationStrategy }
+      const video: PostMedia = {
+        url: "https://media.example/trial.mp4",
+        type: "video",
+      }
+      useComposerStore.getState().patch({ media: [video], trialReel })
+      const saved = {
+        ...post(["33333333-3333-4333-8333-333333333333"]),
+        media: [video],
+        trialReel,
+      }
+      vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+      vi.mocked(api.automations.get).mockResolvedValue(automationFor(saved))
+      expect(await useComposerStore.getState().save()).toEqual(saved)
+      expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          kind: "post",
+          media: [video],
+          trialReel,
+          automation: expect.objectContaining({
+            dmMessage: "Here is the guide",
+            status: "active",
+          }),
+        })
+      )
+    }
+  )
+
+  it("restores a saved trial in the composer and sends explicit null when the owner turns it off", async () => {
+    const saved: ScheduledPost = {
+      ...post(),
+      media: [{ url: "https://media.example/trial.mp4", type: "video" }],
+      trialReel: { graduationStrategy: "automatic" },
+    }
+    vi.mocked(api.scheduledPosts.get).mockResolvedValue(saved)
+    await useComposerStore.getState().initialize(saved.id, null)
+    expect(useComposerStore.getState().draft.trialReel).toEqual(saved.trialReel)
+    useComposerStore.getState().patch({ caption: "Edited trial" })
+    vi.mocked(api.scheduledPosts.update).mockResolvedValue({
+      ...saved,
+      caption: "Edited trial",
+    })
+    await useComposerStore.getState().save()
+    expect(api.scheduledPosts.update).toHaveBeenLastCalledWith(
+      saved.id,
+      expect.objectContaining({ trialReel: saved.trialReel })
+    )
+    useComposerStore.getState().patch({ trialReel: null })
+    vi.mocked(api.scheduledPosts.update).mockResolvedValue({
+      ...saved,
+      trialReel: null,
+    })
+    await useComposerStore.getState().save()
+    expect(api.scheduledPosts.update).toHaveBeenLastCalledWith(
+      saved.id,
+      expect.objectContaining({ trialReel: null })
+    )
+  })
+
+  it("highlights an incompatible Trial Reel before saving and clears trial mode for a story", async () => {
+    await draft()
+    useComposerStore
+      .getState()
+      .patch({ trialReel: { graduationStrategy: "manual" } })
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toHaveProperty("trialReel")
+    expect(api.scheduledPosts.create).not.toHaveBeenCalled()
+    useComposerStore.getState().patch({ kind: "story" })
+    expect(useComposerStore.getState().draft.trialReel).toBeNull()
   })
 
   it("includes the carousel and reminder in the scheduled post's automation", async () => {

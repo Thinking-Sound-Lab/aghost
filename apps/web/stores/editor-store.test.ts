@@ -46,6 +46,7 @@ function scheduled(days = 1, accountId = account.id): ScheduledPost {
     instagramAccountId: accountId,
     kind: "post",
     caption: "Scheduled",
+    trialReel: null,
     media: [{ type: "image", url: "https://media.example/a.jpg" }],
     scheduledFor: new Date(Date.now() + days * 86_400_000).toISOString(),
     status: "scheduled",

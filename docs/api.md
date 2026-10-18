@@ -104,6 +104,26 @@ The response lists the post's `automationIds`; the automation's trigger is `{ "p
 
 `GET /scheduled-posts` takes `from` and `to` as ISO 8601 times up to 92 days apart and returns the posts in that period, earliest first. Reading a post after its time returns its outcome: `published` with `platformPostId` and `permalink`, or `failed` with `error`. Only `scheduled` posts can be changed; `PATCH` replaces `caption`, `media` and `scheduledFor`, and `kind` must stay the same. `DELETE` cancels a scheduled or failed post together with its automations, so a post with automations also needs `automations:write`. Published posts stay on Instagram. When a workspace's plan ends, its posts still waiting to publish are cancelled and kept as `failed`, with the reason in `error`.
 
+### Trial Reels
+
+In the dashboard, open **Calendar → New post**, enable **Trial Reel**, upload one video, and choose manual or automatic sharing. Set the date and time and optionally enable **Send a DM to people who comment** before scheduling. Existing scheduled reels can also be changed to trials before they publish.
+
+Agents use the same `POST /scheduled-posts` endpoint (or MCP `schedule_post`). Set `kind: "post"`, exactly one video in `media`, and:
+
+```json
+{
+  "trialReel": { "graduationStrategy": "manual" }
+}
+```
+
+`manual` lets the owner share the reel with everyone later in Instagram. `automatic` lets Instagram decide whether to share it with everyone based on performance with non-followers. Photos, carousels, and stories cannot be Trial Reels. The optional `automation` works the same way as for a regular reel, including the additional `automations:write` permission.
+
+Omit `trialReel` or use `null` to schedule a regular post. On `PATCH /scheduled-posts/:postId`, omitting it preserves the existing setting; explicit `null` turns a waiting trial into a regular reel, and an object changes its sharing strategy. An inherited trial still requires one video. If an attached automation cannot be created, the previous content and trial settings are restored together.
+
+List, create, get, and update responses include `trialReel` (`null` for regular posts). It records how the reel was configured to launch. Instagram does not expose its current graduation state; a published trial may already have been shared with everyone. Check Instagram for that status.
+
+Apply `20261018090000_trial_reels.sql`, deploy all API replicas, then deploy the dashboard. The migration adds a nullable column and preserves existing posts. No new provider credentials are needed. Provider fixtures verify the request shape and automation binding; real Trial Reel publication and comment-to-DM delivery still require an authorized Instagram account test.
+
 An account connected before scheduling was available has not allowed publishing: scheduling on it returns 409 `publishing_not_allowed` until the owner chooses **Reconnect** in Settings → Channels.
 
 Activity pagination defaults to `limit=25&offset=0`. The maximum limit is 50. Contacts use `search` and `offset` and return up to 50 per page. URL-encode opaque conversation IDs when putting them in a path.
