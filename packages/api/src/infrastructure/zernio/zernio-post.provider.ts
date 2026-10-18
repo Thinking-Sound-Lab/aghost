@@ -50,6 +50,11 @@ const GONE: PublishingState = {
 export class ZernioPublishingProvider implements PublishingProvider {
   constructor(private readonly zernio: ZernioAccess) {}
 
+  // Zernio presigns uploads to its Cloudflare R2 bucket, which accepts them
+  // from any origin.
+  readonly uploadOrigin =
+    "https://late-media.613d73a46130ed0083c059a837d6511b.r2.cloudflarestorage.com"
+
   async canPublish(providerAccountId: string): Promise<boolean> {
     const action = "check whether the account can publish"
     const body = await request(action, () =>

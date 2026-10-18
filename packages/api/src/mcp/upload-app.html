@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Upload for your agent</title>
+    <style>
+      /* The app's theme variables when it sends them, otherwise aghost's. */
+      :root {
+        color-scheme: light dark;
+        --fg: var(--color-text-primary, light-dark(#0a0a0a, #fafafa));
+        --fg-muted: var(--color-text-secondary, light-dark(#737373, #a3a3a3));
+        --bg: var(--color-background-primary, light-dark(#ffffff, #161616));
+        --muted: var(
+          --color-background-secondary,
+          light-dark(#f5f5f5, #1f1f1f)
+        );
+        --danger: var(--color-text-danger, light-dark(#dc2626, #f87171));
+        --ring: var(--color-ring-primary, light-dark(#a3a3a3, #525252));
+        --radius: var(--border-radius-sm, 6px);
+        --font: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+      }
+      html,
+      body {
+        margin: 0;
+        background: transparent;
+        color: var(--fg);
+        font: 14px/1.45 var(--font);
+      }
+      main {
+        display: grid;
+        gap: 16px;
+        padding: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+      }
+      .hint {
+        margin-top: 2px;
+        color: var(--fg-muted);
+        font-size: 13px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .grid:empty {
+        display: none;
+      }
+      .tile {
+        position: relative;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 4px;
+        aspect-ratio: 1;
+        overflow: hidden;
+        padding: 8px;
+        border-radius: var(--radius);
+        background: var(--muted);
+        color: var(--fg-muted);
+        font-size: 11px;
+        text-align: center;
+      }
+      .tile canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .name {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .progress {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 4px;
+        padding: 8px;
+        background: var(--muted);
+      }
+      .remove {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius);
+        background: rgb(0 0 0 / 0.6);
+        color: #ffffff;
+        cursor: pointer;
+      }
+      .remove svg {
+        width: 14px;
+        height: 14px;
+      }
+      .add {
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .add:hover {
+        color: var(--fg);
+      }
+      .add:focus-within,
+      .remove:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+      .add input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+      }
+      svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .add svg {
+        width: 20px;
+        height: 20px;
+      }
+      .spin {
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .error {
+        color: var(--danger);
+        font-size: 13px;
+      }
+      .link {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .send {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: var(--radius);
+        background: var(--fg);
+        color: var(--bg);
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .send:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div>
+        <h1 id="title"></h1>
+        <p id="hint" class="hint"></p>
+      </div>
+      <div id="grid" class="grid"></div>
+      <p id="error" class="error" role="alert" hidden>
+        <span id="error-text"></span>
+        <button id="open-page" class="link" type="button" hidden>
+          Use the upload page
+        </button>
+      </p>
+      <div id="actions" class="actions" hidden>
+        <button id="send" class="send" type="button">Send to agent</button>
+      </div>
+    </main>
+    <script id="limits" type="application/json">
+      {{LIMITS}}
+    </script>
+    <script>
+      ;(() => {
+        "use strict"
+
+        const $ = (id) => document.getElementById(id)
+        // POST_LIMITS and MEDIA_CONTENT_TYPES from the API contract.
+        const LIMITS = JSON.parse($("limits").textContent)
+        const ICONS = {
+          add: '<path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/>',
+          remove: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+          loading: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+          video:
+            '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
+        }
+
+        const state = {
+          // create_upload_link's result, once the app passes it on.
+          link: null,
+          // The files in the order the owner chose them; `media` once uploaded.
+          items: [],
+          sending: false,
+          // After sending: whether the agent was told in the chat.
+          told: null,
+          error: null,
+          // A failed upload offers the link's page, which uploads from aghost.
+          offerPage: false,
+        }
+
+        // The app speaks JSON-RPC over postMessage (MCP Apps, SEP-1865).
+        let nextId = 1
+        const pending = new Map()
+        const post = (message) =>
+          window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*")
+        const notify = (method, params) => post({ method, params })
+        function request(method, params) {
+          const id = nextId++
+          post({ id, method, params })
+          return new Promise((resolve, reject) =>
+            pending.set(id, { resolve, reject })
+          )
+        }
+
+        window.addEventListener("message", (event) => {
+          const message = event.data
+          if (event.source !== window.parent || message?.jsonrpc !== "2.0")
+            return
+          if (message.method === undefined) {
+            const waiting = pending.get(message.id)
+            if (!waiting) return
+            pending.delete(message.id)
+            if (message.error) waiting.reject(new Error(message.error.message))
+            else waiting.resolve(message.result)
+            return
+          }
+          if (message.id !== undefined)
+            post(
+              ["ping", "ui/resource-teardown"].includes(message.method)
+                ? { id: message.id, result: {} }
+                : {
+                    id: message.id,
+                    error: { code: -32601, message: "Method not found" },
+                  }
+            )
+          if (message.method === "ui/notifications/tool-result")
+            receive(message.params)
+          if (message.method === "ui/notifications/tool-cancelled")
+            fail("Your agent stopped before the upload box was ready.")
+          if (message.method === "ui/notifications/host-context-changed")
+            applyContext(message.params)
+        })
+
+        /** The message of an aghost tool's error result. */
+        function errorOf(result) {
+          const text =
+            result.content?.find((block) => block.type === "text")?.text ?? ""
+          try {
+            return JSON.parse(text).error.message
+          } catch {
+            return text
+          }
+        }
+
+        /** Calls an aghost tool through the app and returns its data. */
+        async function callTool(name, args) {
+          const result = await request("tools/call", { name, arguments: args })
+          if (result.isError) throw new Error(errorOf(result))
+          return result.structuredContent.data
+        }
+
+        function applyContext(context) {
+          const root = document.documentElement
+          if (context?.theme) root.style.colorScheme = context.theme
+          for (const [name, value] of Object.entries(
+            context?.styles?.variables ?? {}
+          ))
+            if (value) root.style.setProperty(name, value)
+        }
+
+        let reportedHeight = 0
+        function reportSize() {
+          const height = Math.ceil(
+            document.documentElement.getBoundingClientRect().height
+          )
+          if (height === reportedHeight) return
+          reportedHeight = height
+          notify("ui/notifications/size-changed", { height })
+        }
+
+        function fail(message, offerPage = false) {
+          state.error = message || "Something went wrong. Try again."
+          state.offerPage = offerPage
+          render()
+        }
+
+        function receive(result) {
+          if (result.isError) return fail(errorOf(result))
+          state.link = result.structuredContent.data
+          render()
+        }
+
+        /** The link's status now: it may have expired since the result came. */
+        function status() {
+          const { link } = state
+          if (
+            link.status === "waiting" &&
+            Date.parse(link.expiresAt) <= Date.now()
+          )
+            return "expired"
+          return link.status
+        }
+
+        const uploading = () => state.items.some((item) => !item.media)
+        const uploaded = () =>
+          state.items.filter((item) => item.media).map((item) => item.media)
+
+        function problemOf(file) {
+          const kind = LIMITS.types[file.type]
+          if (!kind)
+            return `${file.name}: Upload a JPEG or PNG photo, or an MP4 or MOV video`
+          const max = LIMITS.maxBytes[kind]
+          if (file.size > max)
+            return `${file.name}: Use a ${kind} of ${max / 1024 / 1024} MB or less`
+          return null
+        }
+
+        function addFiles(files) {
+          if (!files.length || !state.link || status() !== "waiting") return
+          if (state.sending) return
+          if (state.items.length + files.length > LIMITS.maxItems)
+            return fail(
+              `A post can have up to ${LIMITS.maxItems} photos or videos.`
+            )
+          const problem = files.map(problemOf).find(Boolean)
+          if (problem) return fail(problem)
+          state.error = null
+          const added = files.map((file) => ({
+            file,
+            kind: LIMITS.types[file.type],
+            media: null,
+            view: null,
+          }))
+          state.items.push(...added)
+          render()
+          for (const item of added) void upload(item)
+        }
+
+        /** Sends the bytes from this browser straight to storage. */
+        function put(url, file, onProgress) {
+          return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+            xhr.open("PUT", url)
+            xhr.setRequestHeader("Content-Type", file.type)
+            xhr.upload.addEventListener("progress", (event) => {
+              if (event.lengthComputable) onProgress(event.loaded / event.total)
+            })
+            xhr.addEventListener("load", () =>
+              xhr.status >= 200 && xhr.status < 300
+                ? resolve()
+                : reject(new Error("Try again."))
+            )
+            xhr.addEventListener("error", () =>
+              reject(new Error("Check your connection and try again."))
+            )
+            xhr.send(file)
+          })
+        }
+
+        async function upload(item) {
+          try {
+            const target = await callTool("create_media_upload", {
+              filename: item.file.name,
+              contentType: item.file.type,
+              size: item.file.size,
+            })
+            await put(target.uploadUrl, item.file, (fraction) => {
+              item.view.percent.textContent = `${Math.round(fraction * 100)}%`
+            })
+            item.media = target.media
+            render()
+          } catch (error) {
+            state.items = state.items.filter((other) => other !== item)
+            fail(`Couldn't upload ${item.file.name}. ${error.message}`, true)
+          }
+        }
+
+        async function send() {
+          const media = uploaded()
+          if (state.sending || uploading() || media.length === 0) return
+          state.sending = true
+          state.error = null
+          render()
+          try {
+            state.link = await callTool("complete_upload_link", {
+              uploadLinkId: state.link.id,
+              media,
+            })
+          } catch (error) {
+            state.sending = false
+            return fail(error.message)
+          }
+          state.sending = false
+          render()
+          // The agent goes on as if the owner had told it in the chat.
+          const files = media.length === 1 ? "1 file" : `${media.length} files`
+          try {
+            const result = await request("ui/message", {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `I've uploaded ${files} (upload link ${state.link.id}).`,
+                },
+              ],
+            })
+            state.told = !result?.isError
+          } catch {
+            state.told = false
+          }
+          render()
+        }
+
+        function icon(name, className = "") {
+          const svg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg"
+          )
+          svg.setAttribute("viewBox", "0 0 24 24")
+          svg.setAttribute("aria-hidden", "true")
+          if (className) svg.setAttribute("class", className)
+          svg.innerHTML = ICONS[name]
+          return svg
+        }
+
+        function element(tag, className, text) {
+          const node = document.createElement(tag)
+          if (className) node.className = className
+          if (text) node.textContent = text
+          return node
+        }
+
+        // A photo's preview is decoded from the file and drawn, since the
+        // sandbox may block blob: and storage URLs.
+        function preview(file, tile) {
+          createImageBitmap(file).then(
+            (bitmap) => {
+              const canvas = element("canvas")
+              const side = Math.min(bitmap.width, bitmap.height)
+              canvas.width = canvas.height = 240
+              canvas
+                .getContext("2d")
+                .drawImage(
+                  bitmap,
+                  (bitmap.width - side) / 2,
+                  (bitmap.height - side) / 2,
+                  side,
+                  side,
+                  0,
+                  0,
+                  240,
+                  240
+                )
+              bitmap.close()
+              tile.prepend(canvas)
+            },
+            () => tile.prepend(element("span", "name", file.name))
+          )
+        }
+
+        /** Each file keeps one tile, so uploads update it in place. */
+        function viewOf(item) {
+          if (item.view) return item.view
+          const tile = element("div", "tile")
+          if (item.kind === "image") preview(item.file, tile)
+          else
+            tile.append(icon("video"), element("span", "name", item.file.name))
+          const progress = element("div", "progress")
+          const percent = element("span", "", "0%")
+          progress.append(
+            icon("loading", "spin"),
+            percent,
+            element("span", "name", item.file.name)
+          )
+          const remove = element("button", "remove")
+          remove.type = "button"
+          remove.setAttribute("aria-label", `Remove ${item.file.name}`)
+          remove.append(icon("remove"))
+          remove.addEventListener("click", () => {
+            state.items = state.items.filter((other) => other !== item)
+            render()
+          })
+          tile.append(progress, remove)
+          item.view = { tile, progress, percent, remove }
+          return item.view
+        }
+
+        function createAddTile() {
+          const label = element("label", "tile add")
+          const input = element("input")
+          input.type = "file"
+          input.multiple = true
+          input.accept = Object.keys(LIMITS.types).join(",")
+          input.addEventListener("change", () => {
+            const files = [...input.files]
+            input.value = ""
+            addFiles(files)
+          })
+          label.append(icon("add"), element("span", "", "Add"), input)
+          return label
+        }
+        const addTile = createAddTile()
+
+        const HEADINGS = {
+          waiting: [
+            "Upload for your agent",
+            "Choose the photos and videos for your post, in order. The first is the cover.",
+          ],
+          uploaded: ["Sent to your agent", ""],
+          expired: ["This link has expired", "Ask your agent for a new one."],
+        }
+
+        function render() {
+          const current = state.link ? status() : null
+          const waiting = current === "waiting"
+          const [title, hint] = current
+            ? HEADINGS[current]
+            : ["Upload for your agent", ""]
+          $("title").textContent = title
+          $("hint").textContent =
+            current === "uploaded" && state.told === false
+              ? "Tell your agent the files are ready."
+              : hint
+          $("hint").hidden = !$("hint").textContent
+
+          const tiles = state.items.map((item) => {
+            const view = viewOf(item)
+            view.progress.hidden = item.media !== null
+            view.remove.hidden = !waiting || state.sending || !item.media
+            return view.tile
+          })
+          if (waiting && !state.sending && state.items.length < LIMITS.maxItems)
+            tiles.push(addTile)
+          $("grid").replaceChildren(...tiles)
+
+          $("error").hidden = !state.error
+          $("error-text").textContent = state.error ?? ""
+          $("open-page").hidden = !(state.offerPage && waiting)
+
+          $("actions").hidden = !waiting
+          const send = $("send")
+          send.disabled =
+            state.sending || uploading() || uploaded().length === 0
+          send.replaceChildren(
+            ...(state.sending ? [icon("loading", "spin")] : []),
+            "Send to agent"
+          )
+        }
+
+        $("send").addEventListener("click", () => void send())
+        $("open-page").addEventListener("click", () =>
+          request("ui/open-link", { url: state.link.url }).catch(() =>
+            fail(`Open ${state.link.url} in your browser to upload there.`)
+          )
+        )
+        document.addEventListener("dragover", (event) => event.preventDefault())
+        document.addEventListener("drop", (event) => {
+          event.preventDefault()
+          addFiles([...(event.dataTransfer?.files ?? [])])
+        })
+
+        render()
+        request("ui/initialize", {
+          appInfo: { name: "aghost-upload", version: "1.0.0" },
+          appCapabilities: {},
+          protocolVersion: "2026-01-26",
+        }).then(
+          (result) => {
+            applyContext(result?.hostContext)
+            notify("ui/notifications/initialized", {})
+            new ResizeObserver(reportSize).observe(document.documentElement)
+          },
+          () =>
+            fail("This app can't show the upload box. Use the link instead.")
+        )
+      })()
+    </script>
+  </body>
+</html>

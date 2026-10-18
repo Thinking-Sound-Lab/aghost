@@ -55,7 +55,7 @@ An empty `POSTHOG_KEY` leaves analytics off: the browser loads no PostHog code a
 | `scheduled_post_published`            | A post is first read as published after its time                   | `post_id`                                                                            |
 | `scheduled_post_failed`               | A post did not publish, or the plan ended before its time          | `post_id`, `reason` (`publishing` or `plan`)                                         |
 | `scheduled_post_deleted`              | A scheduled or failed post is cancelled                            | `post_id`, `reason` (`owner` or `account_removed`)                                   |
-| `upload_link_completed`               | The owner sends files through a link an agent gave them            | `upload_link_id`, `media_count`, `video_count`                                       |
+| `upload_link_completed`               | The owner sends an agent files; `source` is `mcp` from the chat    | `upload_link_id`, `media_count`, `video_count`                                       |
 | `inbox_message_sent`                  | A reply is sent from the inbox                                     | `account_id`                                                                         |
 | `api_key_created`                     | An API key is created; `source` is `mcp` when an MCP app signs in  | `api_key_id`, `scope_count`, `expires`                                               |
 | `api_key_revoked`                     | An API key is revoked                                              | `api_key_id`                                                                         |

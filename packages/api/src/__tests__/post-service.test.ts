@@ -71,6 +71,7 @@ function setup(
   const remove = vi.fn<PublishingProvider["delete"]>(async () => {})
   const provider: PublishingProvider = {
     canPublish: async () => true,
+    uploadOrigin: "https://storage.example",
     createUpload: async () => {
       throw new Error("Unexpected upload")
     },

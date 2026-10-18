@@ -109,6 +109,11 @@ export class PostService {
     return this.provider.canPublish(account.providerAccountId)
   }
 
+  /** Where createUpload's upload URLs point. */
+  get uploadOrigin(): string {
+    return this.provider.uploadOrigin
+  }
+
   async createUpload(input: CreateMediaUploadInput): Promise<MediaUpload> {
     const target = await this.provider.createUpload(input)
     return {
