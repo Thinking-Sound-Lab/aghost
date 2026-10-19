@@ -10,6 +10,7 @@ import {
 import { sendMessageSchema } from "../../contract/inbox"
 import {
   POST_LIMITS,
+  completeUploadLinkSchema,
   createMediaUploadSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
@@ -82,6 +83,7 @@ function operation<Schema extends z.ZodObject, Name extends string>(
 const noInput = z.object({})
 const automationId = z.object({ automationId: z.uuid() })
 const postId = z.object({ postId: z.uuid() })
+const uploadLinkId = z.object({ uploadLinkId: z.uuid() })
 const accountId = z.object({ accountId: z.uuid() })
 const thread = accountId.extend({
   conversationId: z
@@ -235,7 +237,7 @@ export const AGENT_OPERATIONS = [
   }),
   operation({
     name: "create_upload_link",
-    description: `Get a page where the user uploads photos and videos for a post from their browser, for files you can't upload yourself. Give the user the url and ask them to tell you when they have uploaded; the page takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post.`,
+    description: `Let the user upload photos and videos for a post from their own device, for files you can't upload yourself. Apps that show interactive views display an upload box with the result, so the user uploads without leaving the chat; the url opens the same upload in their browser. Ask the user to upload in the box, or at the url if they don't see one, and wait for them to say the files are sent; the link takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post.`,
     scope: "posts:write",
     schema: noInput,
     run: ({ workspace, services }) => services.uploadLinks.create(workspace),
@@ -245,9 +247,18 @@ export const AGENT_OPERATIONS = [
     description:
       "Get an upload link's status: waiting, uploaded or expired. Once uploaded, media lists the user's files in their order, ready to pass to schedule_post.",
     scope: "posts:read",
-    schema: z.object({ uploadLinkId: z.uuid() }),
+    schema: uploadLinkId,
     run: ({ workspace, services }, { uploadLinkId }) =>
       services.uploadLinks.get(workspace, uploadLinkId),
+  }),
+  operation({
+    name: "complete_upload_link",
+    description:
+      "Send the files the user uploaded in the upload box to the agent. Only the upload box calls this; agents read the files with get_upload_link.",
+    scope: "posts:write",
+    schema: uploadLinkId.extend(completeUploadLinkSchema.shape),
+    run: ({ workspace, services }, { uploadLinkId, media }) =>
+      services.uploadLinks.complete(workspace, uploadLinkId, media),
   }),
   operation({
     name: "schedule_post",

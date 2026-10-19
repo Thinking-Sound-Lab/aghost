@@ -21,6 +21,7 @@ import type {
   UploadLink,
 } from "../contract/post"
 import type { ApiApp } from "../http/app"
+import { ZERNIO_UPLOAD_ORIGIN } from "../infrastructure/zernio/zernio-post.provider"
 import { recordingAnalytics } from "./analytics-fixture"
 import {
   grantPlan,
@@ -917,7 +918,7 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     expect(upload.statusCode).toBe(201)
     const media = upload.json<MediaUpload>()
     expect(media).toMatchObject({
-      uploadUrl: "https://storage.example/upload/launch.mp4?signature=fixture",
+      uploadUrl: `${ZERNIO_UPLOAD_ORIGIN}/temp/launch.mp4?signature=fixture`,
       media: { url: "https://media.example/temp/launch.mp4", type: "video" },
     })
     expect(Date.parse(media.expiresAt)).toBeGreaterThan(Date.now())
@@ -1242,6 +1243,146 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
       (fetched.structuredContent as { data: UploadLink }).data
     ).toMatchObject({ id: fresh.id, url: fresh.url, status: "waiting" })
     expect((await rest(token, `/upload-links/${link.id}`)).statusCode).toBe(404)
+  })
+
+  it("shows apps that support MCP Apps an upload box that hands the owner's files to the agent", async () => {
+    const token = await key(["posts:read", "posts:write"])
+    const client = new Client({ name: "aghost-upload-box", version: "1.0.0" })
+    clients.push(client)
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${address}/api/mcp`), {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+      })
+    )
+    const { tools } = await client.listTools()
+    const meta = (name: string) =>
+      tools.find((tool) => tool.name === name)?._meta
+    expect(meta("create_upload_link")).toEqual({
+      ui: { resourceUri: "ui://aghost/upload" },
+    })
+    // Only the box finishes a link; apps keep the tool from the agent.
+    expect(meta("complete_upload_link")).toEqual({
+      ui: { visibility: ["app"] },
+    })
+    expect(meta("create_media_upload")).toBeUndefined()
+
+    // What the box does: upload each file, then hand them over at once.
+    const made = await client.callTool({
+      name: "create_upload_link",
+      arguments: {},
+    })
+    const link = (made.structuredContent as { data: UploadLink }).data
+    const upload = await client.callTool({
+      name: "create_media_upload",
+      arguments: { filename: "reel.mp4", contentType: "video/mp4", size: 2048 },
+    })
+    const { uploadUrl, media } = (
+      upload.structuredContent as { data: MediaUpload }
+    ).data
+    // The box may reach only the storage that upload URLs point to.
+    const { contents } = await client.readResource({
+      uri: "ui://aghost/upload",
+    })
+    expect(contents).toEqual([
+      {
+        uri: "ui://aghost/upload",
+        mimeType: "text/html;profile=mcp-app",
+        text: expect.stringContaining('"maxItems":10'),
+        _meta: {
+          ui: {
+            csp: {
+              connectDomains: [new URL(uploadUrl).origin],
+            },
+            prefersBorder: true,
+          },
+        },
+      },
+    ])
+    expect(contents[0]).not.toMatchObject({
+      text: expect.stringContaining("{{LIMITS}}"),
+    })
+
+    const completed = await client.callTool({
+      name: "complete_upload_link",
+      arguments: { uploadLinkId: link.id, media: [media] },
+    })
+    expect(completed.isError).not.toBe(true)
+    expect(
+      (completed.structuredContent as { data: UploadLink }).data
+    ).toMatchObject({ id: link.id, status: "uploaded", media: [media] })
+    const again = await client.callTool({
+      name: "complete_upload_link",
+      arguments: { uploadLinkId: link.id, media: [media] },
+    })
+    expect(again.isError).toBe(true)
+    expect(again.content).toEqual([
+      {
+        type: "text",
+        text: JSON.stringify({
+          error: {
+            code: "conflict",
+            message:
+              "These files were already sent to your agent. Ask it for a new link to send others.",
+          },
+        }),
+      },
+    ])
+    const read = await client.callTool({
+      name: "get_upload_link",
+      arguments: { uploadLinkId: link.id },
+    })
+    expect((read.structuredContent as { data: UploadLink }).data.media).toEqual(
+      [media]
+    )
+
+    // A key that can only read has no box, and another workspace's box
+    // cannot finish this owner's link.
+    const reader = new Client({ name: "aghost-reader", version: "1.0.0" })
+    clients.push(reader)
+    await reader.connect(
+      new StreamableHTTPClientTransport(new URL(`${address}/api/mcp`), {
+        requestInit: {
+          headers: { Authorization: `Bearer ${await key(["posts:read"])}` },
+        },
+      })
+    )
+    await expect(
+      reader.readResource({ uri: "ui://aghost/upload" })
+    ).rejects.toThrow()
+    const fresh = (
+      (await client.callTool({ name: "create_upload_link", arguments: {} }))
+        .structuredContent as { data: UploadLink }
+    ).data
+    const otherKey = await session(
+      "/api-keys",
+      "POST",
+      { name: "Other agent", scopes: ["posts:write"] },
+      otherCookie
+    )
+    const other = new Client({ name: "aghost-other", version: "1.0.0" })
+    clients.push(other)
+    await other.connect(
+      new StreamableHTTPClientTransport(new URL(`${address}/api/mcp`), {
+        requestInit: {
+          headers: {
+            Authorization: `Bearer ${otherKey.json<CreatedApiKey>().token}`,
+          },
+        },
+      })
+    )
+    const foreign = await other.callTool({
+      name: "complete_upload_link",
+      arguments: { uploadLinkId: fresh.id, media: [media] },
+    })
+    expect(foreign.isError).toBe(true)
+    expect(foreign.content).toEqual([
+      {
+        type: "text",
+        text: JSON.stringify({
+          error: { code: "not_found", message: "Upload link was not found." },
+        }),
+      },
+    ])
   })
 
   it("cancels an account's scheduled posts when the account is removed", async () => {

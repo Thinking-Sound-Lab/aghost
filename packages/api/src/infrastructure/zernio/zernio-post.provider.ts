@@ -38,6 +38,11 @@ const STATUS_ERRORS: Partial<Record<ZernioStatus, string>> = {
   cancelled: "This post was removed from Instagram.",
 }
 
+// Zernio presigns uploads to its Cloudflare R2 bucket, which accepts them
+// from any origin.
+export const ZERNIO_UPLOAD_ORIGIN =
+  "https://late-media.613d73a46130ed0083c059a837d6511b.r2.cloudflarestorage.com"
+
 // Zernio no longer has the post, so it can never be published.
 const GONE: PublishingState = {
   status: "failed",
@@ -49,6 +54,8 @@ const GONE: PublishingState = {
 
 export class ZernioPublishingProvider implements PublishingProvider {
   constructor(private readonly zernio: ZernioAccess) {}
+
+  readonly uploadOrigin = ZERNIO_UPLOAD_ORIGIN
 
   async canPublish(providerAccountId: string): Promise<boolean> {
     const action = "check whether the account can publish"

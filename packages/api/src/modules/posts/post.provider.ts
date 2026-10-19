@@ -12,6 +12,8 @@ export type UploadTarget = {
 export interface PublishingProvider {
   /** False until the account grants permission to publish. */
   canPublish(providerAccountId: string): Promise<boolean>
+  /** The origin of every upload URL, which pages uploading from a browser must be allowed to reach. */
+  readonly uploadOrigin: string
   createUpload(file: CreateMediaUploadInput): Promise<UploadTarget>
   /** Schedules the post and returns the provider's id for it. */
   schedule(providerAccountId: string, content: PostContent): Promise<string>
