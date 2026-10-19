@@ -145,6 +145,79 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     return client
   }
 
+  const insightReads = () => {
+    const query = { accountId: account.id, days: 7 }
+    const search = `accountId=${account.id}&days=7`
+    return [
+      {
+        name: "get_account_insights",
+        path: `/insights?${search}`,
+        arguments: query,
+        expected: {
+          status: "ready",
+          summary: { views: 24_800, reach: 13_200 },
+          dailyReach: [
+            { value: 240 },
+            { value: 0 },
+            { value: null },
+            { value: null },
+            { value: null },
+            { value: null },
+            { value: null },
+          ],
+        },
+      },
+      {
+        name: "list_content_insights",
+        path: `/insights/content?${search}&page=2&sort=saves`,
+        arguments: { ...query, page: 2, sort: "saves" },
+        expected: {
+          status: "ready",
+          posts: [
+            {
+              id: "fixture-analytics-post",
+              metrics: { views: 12_500, averageWatchSeconds: 12.5 },
+            },
+          ],
+          totalPosts: 1,
+        },
+      },
+      {
+        name: "get_post_insights",
+        path: `/insights/posts/fixture-analytics-post?${search}`,
+        arguments: { ...query, postId: "fixture-analytics-post" },
+        expected: {
+          status: "ready",
+          post: {
+            id: "fixture-analytics-post",
+            metrics: { views: 12_500, averageWatchSeconds: 12.5 },
+          },
+          views: [
+            { value: 120 },
+            { value: 640 },
+            { value: null },
+            { value: null },
+            { value: null },
+            { value: null },
+            { value: null },
+          ],
+        },
+      },
+      {
+        name: "get_posting_times",
+        path: `/insights/posting-times?accountId=${account.id}`,
+        arguments: { accountId: account.id },
+        expected: {
+          status: "ready",
+          referenceTime: expect.any(String),
+          slots: expect.arrayContaining([
+            { dayOfWeek: 2, hour: 13, averageEngagement: 510.3, postCount: 15 },
+          ]),
+        },
+      },
+    ]
+  }
+
   beforeAll(async () => {
     fixture = await startZernioFixture()
     app = createApi(
@@ -276,7 +349,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
 
     const client = await mcp(created.token)
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(23)
+    expect(tools).toHaveLength(27)
     expect(tools.map((tool) => tool.name)).toContain("create_automation")
     expect(tools.map((tool) => tool.name)).toContain("schedule_post")
     expect(tools.map((tool) => tool.name)).toContain("send_message")
@@ -570,6 +643,254 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     ).toBe(404)
   })
 
+  it("exposes dashboard analytics through REST and MCP using an existing account-read key", async () => {
+    const read = await key(["accounts:read"])
+    const client = await mcp(read.token)
+    const { tools } = await client.listTools()
+    for (const call of insightReads()) {
+      const tool = tools.find((tool) => tool.name === call.name)
+      expect(tool?.annotations).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      })
+      const before = fixture.requests.length
+      const response = await rest(read.token, call.path)
+      expect(response.statusCode).toBe(200)
+      expect(response.headers["cache-control"]).toContain("no-store")
+      expect(response.json()).toMatchObject(call.expected)
+      const result = await client.callTool({
+        name: call.name,
+        arguments: call.arguments,
+      })
+      expect(result.isError).not.toBe(true)
+      expect(result.structuredContent).toMatchObject({ data: call.expected })
+      if (call.name === "list_content_insights") {
+        expect(response.json()).not.toHaveProperty("summary")
+        const requests = fixture.requests.slice(before)
+        expect(
+          requests.some((request) => request.path.includes("account-insights"))
+        ).toBe(false)
+        for (const request of requests.filter(
+          (request) => request.path === "/v1/analytics"
+        )) {
+          expect(Object.fromEntries(request.query)).toMatchObject({
+            accountId: fixture.accountId,
+            page: "2",
+            sortBy: "saves",
+            platform: "instagram",
+          })
+        }
+      }
+    }
+    const defaultReport = await client.callTool({
+      name: "get_account_insights",
+      arguments: { accountId: account.id },
+    })
+    expect(defaultReport.structuredContent).toMatchObject({
+      data: { status: "ready", page: 1, dailyReach: expect.any(Array) },
+    })
+    expect(
+      (defaultReport.structuredContent as { data: { dailyReach: unknown[] } })
+        .data.dailyReach
+    ).toHaveLength(30)
+  })
+
+  it("keeps analytics scoped to account-read keys and the key's workspace before provider calls", async () => {
+    const restricted = await key(["posts:read"])
+    const foreign = await key(["accounts:read"], otherCookie)
+    const restrictedClient = await mcp(restricted.token)
+    const foreignClient = await mcp(foreign.token)
+    const { tools } = await restrictedClient.listTools()
+    const before = fixture.requests.length
+    for (const call of insightReads()) {
+      expect(tools.map((tool) => tool.name)).not.toContain(call.name)
+      expect((await rest(restricted.token, call.path)).statusCode).toBe(403)
+      await expect(
+        restrictedClient.callTool({
+          name: call.name,
+          arguments: call.arguments,
+        })
+      ).rejects.toThrow()
+      expect((await rest(foreign.token, call.path)).statusCode).toBe(404)
+      const denied = await foreignClient.callTool({
+        name: call.name,
+        arguments: call.arguments,
+      })
+      expect(denied.isError).toBe(true)
+      expect(denied.content).toEqual([
+        {
+          type: "text",
+          text: JSON.stringify({
+            error: {
+              code: "not_found",
+              message: "Instagram account was not found.",
+            },
+          }),
+        },
+      ])
+    }
+    expect(fixture.requests.length).toBe(before)
+  })
+
+  it("validates analytics filters and publishes typed MCP and OpenAPI inputs", async () => {
+    const read = await key(["accounts:read"])
+    const client = await mcp(read.token)
+    const { tools } = await client.listTools()
+    const tool = tools.find((tool) => tool.name === "get_account_insights")!
+    expect(tool.inputSchema.properties).toMatchObject({
+      days: {
+        default: 30,
+        anyOf: [
+          { type: "number", const: 7 },
+          { type: "number", const: 30 },
+          { type: "number", const: 90 },
+        ],
+      },
+      page: { type: "integer", minimum: 1, maximum: 10_000, default: 1 },
+    })
+    const document = (await rest(read.token, "/openapi.json")).json()
+    for (const [path, name] of [
+      ["/insights", "get_account_insights"],
+      ["/insights/content", "list_content_insights"],
+      ["/insights/posts/{postId}", "get_post_insights"],
+      ["/insights/posting-times", "get_posting_times"],
+    ]) {
+      expect(document.paths[path!].get).toMatchObject({
+        operationId: name,
+        "x-required-scope": "accounts:read",
+      })
+      expect(document.paths[path!].get.parameters).toContainEqual(
+        expect.objectContaining({
+          name: "accountId",
+          in: "query",
+          required: true,
+        })
+      )
+    }
+    expect(
+      document.paths["/insights/posts/{postId}"].get.parameters
+    ).toContainEqual(
+      expect.objectContaining({
+        name: "postId",
+        in: "path",
+        schema: expect.objectContaining({ type: "string", maxLength: 200 }),
+      })
+    )
+    const before = fixture.requests.length
+    for (const path of [
+      `/insights?accountId=${account.id}&days=365`,
+      `/insights/content?accountId=${account.id}&page=0`,
+      `/insights/content?accountId=${account.id}&sort=likes`,
+      `/insights/posts/${"a".repeat(201)}?accountId=${account.id}`,
+      "/insights/posting-times?accountId=invalid",
+    ]) {
+      const invalid = await rest(read.token, path)
+      expect(invalid.statusCode).toBe(422)
+      expect(invalid.json().error.code).toBe("validation_failed")
+    }
+    for (const [name, arguments_] of [
+      ["get_account_insights", { accountId: account.id, days: 365 }],
+      ["get_account_insights", { accountId: account.id, days: "7" }],
+      ["list_content_insights", { accountId: account.id, page: -1 }],
+      ["get_post_insights", { accountId: account.id, postId: "" }],
+      ["get_posting_times", { accountId: "invalid" }],
+    ] as const) {
+      const invalid = await client.callTool({ name, arguments: arguments_ })
+      expect(invalid.isError).toBe(true)
+      expect(invalid.content).toEqual([
+        {
+          type: "text",
+          text: expect.stringContaining("Input validation error"),
+        },
+      ])
+    }
+    expect(fixture.requests.length).toBe(before)
+  })
+
+  it("reports unavailable analytics and missing metrics to agents without inventing data", async () => {
+    const read = await key(["accounts:read"])
+    const client = await mcp(read.token)
+    try {
+      for (const status of ["reconnect_required", "not_enabled"] as const) {
+        fixture.state.canFetchAnalytics = status !== "reconnect_required"
+        fixture.state.analyticsFailureStatus =
+          status === "not_enabled" ? 402 : 0
+        for (const call of insightReads()) {
+          expect((await rest(read.token, call.path)).json()).toEqual({ status })
+          const result = await client.callTool({
+            name: call.name,
+            arguments: call.arguments,
+          })
+          expect(result.isError).not.toBe(true)
+          expect(result.structuredContent).toEqual({ data: { status } })
+        }
+      }
+      fixture.state.canFetchAnalytics = true
+      fixture.state.analyticsFailureStatus = 0
+      fixture.state.analyticsMissing = true
+      expect(
+        (await rest(read.token, `/insights?accountId=${account.id}`)).json()
+      ).toMatchObject({
+        status: "ready",
+        summary: {
+          views: null,
+          reach: null,
+          accountsEngaged: null,
+          totalInteractions: null,
+        },
+        posts: [
+          { metrics: { views: null, reach: null, averageWatchSeconds: null } },
+        ],
+      })
+      expect(
+        (
+          await client.callTool({
+            name: "get_post_insights",
+            arguments: {
+              accountId: account.id,
+              postId: "fixture-analytics-post",
+            },
+          })
+        ).structuredContent
+      ).toMatchObject({
+        data: {
+          status: "ready",
+          post: { metrics: { views: null, reach: null } },
+        },
+      })
+    } finally {
+      fixture.state.canFetchAnalytics = true
+      fixture.state.analyticsFailureStatus = 0
+      fixture.state.analyticsMissing = false
+    }
+  })
+
+  it("rejects analytics posts belonging to another provider account before reading their timeline", async () => {
+    const read = await key(["accounts:read"])
+    const client = await mcp(read.token)
+    const before = fixture.requests.length
+    fixture.state.analyticsOutsideAccount = true
+    try {
+      const call = insightReads().find(
+        (call) => call.name === "get_post_insights"
+      )!
+      expect((await rest(read.token, call.path)).statusCode).toBe(404)
+      const denied = await client.callTool({
+        name: call.name,
+        arguments: call.arguments,
+      })
+      expect(denied.isError).toBe(true)
+      expect(
+        fixture.requests
+          .slice(before)
+          .some((request) => request.path === "/v1/analytics/post-timeline")
+      ).toBe(false)
+    } finally {
+      fixture.state.analyticsOutsideAccount = false
+    }
+  })
+
   it("blocks cross-workspace resources and foreign conversations before provider writes", async () => {
     const own = await key(API_KEY_SCOPES)
     const foreign = await key(API_KEY_SCOPES, otherCookie)
@@ -836,6 +1157,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
       expect(refused.headers["www-authenticate"]).toBeUndefined()
       for (const [path, method, body] of [
         ["/openapi.json", "GET", undefined],
+        ...insightReads().map(({ path }) => [path, "GET", undefined] as const),
         ["/automations", "POST", input()],
         [
           `/inbox/${account.id}/${encodeURIComponent(fixture.conversationId)}`,

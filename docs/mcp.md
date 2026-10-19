@@ -44,22 +44,23 @@ For JSON-configured clients that support this format:
 
 Use your hosted app's URL in place of localhost for remote access. Store the key using your client's secret or environment variable support when available. New keys can use all the tools below. The backend retains capability checks for previously issued restricted keys:
 
-| Permission          | MCP tools                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `workspace:read`    | `get_workspace`                                                                                                |
-| `accounts:read`     | `list_accounts`, `list_account_posts`                                                                          |
-| `automations:read`  | `list_automations`, `get_automation`, `get_automation_stats`, `list_automation_activity`                       |
-| `automations:write` | `create_automation`, `update_automation`, `set_automation_status`, `delete_automation`                         |
-| `posts:read`        | `list_scheduled_posts`, `get_scheduled_post`, `get_upload_link`                                                |
-| `posts:write`       | `create_media_upload`, `create_upload_link`, `schedule_post`, `update_scheduled_post`, `delete_scheduled_post` |
-| `contacts:read`     | `list_contacts`                                                                                                |
-| `inbox:read`        | `list_conversations`, `list_messages`                                                                          |
-| `inbox:write`       | `send_message`                                                                                                 |
+| Permission          | MCP tools                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace:read`    | `get_workspace`                                                                                                                  |
+| `accounts:read`     | `list_accounts`, `list_account_posts`, `get_account_insights`, `list_content_insights`, `get_post_insights`, `get_posting_times` |
+| `automations:read`  | `list_automations`, `get_automation`, `get_automation_stats`, `list_automation_activity`                                         |
+| `automations:write` | `create_automation`, `update_automation`, `set_automation_status`, `delete_automation`                                           |
+| `posts:read`        | `list_scheduled_posts`, `get_scheduled_post`, `get_upload_link`                                                                  |
+| `posts:write`       | `create_media_upload`, `create_upload_link`, `schedule_post`, `update_scheduled_post`, `delete_scheduled_post`                   |
+| `contacts:read`     | `list_contacts`                                                                                                                  |
+| `inbox:read`        | `list_conversations`, `list_messages`                                                                                            |
+| `inbox:write`       | `send_message`                                                                                                                   |
 
 Tools return readable JSON text and `structuredContent.data`. Application failures return `isError` with the API error code and message. The SDK handles protocol and input-schema errors. While the workspace has no active plan, the endpoint itself answers 402 `plan_required`, so a client can neither connect nor call tools until the owner chooses a plan in the app.
 
 Read accounts first to get an `instagramAccountId`. For a specific post, read that account's recent posts and use its `platformPostId`.
 
+- For [Instagram analytics](api.md#instagram-analytics), use a `list_accounts` account `id` as `accountId`. `get_account_insights` returns account totals, daily reach and a content page; `list_content_insights` pages or sorts content without reloading account totals. Both take `days` (7, 30 or 90; default 30), `page` (default 1) and `sort` (`views`, `reach`, `saves`, `shares` or `date`). `get_post_insights` takes `accountId`, the opaque analytics post `id` as `postId`, and optional `days`. `get_posting_times` takes only `accountId` and returns UTC engagement samples from all available history. These reads use the existing `accounts:read` permission and the dashboard's service and provider checks. Null metrics are unknown, post metrics are lifetime totals, and historical posting times are suggestions rather than guarantees. See the [analytics guide](instagram-analytics.md) for metric definitions and provider requirements.
 - `create_automation` takes the full configuration shown in the [REST API example](api.md#rest).
 - `update_automation` takes `{ "automationId": "...", "input": { ...full configuration... } }`. Read the automation first to preserve fields you are not changing. Convert a returned specific-post trigger's `trigger.post.platformPostId` to the input's `trigger.platformPostId`.
 - `set_automation_status` takes `{ "automationId": "...", "status": "active" }` or `paused`.

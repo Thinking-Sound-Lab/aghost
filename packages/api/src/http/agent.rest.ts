@@ -2,6 +2,10 @@ import type { FastifyRequest, HTTPMethods } from "fastify"
 import { activityPageQuerySchema } from "../contract/automation"
 import { contactPageQuerySchema } from "../contract/contact"
 import {
+  insightPostQuerySchema,
+  insightQuerySchema,
+} from "../contract/insights"
+import {
   AGENT_OPERATIONS,
   type AgentOperation,
 } from "../modules/agents/operations"
@@ -46,6 +50,29 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
     method: "GET",
     path: "/accounts/:accountId/posts",
     requestInput: params,
+  }),
+  route("get_account_insights", {
+    method: "GET",
+    path: "/insights",
+    requestInput: (request) => validate(insightQuerySchema, request.query),
+  }),
+  route("list_content_insights", {
+    method: "GET",
+    path: "/insights/content",
+    requestInput: (request) => validate(insightQuerySchema, request.query),
+  }),
+  route("get_post_insights", {
+    method: "GET",
+    path: "/insights/posts/:postId",
+    requestInput: (request) => ({
+      ...validate(insightPostQuerySchema, request.query),
+      ...(request.params as object),
+    }),
+  }),
+  route("get_posting_times", {
+    method: "GET",
+    path: "/insights/posting-times",
+    requestInput: (request) => request.query,
   }),
   route("list_automations", {
     method: "GET",

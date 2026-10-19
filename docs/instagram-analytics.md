@@ -47,11 +47,14 @@ workspace before contacting Zernio. Single-post reads additionally verify the
 per-platform account and filter timeline rows to that Instagram post before
 returning any metrics.
 
+AI agents have the same four reads through the [REST API](api.md#instagram-analytics) at `/api/v1/insights`, `/api/v1/insights/content`, `/api/v1/insights/posts/:postId`, and `/api/v1/insights/posting-times`. [MCP](mcp.md) exposes `get_account_insights`, `list_content_insights`, `get_post_insights`, and `get_posting_times`. All use the existing `accounts:read` permission, the same insights service and response shapes, and the same workspace, account, and provider access checks. Existing keys with that permission work without a migration. Agents obtain `accountId` from `list_accounts` and post-detail IDs from the analytics content results.
+
 Tests cover real SDK calls against a local HTTP fixture, local Supabase session
 and plan checks, cross-workspace refusal, missing versus zero values, watch-time
 units, unsupported media metrics, and late UI responses. These checks do not
 verify a real account's granted permission or the operator's live Analytics
 subscription. Those require a connected-account check.
+Agent integration tests also exercise REST and MCP discovery, typed filters, read-only permissions, workspace isolation, provider post ownership, unavailable access, and missing metrics against that fixture.
 
 ## Posting-time suggestions
 
