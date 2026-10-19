@@ -17,7 +17,10 @@ import {
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
 
-/** A single-column page, centred with room around its content. */
+/**
+ * A single-column page, centred with room around its content.
+ * The scroll area also contains absolutely positioned screen-reader text.
+ */
 export function Page({
   title,
   back,
@@ -30,7 +33,7 @@ export function Page({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="relative min-h-0 flex-1 overflow-auto">
       <div className="mx-auto grid w-full max-w-5xl content-start gap-8 px-4 py-6 sm:px-6 md:px-10 md:py-10">
         <header className="flex min-h-9 items-center gap-2">
           {back && (
