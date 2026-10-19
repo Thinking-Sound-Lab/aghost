@@ -8,6 +8,7 @@ import {
   updateAutomationSchema,
 } from "../../contract/automation"
 import { sendMessageSchema } from "../../contract/inbox"
+import { insightInputSchema } from "../../contract/insights"
 import {
   POST_LIMITS,
   createMediaUploadSchema,
@@ -122,6 +123,50 @@ export const AGENT_OPERATIONS = [
     schema: accountId,
     run: ({ workspace, services }, { accountId }) =>
       services.accounts.listRecentPosts(workspace, accountId),
+  }),
+  operation({
+    name: "get_account_insights",
+    description:
+      "Read the Analytics account report for 7, 30 or 90 UTC days including today (default 30), plus a page of published content. Summary totals cover the selected dates; reach is unique accounts and must not be summed across posts or days. Post metrics are lifetime totals for content published in the range. Null means unknown, not zero; recent account data may lag up to 48 hours. Returns reconnect_required or not_enabled when analytics access is unavailable.",
+    scope: "accounts:read",
+    schema: insightInputSchema,
+    run: ({ workspace, services }, query) =>
+      services.insights.getReport(workspace, query),
+  }),
+  operation({
+    name: "list_content_insights",
+    description:
+      "Browse published Instagram content and lifetime performance metrics, including views, reach, engagement and Reel watch time in seconds. Filter publication dates to 7, 30 or 90 UTC days including today, sort by views, reach, saves, shares or date, and paginate with page (starting at 1) through pages. Use this for further pages without reloading account insights. Use each returned post's id for get_post_insights. Null metrics are unknown, not zero; unavailable access returns reconnect_required or not_enabled.",
+    scope: "accounts:read",
+    schema: insightInputSchema,
+    run: ({ workspace, services }, query) =>
+      services.insights.getContent(workspace, query),
+  }),
+  operation({
+    name: "get_post_insights",
+    description:
+      "Read a published post's lifetime performance and view history. Use postId from the id returned by get_account_insights or list_content_insights, not a scheduled-post UUID or platformPostId. days selects 7, 30 or 90 UTC days of history (default 30). History points are snapshots of cumulative views, not new views per day. Reel watch time is in seconds; null means unknown. Verifies the post belongs to the workspace's account. Unavailable access returns reconnect_required or not_enabled.",
+    scope: "accounts:read",
+    schema: insightInputSchema.pick({ accountId: true, days: true }).extend({
+      postId: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe(
+          "The opaque id returned in an analytics post, not platformPostId."
+        ),
+    }),
+    run: ({ workspace, services }, { postId, ...query }) =>
+      services.insights.getPost(workspace, postId, query),
+  }),
+  operation({
+    name: "get_posting_times",
+    description:
+      "Read historical posting-time engagement slots from all available published-post history, independent of the report's days filter. dayOfWeek is Monday=0 through Sunday=6 and hour is UTC. averageEngagement is mean likes + comments + shares + saves per post; postCount is the sample size. Use referenceTime to convert the next occurrence into the user's timezone. For suggestions, require positive engagement and at least 3 posts per slot; these are historical signals, not guaranteed optimal times. Empty slots provide no evidence. Unavailable access returns reconnect_required or not_enabled.",
+    scope: "accounts:read",
+    schema: insightInputSchema.pick({ accountId: true }),
+    run: ({ workspace, services }, query) =>
+      services.insights.getPostingTimes(workspace, query),
   }),
   operation({
     name: "list_automations",

@@ -24,6 +24,7 @@ curl --fail-with-body http://localhost:3000/api/v1/openapi.json \
 | ------ | --------------------------------------------------------------------------------------------------------- | ------------------- |
 | GET    | `/workspace`                                                                                              | `workspace:read`    |
 | GET    | `/accounts`, `/accounts/:accountId/posts`                                                                 | `accounts:read`     |
+| GET    | `/insights`, `/insights/content`, `/insights/posts/:postId`, `/insights/posting-times`                    | `accounts:read`     |
 | GET    | `/automations`, `/automations/stats`, `/automations/:automationId`, `/automations/:automationId/activity` | `automations:read`  |
 | POST   | `/automations`                                                                                            | `automations:write` |
 | PATCH  | `/automations/:automationId`, `/automations/:automationId/status`                                         | `automations:write` |
@@ -57,6 +58,30 @@ curl --fail-with-body http://localhost:3000/api/v1/automations \
     "requireFollow": false
   }'
 ```
+
+## Instagram analytics
+
+Agents can read the same [Analytics reports](instagram-analytics.md) as the dashboard. All four reads use `accounts:read`, including on existing keys; no new key or database migration is needed. Read `/accounts` first and pass its workspace account `id` as `accountId`.
+
+| GET path under `/api/v1`  | Parameters                          | Result                                                                                          |
+| ------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/insights`               | `accountId`, `days`, `page`, `sort` | Account totals, daily reach, and a page of published content                                    |
+| `/insights/content`       | `accountId`, `days`, `page`, `sort` | Published content with lifetime metrics and pagination, without reloading account totals        |
+| `/insights/posts/:postId` | `accountId`, `days`                 | One post's lifetime metrics and cumulative view snapshots                                       |
+| `/insights/posting-times` | `accountId`                         | Historical engagement samples by UTC weekday/hour, sample counts, and a timezone reference time |
+
+`days` is 7, 30 (default), or 90, including today in UTC. `page` starts at 1 (default), and `sort` is `views` (default), `reach`, `saves`, `shares`, or `date`. Continue through the returned `pages` to analyze more than the first content page. The post-detail `postId` is the opaque `posts[].id` from an analytics report, not a scheduled-post UUID or `platformPostId`; URL-encode it in the path.
+
+```sh
+curl --fail-with-body 'http://localhost:3000/api/v1/insights?accountId=YOUR_ACCOUNT_UUID&days=30' \
+  -H "Authorization: Bearer $AGHOST_API_KEY"
+```
+
+Responses preserve the dashboard's JSON shape and metric meanings. Account summary totals cover the selected period; unique reach must not be summed across days or posts. Post metrics are lifetime totals for posts published in the selected range, and view-history points are cumulative snapshots, not daily increments. Reel watch time is in seconds. `null` is unknown, not zero. Recent account data can lag up to 48 hours.
+
+Posting-time slots use all available post history and have no date filter. `dayOfWeek` is Monday=0 through Sunday=6, `hour` is UTC, `averageEngagement` is mean likes + comments + shares + saves per post, and `postCount` is the sample size. Use `referenceTime` to convert a slot's next occurrence into the user's timezone. Suggestions should require positive engagement and at least three posts per slot; they are historical signals, not guaranteed optimal times.
+
+The workspace still needs an active plan, the operator's Zernio Analytics add-on, and a connected Instagram account with insights permission. Missing provider access returns HTTP 200 with `status: "reconnect_required"` or `"not_enabled"`, rather than fabricated metrics; usable reports have `status: "ready"`. Other errors use the standard API error response. Account and post ownership checks are shared with the dashboard.
 
 ## Scheduled posts
 

@@ -3,15 +3,27 @@ import { z } from "zod"
 export const INSIGHT_PERIODS = [7, 30, 90] as const
 export type InsightPeriod = (typeof INSIGHT_PERIODS)[number]
 
-const periodSchema = z.coerce
-  .number()
-  .pipe(z.union([z.literal(7), z.literal(30), z.literal(90)]))
+const periodSchema = z.union([z.literal(7), z.literal(30), z.literal(90)])
 
-export const insightQuerySchema = z.object({
-  accountId: z.uuid(),
-  days: periodSchema.default(30),
-  page: z.coerce.number().int().min(1).max(10_000).default(1),
+/** Typed tool inputs; HTTP query strings are converted at the REST boundary. */
+export const insightInputSchema = z.object({
+  accountId: z
+    .uuid()
+    .describe("Workspace account ID returned by list_accounts."),
+  days: periodSchema.default(30).describe("UTC days including today."),
+  page: z.number().int().min(1).max(10_000).default(1),
   sort: z.enum(["views", "reach", "saves", "shares", "date"]).default("views"),
+})
+
+export const insightQuerySchema = insightInputSchema.extend({
+  days: z.coerce
+    .number()
+    .pipe(insightInputSchema.shape.days.unwrap())
+    .default(30),
+  page: z.coerce
+    .number()
+    .pipe(insightInputSchema.shape.page.unwrap())
+    .default(1),
 })
 
 export const insightPostQuerySchema = insightQuerySchema.pick({
