@@ -66,6 +66,9 @@ import { InvalidApiKeyError, UnauthenticatedError } from "./shared/errors"
 import { SupabaseFollowUpRepository } from "./infrastructure/supabase/supabase-follow-up.repository"
 import { ZernioFollowUpProvider } from "./infrastructure/zernio/zernio-follow-up.provider"
 import { FollowUpService } from "./modules/automations/follow-up.service"
+import { InsightsService } from "./modules/insights/insights.service"
+import type { InsightsProvider } from "./modules/insights/insights.provider"
+import { ZernioInsightsProvider } from "./infrastructure/zernio/zernio-insights.provider"
 
 // Path of the page in the web app that finishes the Instagram connection.
 const CONNECT_CALLBACK_PATH = "/accounts/callback"
@@ -81,6 +84,7 @@ export type Services = {
   uploadLinks: UploadLinkService
   inbox: InboxService
   contacts: ContactService
+  insights: InsightsService
   billing: BillingService
   plans: PlanEntitlements
   /** Records events with the source of the request these services serve. */
@@ -94,6 +98,7 @@ type Providers = {
   publishing: PublishingProvider
   inbox: InboxProvider
   contacts: ContactProvider
+  insights: InsightsProvider
   billing: BillingProvider
 }
 
@@ -173,6 +178,7 @@ function createServices(
   )
   const inbox = new InboxService(providers.inbox, accountRepository, analytics)
   const contacts = new ContactService(providers.contacts)
+  const insights = new InsightsService(providers.insights, accountRepository)
   const apiKeys = new ApiKeyService(
     new SupabaseApiKeyRepository(db.privileged),
     analytics
@@ -187,6 +193,7 @@ function createServices(
     uploadLinks,
     inbox,
     contacts,
+    insights,
     billing,
     plans,
     analytics,
@@ -208,6 +215,7 @@ function runtime(config: ApiConfig, options: RuntimeOptions = {}) {
     publishing: new ZernioPublishingProvider(zernio),
     inbox: new ZernioInboxProvider(zernio),
     contacts: new ZernioContactProvider(zernio),
+    insights: new ZernioInsightsProvider(zernio),
     billing: new DodoBillingProvider(
       () => options.dodo ?? createDodoClient(config.dodo)
     ),

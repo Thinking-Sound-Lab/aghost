@@ -17,6 +17,11 @@ import {
 } from "../contract/automation"
 import { contactPageQuerySchema } from "../contract/contact"
 import {
+  insightQuerySchema,
+  insightPostQuerySchema,
+  insightTimingQuerySchema,
+} from "../contract/insights"
+import {
   completeUploadLinkSchema,
   createMediaUploadSchema,
   schedulePostSchema,
@@ -477,6 +482,35 @@ export function createApp({
           const { services, workspace } = request.identity
           return (await services.automations.list(workspace)).map(
             presentAutomation
+          )
+        })
+        routes.get("/insights/content", async (request) => {
+          const { services, workspace } = request.identity
+          return services.insights.getContent(
+            workspace,
+            validate(insightQuerySchema, request.query)
+          )
+        })
+        routes.get("/insights/posting-times", async (request) => {
+          const { services, workspace } = request.identity
+          return services.insights.getPostingTimes(
+            workspace,
+            validate(insightTimingQuerySchema, request.query)
+          )
+        })
+        routes.get("/insights", async (request) => {
+          const { services, workspace } = request.identity
+          return services.insights.getReport(
+            workspace,
+            validate(insightQuerySchema, request.query)
+          )
+        })
+        routes.get<IdParams>("/insights/posts/:id", async (request) => {
+          const { services, workspace } = request.identity
+          return services.insights.getPost(
+            workspace,
+            validate(z.string().min(1).max(200), request.params.id),
+            validate(insightPostQuerySchema, request.query)
           )
         })
         routes.get("/automations/stats", async (request) => {

@@ -312,7 +312,9 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       (request) => request.path === "/v1/connect/instagram"
     )!
     expect(connect.query.get("profileId")).toBe(profileId)
-    expect(connect.query.get("scopes")).toBe("posting,comments,messaging")
+    expect(connect.query.get("scopes")).toBe(
+      "posting,analytics,comments,messaging"
+    )
     expect(connect.query.has("reconnectAccountId")).toBe(false)
     expect(connect.query.get("redirect_url")).toBe(
       `${new URL(config.appUrl).origin}/accounts/callback`

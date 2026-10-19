@@ -10,6 +10,7 @@ import {
 } from "@workspace/api/contract"
 import {
   CalendarDays,
+  ChartNoAxesCombined,
   House,
   Inbox,
   Monitor,
@@ -59,6 +60,7 @@ const navigation = [
   { href: "/contacts", label: "Contacts", icon: UsersRound },
   { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ]

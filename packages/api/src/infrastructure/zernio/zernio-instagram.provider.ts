@@ -6,8 +6,8 @@ import type { InstagramProvider } from "../../modules/accounts/instagram.provide
 import { ProviderError } from "../../shared/errors"
 import { request, requestDeletion, type ZernioAccess } from "./zernio-client"
 
-// Comment-to-DM reads comments and sends messages; the calendar publishes.
-const CONNECT_SCOPES = "posting,comments,messaging"
+// Analytics reads insights; comment-to-DM and the calendar use the other areas.
+const CONNECT_SCOPES = "posting,analytics,comments,messaging"
 
 export class ZernioInstagramProvider implements InstagramProvider {
   constructor(private readonly zernio: ZernioAccess) {}

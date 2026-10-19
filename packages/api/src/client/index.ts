@@ -15,6 +15,12 @@ import {
   type InstagramAccount,
   type InstagramPost,
   type IntegrationStatus,
+  type InsightQuery,
+  type InsightReport,
+  type InsightPostQuery,
+  type InsightPostReport,
+  type InsightTimingReport,
+  type InsightContentReport,
   type MediaContentType,
   type MediaUpload,
   type Message,
@@ -199,6 +205,37 @@ export function createApiClient(
       activity: (id: string, offset = 0) =>
         request<AutomationActivityPage>(
           `/automations/${encodeURIComponent(id)}/activity?limit=25&offset=${offset}`
+        ),
+    },
+    insights: {
+      content: (query: InsightQuery) =>
+        request<InsightContentReport>(
+          `/insights/content?${new URLSearchParams({
+            accountId: query.accountId,
+            days: String(query.days),
+            page: String(query.page),
+            sort: query.sort,
+          })}`
+        ),
+      postingTimes: (accountId: string) =>
+        request<InsightTimingReport>(
+          `/insights/posting-times?${new URLSearchParams({ accountId })}`
+        ),
+      get: (query: InsightQuery) =>
+        request<InsightReport>(
+          `/insights?${new URLSearchParams({
+            accountId: query.accountId,
+            days: String(query.days),
+            page: String(query.page),
+            sort: query.sort,
+          })}`
+        ),
+      post: (id: string, query: InsightPostQuery) =>
+        request<InsightPostReport>(
+          `/insights/posts/${encodeURIComponent(id)}?${new URLSearchParams({
+            accountId: query.accountId,
+            days: String(query.days),
+          })}`
         ),
     },
     scheduledPosts: {

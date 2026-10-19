@@ -7,6 +7,11 @@ import {
 import { once } from "node:events"
 
 type Body = Record<string, unknown>
+function nextDay(date: string): string {
+  const day = new Date(`${date}T00:00:00Z`)
+  day.setUTCDate(day.getUTCDate() + 1)
+  return day.toISOString().slice(0, 10)
+}
 type RecordedRequest = {
   method: string
   path: string
@@ -29,6 +34,20 @@ export async function startZernioFixture() {
     automationLogs: null as Body[] | null,
     // Whether the account granted permission to publish.
     canPost: true,
+    canFetchAnalytics: true,
+    analyticsFailureStatus: 0,
+    analyticsOutsideAccount: false,
+    analyticsMissing: false,
+    analyticsRequiresAddon: false,
+    analyticsTimingSlots: [
+      { day_of_week: 2, hour: 13, avg_engagement: 510.3, post_count: 15 },
+      { day_of_week: 4, hour: 12, avg_engagement: 342.5, post_count: 12 },
+      { day_of_week: 0, hour: 9, avg_engagement: 289.1, post_count: 8 },
+    ],
+    analyticsPending: false,
+    analyticsMediaProductType: "REELS",
+    analyticsDailyReach: null as { date: string; value: number }[] | null,
+    analyticsViewHistory: null as { date: string; views: number }[] | null,
     // Fails the next automation write only, after other writes succeeded.
     automationFailureStatus: 0,
   }
@@ -172,8 +191,135 @@ export async function startZernioFixture() {
       reply(200, {
         accountId,
         platform: "instagram",
-        permissions: { canPost: state.canPost },
+        permissions: {
+          canPost: state.canPost,
+          canFetchAnalytics: state.canFetchAnalytics,
+        },
       })
+      return
+    }
+    if (url.pathname.startsWith("/v1/analytics")) {
+      if (state.analyticsFailureStatus) {
+        reply(state.analyticsFailureStatus, {
+          error: "Fixture analytics unavailable",
+          ...(state.analyticsRequiresAddon && { requiresAddon: true }),
+        })
+        return
+      }
+      const fromDate =
+        url.searchParams.get("fromDate")?.slice(0, 10) ??
+        new Date().toISOString().slice(0, 10)
+      const analytics = state.analyticsMissing
+        ? {}
+        : {
+            views: 12_500,
+            reach: 8_000,
+            likes: 240,
+            comments: 32,
+            saves: 96,
+            shares: 72,
+            reposts: 12,
+            igReelsAvgWatchTime: 12_500,
+            igReelsVideoViewTotalTime: 156_250_000,
+            reelsSkipRate: 32.4,
+            lastUpdated: new Date().toISOString(),
+          }
+      const platform = {
+        platform: "instagram",
+        accountId: state.analyticsOutsideAccount
+          ? "foreign-account"
+          : accountId,
+        platformPostId: postId,
+        platformPostUrl: "https://instagram.com/reel/fixture",
+        syncStatus: state.analyticsPending ? "pending" : "synced",
+        analytics,
+      }
+      const post = {
+        _id: "fixture-analytics-post",
+        content: "A closer look at the creative process",
+        publishedAt: `${fromDate}T10:00:00.000Z`,
+        mediaType: "video",
+        mediaProductType: state.analyticsMediaProductType,
+        platform: "instagram",
+        profileId: url.searchParams.get("profileId"),
+        analytics: { views: 999_999 },
+        platforms: [platform],
+      }
+      if (url.pathname === "/v1/analytics/best-time") {
+        reply(
+          200,
+          state.analyticsMissing ? {} : { slots: state.analyticsTimingSlots }
+        )
+      } else if (url.pathname === "/v1/analytics/instagram/account-insights") {
+        reply(200, {
+          success: true,
+          accountId,
+          platform: "instagram",
+          metrics: state.analyticsMissing
+            ? {}
+            : url.searchParams.get("metricType") === "time_series"
+              ? {
+                  reach: {
+                    total: 999_999,
+                    values: state.analyticsDailyReach ?? [
+                      { date: fromDate, value: 240 },
+                      { date: nextDay(fromDate), value: 0 },
+                    ],
+                  },
+                }
+              : {
+                  views: { total: 24_800 },
+                  reach: { total: 13_200 },
+                  accounts_engaged: { total: 840 },
+                  total_interactions: { total: 1_240 },
+                },
+        })
+      } else if (url.pathname === "/v1/analytics/post-timeline") {
+        reply(200, {
+          postId: "fixture-analytics-post",
+          timeline: state.analyticsViewHistory
+            ? state.analyticsViewHistory.map((day) => ({
+                ...day,
+                platform: "instagram",
+                platformPostId: postId,
+              }))
+            : [
+                {
+                  date: fromDate,
+                  platform: "instagram",
+                  platformPostId: postId,
+                  views: 120,
+                },
+                {
+                  date: nextDay(fromDate),
+                  platform: "instagram",
+                  platformPostId: postId,
+                  views: 640,
+                },
+                {
+                  date: fromDate,
+                  platform: "instagram",
+                  platformPostId: "foreign-post",
+                  views: 900_000,
+                },
+                {
+                  date: fromDate,
+                  platform: "facebook",
+                  platformPostId: postId,
+                  views: 800_000,
+                },
+              ],
+        })
+      } else if (url.searchParams.has("postId")) {
+        reply(200, { ...post, postId: post._id, platformAnalytics: [platform] })
+      } else {
+        reply(200, {
+          hasAnalyticsAccess: true,
+          overview: { lastSync: new Date().toISOString() },
+          posts: [post],
+          pagination: { page: 1, pages: 1, total: 1 },
+        })
+      }
       return
     }
     if (url.pathname === "/v1/media/presign" && method === "POST") {
