@@ -133,6 +133,7 @@ export class AutomationService {
       dmButtons: input.dmButtons,
       commentReply: input.commentReply,
       requireFollow: input.requireFollow,
+      notFollowingMessage: input.notFollowingMessage ?? null,
       productCarousel: input.productCarousel ?? null,
       followUp: input.followUp ?? null,
     }
@@ -208,6 +209,12 @@ export class AutomationService {
       dmButtons: input.dmButtons,
       commentReply: input.commentReply,
       requireFollow: input.requireFollow,
+      // Turning the follower rule off drops the message that belongs to it.
+      notFollowingMessage: !input.requireFollow
+        ? null
+        : input.notFollowingMessage === undefined
+          ? current.notFollowingMessage
+          : input.notFollowingMessage,
       productCarousel:
         input.productCarousel === undefined
           ? current.productCarousel
@@ -628,5 +635,6 @@ function shapeOf(automation: AutomationRecord) {
     button_count: automation.dmButtons.length,
     has_comment_reply: automation.commentReply !== null,
     requires_follow: automation.requireFollow,
+    has_not_following_message: automation.notFollowingMessage !== null,
   }
 }

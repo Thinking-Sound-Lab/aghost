@@ -119,6 +119,17 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     return (await response.json()) as Automation
   }
 
+  /** The body of the latest automation create or update sent to Zernio. */
+  function lastWrite(method: string) {
+    return fixture.requests
+      .filter(
+        (request) =>
+          request.method === method &&
+          request.path.startsWith("/v1/comment-automations")
+      )
+      .at(-1)!.body
+  }
+
   async function deliver(payload: Record<string, unknown>, signature?: string) {
     const body = JSON.stringify(payload)
     return app.inject({
@@ -463,6 +474,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       button_count: 1,
       has_comment_reply: true,
       requires_follow: true,
+      has_not_following_message: false,
     })
   })
 
@@ -476,14 +488,6 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       trigger: { postScope: "any_post" },
       requireFollow: false,
     }
-    const lastWrite = (method: string) =>
-      fixture.requests
-        .filter(
-          (request) =>
-            request.method === method &&
-            request.path.startsWith("/v1/comment-automations")
-        )
-        .at(-1)!.body
     const response = await owner.request("/automations", "POST", {
       ...config,
       openingDm: { message: ` ${openingDm.message} `, buttonLabel: "Send it" },
@@ -531,6 +535,71 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         await admin
           .from("automations")
           .update({ opening_dm_message: "Only half" })
+          .eq("id", created.id)
+      ).error?.code
+    ).toBe("23514")
+    expect(
+      (await owner.request(`/automations/${created.id}`, "DELETE")).statusCode
+    ).toBe(204)
+  })
+
+  it("asks known non-followers to follow first and drops the request with the follower rule", async () => {
+    const notFollowingMessage = "Follow me first, then tap below."
+    const config = { ...automationInput(), trigger: { postScope: "any_post" } }
+    const response = await owner.request("/automations", "POST", {
+      ...config,
+      notFollowingMessage: ` ${notFollowingMessage} `,
+    })
+    expect(response.statusCode).toBe(201)
+    const created = (await response.json()) as Automation
+    expect(created.notFollowingMessage).toBe(notFollowingMessage)
+    expect(lastWrite("POST")).toMatchObject({
+      audience: { followerStatus: "follower", whenUnknown: "verify" },
+      followGate: { message: "", buttonLabel: "", notFollowingMessage },
+    })
+    // A client that leaves the field out keeps the stored message.
+    const kept = await owner.request(`/automations/${created.id}`, "PATCH", {
+      ...config,
+      dmMessage: "Here's the guide.",
+    })
+    expect(kept.statusCode).toBe(200)
+    expect((await kept.json()).notFollowingMessage).toBe(notFollowingMessage)
+    expect(lastWrite("PATCH").followGate).toEqual({
+      message: "",
+      buttonLabel: "",
+      notFollowingMessage,
+    })
+    expect(
+      (
+        await owner.request(`/automations/${created.id}`, "PATCH", {
+          ...config,
+          requireFollow: false,
+          notFollowingMessage,
+        })
+      ).statusCode
+    ).toBe(422)
+    const everyone = await owner.request(
+      `/automations/${created.id}`,
+      "PATCH",
+      {
+        ...config,
+        requireFollow: false,
+      }
+    )
+    expect(everyone.statusCode).toBe(200)
+    expect((await everyone.json()).notFollowingMessage).toBeNull()
+    expect(lastWrite("PATCH")).toMatchObject({
+      audience: { followerStatus: "any", whenUnknown: "send" },
+      followGate: { message: "", buttonLabel: "" },
+    })
+    expect(lastWrite("PATCH").followGate).not.toHaveProperty(
+      "notFollowingMessage"
+    )
+    expect(
+      (
+        await admin
+          .from("automations")
+          .update({ not_following_message: notFollowingMessage })
           .eq("id", created.id)
       ).error?.code
     ).toBe("23514")

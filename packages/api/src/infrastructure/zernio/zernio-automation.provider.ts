@@ -12,7 +12,6 @@ import type {
   AutomationStats,
   AutomationStatus,
   DmButton,
-  OpeningDm,
 } from "../../contract/automation"
 import type { AutomationConfig } from "../../modules/automations/automation"
 import type {
@@ -36,7 +35,8 @@ const POST_TITLE_MAX_LENGTH = 120
 
 // Instagram only reveals whether someone follows the account once they have
 // messaged it, so first-time commenters get a one-tap confirmation and the DM
-// follows once they do follow.
+// follows once they do follow. Known non-followers get the not-following
+// message with the same button, when the automation has one.
 const FOLLOWERS_ONLY: CommentAutomationAudience = {
   followerStatus: "follower",
   whenUnknown: "verify",
@@ -52,12 +52,6 @@ const EVERYONE: CommentAutomationAudience = {
 const TAP_TO_UNLOCK: CommentAutomationAudience = {
   followerStatus: "any",
   tapToUnlock: true,
-}
-
-// Zernio uses its default copy for empty fields, which removes an opening DM.
-const DEFAULT_FOLLOW_GATE: CommentAutomationFollowGate = {
-  message: "",
-  buttonLabel: "",
 }
 
 const POST_TAKEN_MESSAGE =
@@ -95,9 +89,7 @@ export class ZernioAutomationProvider implements AutomationProvider {
           }),
           ...(config.commentReply && { commentReply: config.commentReply }),
           audience: toAudience(config),
-          ...(config.openingDm && {
-            followGate: toFollowGate(config.openingDm),
-          }),
+          followGate: toFollowGate(config),
           isActive: status === "active",
         },
       })
@@ -143,9 +135,7 @@ export class ZernioAutomationProvider implements AutomationProvider {
           commentReply: config.commentReply ?? "",
           // An audience without tapToUnlock turns tap-to-unlock off.
           audience: toAudience(config),
-          followGate: config.openingDm
-            ? toFollowGate(config.openingDm)
-            : DEFAULT_FOLLOW_GATE,
+          followGate: toFollowGate(config),
         },
       })
     )
@@ -282,8 +272,19 @@ function toAudience(config: AutomationConfig): CommentAutomationAudience {
   return config.openingDm ? TAP_TO_UNLOCK : EVERYONE
 }
 
-function toFollowGate(openingDm: OpeningDm): CommentAutomationFollowGate {
-  return { message: openingDm.message, buttonLabel: openingDm.buttonLabel }
+/**
+ * Zernio replaces the whole follow gate on each write. It uses its default
+ * copy for an empty message or button label, which removes an opening DM, and
+ * a missing not-following message leaves known non-followers without a reply.
+ */
+function toFollowGate(config: AutomationConfig): CommentAutomationFollowGate {
+  return {
+    message: config.openingDm?.message ?? "",
+    buttonLabel: config.openingDm?.buttonLabel ?? "",
+    ...(config.notFollowingMessage && {
+      notFollowingMessage: config.notFollowingMessage,
+    }),
+  }
 }
 
 function toZernioButton(button: DmButton): ZernioDmButton {

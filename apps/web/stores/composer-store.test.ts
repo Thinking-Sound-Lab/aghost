@@ -80,6 +80,7 @@ function automationFor(saved: ScheduledPost): Automation {
     dmButtons: [],
     commentReply: null,
     requireFollow: false,
+    notFollowingMessage: null,
     productCarousel: null,
     followUp: null,
     createdAt: saved.createdAt,

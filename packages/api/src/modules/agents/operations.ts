@@ -198,7 +198,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_automation",
     description:
-      "Create an Instagram comment-to-DM automation. Growth and Business allow productCarousel (1–10 cards, replaces the main text bubble; dmButtons must be empty). Business allows followUp (one reminder, 30–1200 minutes, optional link button; skipped after replies, clicks, or expiry of messaging consent). Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
+      "Create an Instagram comment-to-DM automation. Growth and Business allow productCarousel (1–10 cards, replaces the main text bubble; dmButtons must be empty). Business allows followUp (one reminder, 30–1200 minutes, optional link button; skipped after replies, clicks, or expiry of messaging consent). With requireFollow, notFollowingMessage asks commenters known not to follow (most viewers of a Trial Reel) to follow first; the DM follows when they tap its button as followers, and without it they get no reply. Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
     scope: "automations:write",
     schema: createAutomationSchema,
     run: async ({ workspace, services }, input) =>

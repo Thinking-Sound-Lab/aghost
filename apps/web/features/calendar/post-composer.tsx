@@ -557,6 +557,7 @@ export function PostComposer({
             composer.automationOn ? composer.response.commentReply : null
           }
           openingDm={composer.response.openingDm}
+          notFollowingMessage={composer.response.notFollowingMessage ?? null}
           dmMessage={composer.response.dmMessage}
           buttons={composer.response.dmButtons.map((item) => item.label)}
           productCarousel={
