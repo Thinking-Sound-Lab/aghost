@@ -1,27 +1,53 @@
 "use client"
 
-import { useEffect, useTransition, type FormEvent } from "react"
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
-  ArrowUpLeft,
+  CalendarClock,
   ExternalLink,
-  ImagePlus,
+  Eye,
   Loader2,
+  PanelRight,
+  Plus,
+  Share2,
+  Trash2,
   X,
 } from "lucide-react"
 import {
-  MEDIA_CONTENT_TYPES,
-  POST_LIMITS,
+  PLATFORMS,
+  PLATFORM_RULES,
+  accountLabel,
+  type Account,
+  type Platform,
   type PostKind,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { NativeSelect } from "@workspace/ui/components/native-select"
-import { Textarea } from "@workspace/ui/components/textarea"
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import { NativeSelect } from "@workspace/ui/components/native-select"
+import {
+  Avatar,
   ConfirmButton,
   EmptyState,
   ErrorBanner,
@@ -29,7 +55,7 @@ import {
   Loading,
   Panel,
 } from "@/components/interface"
-import { Instagram } from "@/components/instagram-icon"
+import { ChannelAvatar, PlatformIcon } from "@/components/platform-icon"
 import {
   AutomationFields,
   Card,
@@ -39,20 +65,20 @@ import {
 import { InstagramPreview } from "@/features/automations/instagram-preview"
 import { STATUS } from "@/features/calendar/calendar"
 import {
-  MediaThumb,
-  previewOf,
-  timeLabel,
-} from "@/features/calendar/post-media"
-import { localInput, useComposerStore } from "@/stores/composer-store"
-import { useWorkspaceStore } from "@/stores/workspace-store"
+  INLINE_FIELDS,
+  PostContentEditor,
+} from "@/features/calendar/post-content-editor"
+import { previewOf, timeLabel } from "@/features/calendar/post-media"
+import { PostPreview } from "@/features/calendar/post-preview"
+import { ScheduleDialog } from "@/features/calendar/schedule-dialog"
+import { onAccountsChanged } from "@/lib/account-events"
+import { captionFor, useComposerStore } from "@/stores/composer-store"
+import { canConnect, useWorkspaceStore } from "@/stores/workspace-store"
 
-const ACCEPT = Object.keys(MEDIA_CONTENT_TYPES).join(",")
-const KINDS: { kind: PostKind; label: string }[] = [
-  { kind: "post", label: "Post or reel" },
-  { kind: "story", label: "Story" },
+const KINDS: { value: PostKind; label: string }[] = [
+  { value: "post", label: "Post or reel" },
+  { value: "story", label: "Story" },
 ]
-const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-
 export function PostComposer({
   id,
   day,
@@ -63,14 +89,27 @@ export function PostComposer({
   const composer = useComposerStore()
   const workspace = useWorkspaceStore()
   const router = useRouter()
-  // A saved post stays locked until the calendar shows. Until then a new
-  // post's page keeps its title and button, chosen by the address.
   const [leaving, startLeaving] = useTransition()
+  const [channel, setChannel] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(true)
+  const [mobilePreview, setMobilePreview] = useState(false)
+  const [scheduling, setScheduling] = useState(false)
+  const tabsId = useId()
+  const formId = useId()
+  const editor = useRef<HTMLElement>(null)
   const initialize = composer.initialize
   useEffect(() => {
     void initialize(id, day)
     return () => useComposerStore.getState().leave()
   }, [id, day, initialize])
+  // A channel connected in another tab joins the list, and the post.
+  useEffect(
+    () =>
+      onAccountsChanged(
+        () => void useComposerStore.getState().channelsChanged()
+      ),
+    []
+  )
 
   if (composer.status === "idle" || composer.status === "loading")
     return <Loading />
@@ -86,13 +125,12 @@ export function PostComposer({
 
   const { draft, fields, post } = composer
   const accounts = workspace.accounts.filter(
-    (item) =>
-      item.status === "connected" || item.id === draft.instagramAccountId
+    (item) => item.status === "connected" || draft.accountIds.includes(item.id)
   )
   if (accounts.length === 0)
     return (
       <Panel className="flex-1">
-        <EmptyState icon={<Instagram />} title="Connect Instagram first">
+        <EmptyState icon={<Share2 />} title="Connect a channel first">
           <Link
             href="/settings#channels"
             className={buttonVariants({ variant: "secondary" })}
@@ -102,8 +140,13 @@ export function PostComposer({
         </EmptyState>
       </Panel>
     )
-
-  const account = accounts.find((item) => item.id === draft.instagramAccountId)
+  const chosen = draft.accountIds.flatMap((id) => {
+    const account = accounts.find((item) => item.id === id)
+    return account ? [account] : []
+  })
+  const active = chosen.find((item) => item.id === channel) ?? chosen[0] ?? null
+  const onlyInstagram =
+    chosen.length > 0 && chosen.every((item) => item.platform === "instagram")
   const editable = !post || post.status === "scheduled"
   const story = draft.kind === "story"
   const linked = post?.automationIds[0] ?? null
@@ -112,42 +155,237 @@ export function PostComposer({
       .filter(([path]) => path.startsWith("automation."))
       .map(([path, message]) => [path.slice("automation.".length), message])
   )
-  const screen = story ? "story" : composer.preview
-  const room =
-    (story || draft.trialReel ? 1 : POST_LIMITS.maxMediaItems) -
-    draft.media.length -
-    composer.uploads.length
-
   const saving = composer.pending === "save" || leaving
   const busy = composer.pending !== null || leaving
+  const dmPreview =
+    active?.platform === "instagram" &&
+    composer.automationOn &&
+    !story &&
+    !linked &&
+    editable
+  /** A channel's problems from the last save; the editor shows some beside their input. */
+  function problemsOf(index: number, skipInline: boolean): string[] {
+    if (post) return []
+    const prefix = `targets.${index}.`
+    return [
+      ...new Set(
+        Object.entries(fields)
+          .filter(
+            ([path]) =>
+              path.startsWith(prefix) &&
+              !(skipInline && INLINE_FIELDS.includes(path.slice(prefix.length)))
+          )
+          .map(([, message]) => message)
+      ),
+    ]
+  }
+  const when = new Date(draft.scheduledAt)
+  const scheduledLabel = Number.isNaN(when.getTime())
+    ? "Choose a time"
+    : timeLabel(when.toISOString())
+  const general = [fields.targets, fields.kind, fields.scheduledFor].filter(
+    (message): message is string => !!message
+  )
 
+  function selectChannel(value: string) {
+    setChannel(value)
+    editor.current?.scrollTo({ top: 0 })
+    useComposerStore.setState({ preview: "post" })
+  }
+  /** Opens the channel whose content the save turned down. */
+  function revealProblems() {
+    const paths = Object.keys(useComposerStore.getState().fields)
+    const failed = (item: Account, index: number) =>
+      paths.some((path) => path.startsWith(`targets.${index}.`)) ||
+      (item.platform === "instagram" &&
+        paths.some(
+          (path) =>
+            path.startsWith("automation.") || path.startsWith("trialReel")
+        ))
+    const index = chosen.findIndex((item) => item.id === active?.id)
+    if (!active || !failed(active, index)) {
+      const next = chosen.find(failed)
+      if (next) setChannel(next.id)
+    }
+    editor.current?.scrollTo({ top: 0 })
+  }
   async function submit(event: FormEvent) {
     event.preventDefault()
+    // A new post is confirmed in the schedule dialog first.
+    if (!post && !scheduling) return setScheduling(true)
     if (await composer.save()) startLeaving(() => router.push("/calendar"))
+    else if (!useComposerStore.getState().fields.scheduledFor) {
+      setScheduling(false)
+      revealProblems()
+    }
   }
   async function remove() {
     if (await composer.remove()) router.push("/calendar")
   }
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <Panel className="w-full lg:w-[560px] lg:shrink-0">
-        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-          <header className="flex shrink-0 items-center gap-2 px-4 pt-6 pb-6 md:px-10 md:pt-10 md:pb-8">
-            <Link
-              href="/calendar"
-              aria-label="Back to calendar"
-              className={buttonVariants({
-                variant: "ghost",
-                size: "icon-sm",
-                className: "-ml-2",
-              })}
+    <form
+      id={formId}
+      onSubmit={submit}
+      className="flex min-h-0 min-w-0 flex-1 bg-card"
+    >
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col",
+          mobilePreview && "hidden lg:flex"
+        )}
+      >
+        <header className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2.5 md:px-4">
+          <Link
+            href="/calendar"
+            aria-label="Back to calendar"
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            <ArrowLeft />
+          </Link>
+          <h1 className="sr-only">
+            {id ? (editable ? "Edit post" : "Post") : "New post"}
+          </h1>
+          {chosen.length > 0 && (
+            <div
+              role="tablist"
+              aria-label="Channels"
+              className="flex gap-0.5 rounded-lg bg-muted p-0.5"
+              onKeyDown={(event) => {
+                if (
+                  !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                    event.key
+                  )
+                )
+                  return
+                const tabs = [
+                  ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                    '[role="tab"]'
+                  ),
+                ]
+                const index = tabs.indexOf(
+                  document.activeElement as HTMLButtonElement
+                )
+                const next =
+                  event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? tabs.length - 1
+                      : (index +
+                          (event.key === "ArrowRight" ? 1 : -1) +
+                          tabs.length) %
+                        tabs.length
+                event.preventDefault()
+                tabs[next]?.focus()
+                tabs[next]?.click()
+              }}
             >
-              <ArrowLeft />
-            </Link>
-            <h1 className="mr-auto text-xl font-semibold tracking-tight">
-              {id ? (editable ? "Edit post" : "Post") : "New post"}
-            </h1>
+              {chosen.map((item, index) => {
+                const selected = item.id === active?.id
+                const name = PLATFORM_RULES[item.platform].name
+                const failed = problemsOf(index, false).length > 0
+                const twin = chosen.some(
+                  (other) =>
+                    other.id !== item.id && other.platform === item.platform
+                )
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    id={`${tabsId}-${item.id}`}
+                    aria-controls={`${tabsId}-content`}
+                    aria-selected={selected}
+                    tabIndex={selected ? 0 : -1}
+                    title={`${name} · ${accountLabel(item)}`}
+                    aria-label={`${name}, ${accountLabel(item)}${failed ? ", needs changes" : ""}`}
+                    onClick={() => selectChannel(item.id)}
+                    className={cn(
+                      "relative flex h-7 min-w-9 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      selected &&
+                        "bg-card text-foreground shadow-xs dark:bg-accent"
+                    )}
+                  >
+                    <PlatformIcon platform={item.platform} size={15} />
+                    {twin && (
+                      <Avatar
+                        src={item.profilePictureUrl}
+                        name={item.username}
+                        className="size-4 text-[8px]"
+                      />
+                    )}
+                    {(failed || item.id in draft.captions) && (
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute top-1 right-1 size-1.5 rounded-full",
+                          failed ? "bg-destructive" : "bg-foreground/60"
+                        )}
+                      />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {!post && (
+            <ChannelMenu
+              accounts={accounts}
+              selected={draft.accountIds}
+              disabled={busy}
+              canConnect={canConnect(workspace) && !workspace.busy}
+              onToggle={(accountId) => void composer.toggleAccount(accountId)}
+              onConnect={(platform) => void composer.connect(platform)}
+            />
+          )}
+          <div className="ml-auto flex items-center gap-1.5">
+            {editable && post && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                title="Change when it publishes"
+                onClick={() => setScheduling(true)}
+                className="font-normal text-muted-foreground"
+              >
+                <CalendarClock data-icon="inline-start" />
+                {scheduledLabel}
+              </Button>
+            )}
+            {editable && (
+              <Button
+                type={post ? "submit" : "button"}
+                disabled={busy || composer.uploads.length > 0}
+                onClick={post ? undefined : () => setScheduling(true)}
+              >
+                {saving && (
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                )}
+                {post ? "Save" : "Schedule"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Show preview"
+              className="lg:hidden"
+              onClick={() => setMobilePreview(true)}
+            >
+              <Eye />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Preview"
+              title={previewOpen ? "Hide preview" : "Show preview"}
+              aria-pressed={previewOpen}
+              className="hidden lg:inline-flex"
+              onClick={() => setPreviewOpen(!previewOpen)}
+            >
+              <PanelRight />
+            </Button>
             {id &&
               post &&
               post.status !== "publishing" &&
@@ -163,197 +401,170 @@ export function PostComposer({
                   busy={busy}
                   onConfirm={remove}
                 >
-                  Delete
+                  <Trash2 />
+                  <span className="sr-only">Delete post</span>
                 </ConfirmButton>
               )}
-          </header>
-
-          <div className="grid min-h-0 flex-1 content-start gap-10 overflow-auto px-4 pb-10 md:px-10">
+          </div>
+        </header>
+        <section
+          ref={editor}
+          role="tabpanel"
+          id={`${tabsId}-content`}
+          aria-labelledby={active ? `${tabsId}-${active.id}` : undefined}
+          className="relative min-h-0 flex-1 overflow-y-auto"
+        >
+          <div
+            className={cn(
+              "mx-auto grid w-full content-start gap-6 px-5 pt-6 pb-16 md:pt-10",
+              active?.platform === "instagram" ? "max-w-[470px]" : "max-w-xl"
+            )}
+          >
             {post && !editable && (
-              <div className="grid gap-2 rounded-md bg-muted p-4 text-sm">
-                <p className="flex items-center gap-2 font-medium">
-                  <span
-                    className={cn(
-                      "size-2 rounded-full",
-                      STATUS[post.status].dot
-                    )}
-                  />
-                  {STATUS[post.status].label}
-                  <span className="font-normal text-muted-foreground">
-                    · {timeLabel(post.publishedAt ?? post.scheduledFor)}
-                  </span>
-                </p>
-                {post.error && <p className="text-destructive">{post.error}</p>}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-muted px-3 py-2.5 text-sm">
+                <span
+                  className={cn("size-2 rounded-full", STATUS[post.status].dot)}
+                />
+                <span className="font-medium">{STATUS[post.status].label}</span>
+                <span className="text-muted-foreground">
+                  · {timeLabel(post.publishedAt ?? post.scheduledFor)}
+                </span>
                 {post.permalink && (
                   <a
                     href={post.permalink}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 justify-self-start underline underline-offset-4"
+                    className="ml-auto inline-flex items-center gap-1 underline underline-offset-4"
                   >
-                    View on Instagram
+                    View on {PLATFORM_RULES[post.platform].name}
                     <ExternalLink className="size-3.5" />
                   </a>
                 )}
-              </div>
-            )}
-
-            <Step
-              title="Publish"
-              onFocus={() => useComposerStore.setState({ preview: "post" })}
-            >
-              {accounts.length > 1 && (
-                <NativeSelect
-                  aria-label="Instagram account"
-                  value={draft.instagramAccountId}
-                  disabled={!!post}
-                  onChange={(event) =>
-                    void composer.selectAccount(event.target.value)
-                  }
-                  className="rounded-lg border-transparent bg-input/50"
-                >
-                  {accounts.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      @{item.username}
-                    </option>
-                  ))}
-                </NativeSelect>
-              )}
-              {editable && composer.canPublish === false && account && (
-                <div className="flex items-center gap-3 rounded-md bg-muted p-4">
-                  <p className="mr-auto text-sm">
-                    Allow aghost to publish on @{account.username}
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={workspace.busy}
-                    onClick={() => void workspace.reconnect(account.id)}
-                  >
-                    Reconnect
-                  </Button>
-                </div>
-              )}
-
-              <div
-                role="radiogroup"
-                aria-label="Kind"
-                className="flex gap-1 justify-self-start rounded-lg bg-muted p-1"
-              >
-                {KINDS.map((item) => (
-                  <button
-                    key={item.kind}
-                    type="button"
-                    role="radio"
-                    aria-checked={draft.kind === item.kind}
-                    // A scheduled post keeps its kind; it can be deleted instead.
-                    disabled={!!post}
-                    onClick={() => composer.patch({ kind: item.kind })}
-                    className={cn(
-                      "h-7 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none",
-                      draft.kind === item.kind &&
-                        "bg-card font-medium text-foreground shadow-xs"
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              {fields.kind && (
-                <p className="text-xs text-destructive">{fields.kind}</p>
-              )}
-
-              <div className="grid gap-1.5">
-                <div className="grid grid-cols-4 gap-1.5">
-                  {draft.media.map((item, index) => (
-                    <div
-                      key={item.url}
-                      className="group relative aspect-square overflow-hidden rounded-md bg-muted"
-                    >
-                      <MediaThumb media={item} />
-                      {editable && (
-                        <span className="absolute inset-x-1 top-1 flex justify-between opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                          {index > 0 ? (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="icon-xs"
-                              aria-label={`Move item ${index + 1} earlier`}
-                              onClick={() => composer.moveEarlier(index)}
-                            >
-                              <ArrowUpLeft />
-                            </Button>
-                          ) : (
-                            <span />
-                          )}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon-xs"
-                            aria-label={`Remove item ${index + 1}`}
-                            onClick={() => composer.removeMedia(index)}
-                          >
-                            <X />
-                          </Button>
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                  {composer.uploads.map((upload) => (
-                    <div
-                      key={upload.key}
-                      className="grid aspect-square place-items-center content-center gap-1 rounded-md bg-muted p-2 text-center"
-                    >
-                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                      <span className="w-full truncate text-[10px] text-muted-foreground">
-                        {upload.name}
-                      </span>
-                    </div>
-                  ))}
-                  {editable && room > 0 && (
-                    <label
-                      className={cn(
-                        "grid aspect-square cursor-pointer place-items-center content-center gap-1 rounded-md bg-muted text-xs text-muted-foreground transition-colors focus-within:ring-2 focus-within:ring-ring hover:text-foreground",
-                        fields.media && "bg-destructive/10 text-destructive"
-                      )}
-                    >
-                      <ImagePlus className="size-5" />
-                      Add
-                      <input
-                        type="file"
-                        disabled={busy || composer.uploads.length > 0}
-                        accept={
-                          draft.trialReel ? "video/mp4,video/quicktime" : ACCEPT
-                        }
-                        multiple={!story && !draft.trialReel}
-                        className="sr-only"
-                        onChange={(event) => {
-                          const files = [...(event.target.files ?? [])]
-                          event.target.value = ""
-                          void composer.addFiles(files)
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-                {editable && (
-                  <span
-                    className={cn(
-                      "text-xs text-muted-foreground",
-                      fields.media && "text-destructive"
-                    )}
-                  >
-                    {fields.media ??
-                      (story
-                        ? "One photo or video, shown for 24 hours."
-                        : draft.trialReel
-                          ? "One video, shown to non-followers first."
-                          : "One video posts as a reel. Add up to 10 for a carousel.")}
-                  </span>
+                {post.error && (
+                  <p className="basis-full text-destructive">{post.error}</p>
                 )}
               </div>
-
-              {!story && (editable || draft.trialReel) && (
+            )}
+            {(composer.error || general.length > 0) && (
+              <div className="grid gap-1.5">
+                <ErrorBanner message={composer.error} />
+                {general.map((message) => (
+                  <p
+                    key={message}
+                    role="alert"
+                    className="text-xs text-destructive"
+                  >
+                    {message}
+                  </p>
+                ))}
+              </div>
+            )}
+            {chosen.map((item, index) => {
+              const problems = problemsOf(index, item.id === active?.id)
+              if (!problems.length) return null
+              return (
+                <div
+                  key={item.id}
+                  role="alert"
+                  className="grid gap-1 rounded-md bg-destructive/5 px-3 py-2.5 text-xs text-destructive"
+                >
+                  {item.id === active?.id ? (
+                    <span className="flex items-center gap-2 font-medium">
+                      <PlatformIcon platform={item.platform} />
+                      {accountLabel(item)}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => selectChannel(item.id)}
+                      className="flex items-center gap-2 justify-self-start font-medium underline underline-offset-4"
+                    >
+                      <PlatformIcon platform={item.platform} />
+                      {PLATFORM_RULES[item.platform].name}: {accountLabel(item)}
+                    </button>
+                  )}
+                  {problems.map((message) => (
+                    <p key={message}>{message}</p>
+                  ))}
+                </div>
+              )
+            })}
+            {editable &&
+              chosen
+                .filter((item) => composer.publishing[item.id] === false)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-md bg-muted px-3 py-2.5"
+                  >
+                    <p className="mr-auto text-sm">
+                      Allow aghost to publish on {accountLabel(item)}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={workspace.busy || busy}
+                      onClick={() => void workspace.reconnect(item.id)}
+                    >
+                      Reconnect
+                    </Button>
+                  </div>
+                ))}
+            {onlyInstagram && (
+              <Segmented
+                label="Kind"
+                value={draft.kind}
+                options={KINDS}
+                disabled={!!post || busy}
+                onChange={(kind) => composer.patch({ kind })}
+              />
+            )}
+            {active ? (
+              <div
+                onFocus={() => useComposerStore.setState({ preview: "post" })}
+              >
+                <PostContentEditor
+                  account={active}
+                  chosen={chosen}
+                  editable={editable}
+                  busy={busy}
+                />
+              </div>
+            ) : (
+              <EmptyState icon={<Share2 />} title="Choose where to publish">
+                <div className="flex flex-wrap justify-center gap-2">
+                  {accounts.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={busy || item.status !== "connected"}
+                      onClick={() => void composer.toggleAccount(item.id)}
+                      className="flex min-h-9 items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <ChannelAvatar account={item} className="size-6" />
+                      <span className="max-w-36 truncate">
+                        {accountLabel(item)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </EmptyState>
+            )}
+            {active?.platform === "youtube" && (
+              <Card
+                title="Made for kids"
+                enabled={draft.youtube[active.id]?.madeForKids ?? false}
+                onToggle={
+                  editable && !busy
+                    ? (on) =>
+                        composer.setYouTube(active.id, { madeForKids: on })
+                    : undefined
+                }
+              />
+            )}
+            {active?.platform === "instagram" &&
+              !story &&
+              (editable || draft.trialReel) && (
                 <Card
                   title={editable ? "Trial Reel" : "Trial Reel launch settings"}
                   enabled={draft.trialReel !== null}
@@ -370,7 +581,9 @@ export function PostComposer({
                 >
                   <p className="text-xs text-muted-foreground">
                     {editable
-                      ? "Show one video to non-followers first. Attach a comment-to-DM automation below."
+                      ? onlyInstagram
+                        ? "Show one video to non-followers first."
+                        : "On Instagram, show the video to non-followers first. Other channels post it as usual."
                       : "This reel was scheduled to reach non-followers first."}
                   </p>
                   {draft.trialReel && (
@@ -420,48 +633,7 @@ export function PostComposer({
                   )}
                 </Card>
               )}
-
-              {!story && (
-                <Field
-                  error={fields.caption}
-                  hint={`${draft.caption.length.toLocaleString()} / ${POST_LIMITS.captionMaxLength.toLocaleString()}`}
-                >
-                  <Textarea
-                    aria-label="Caption"
-                    placeholder="Write a caption…"
-                    rows={4}
-                    disabled={!editable}
-                    maxLength={POST_LIMITS.captionMaxLength}
-                    value={draft.caption}
-                    onChange={(event) =>
-                      composer.patch({ caption: event.target.value })
-                    }
-                  />
-                </Field>
-              )}
-            </Step>
-
-            <Step title="When">
-              <Field
-                error={fields.scheduledFor}
-                hint={`Your time zone: ${timeZone}`}
-              >
-                <Input
-                  type="datetime-local"
-                  aria-label="Date and time"
-                  required
-                  disabled={!editable}
-                  min={localInput(new Date())}
-                  value={draft.scheduledAt}
-                  onChange={(event) =>
-                    composer.patch({ scheduledAt: event.target.value })
-                  }
-                  className="w-auto"
-                />
-              </Field>
-            </Step>
-
-            {!story && linked && (
+            {active?.platform === "instagram" && !story && linked && (
               <Step title="Automation">
                 <div className="flex items-center gap-3 rounded-md bg-muted p-4 text-sm">
                   <span className="mr-auto">
@@ -479,20 +651,23 @@ export function PostComposer({
                 </div>
               </Step>
             )}
-            {!story && !linked && editable && (
-              <Card
-                title="Send a DM to people who comment"
-                enabled={composer.automationOn}
-                onToggle={(on) =>
-                  useComposerStore.setState({
-                    automationOn: on,
-                    preview: on ? "dm" : "post",
-                    fields: {},
-                  })
-                }
-              />
-            )}
-            {!story && !linked && editable && composer.automationOn && (
+            {active?.platform === "instagram" &&
+              !story &&
+              !linked &&
+              editable && (
+                <Card
+                  title="Send a DM to people who comment"
+                  enabled={composer.automationOn}
+                  onToggle={(on) =>
+                    useComposerStore.setState({
+                      automationOn: on,
+                      preview: on ? "dm" : "post",
+                      fields: {},
+                    })
+                  }
+                />
+              )}
+            {dmPreview && (
               <AutomationFields
                 draft={composer.response}
                 keywords={composer.keywords}
@@ -515,58 +690,236 @@ export function PostComposer({
               />
             )}
           </div>
-
-          {editable && (
-            <footer className="flex shrink-0 items-center gap-2 px-4 pt-4 pb-8 md:px-10">
-              <ErrorBanner
-                message={composer.error}
-                className="mr-auto py-1.5"
+        </section>
+      </div>
+      <aside
+        aria-label="Preview"
+        className={cn(
+          "min-h-0 w-full shrink-0 flex-col border-l bg-muted/50 lg:w-[26rem] xl:w-[30rem]",
+          mobilePreview ? "flex" : "hidden",
+          previewOpen ? "lg:flex" : "lg:hidden"
+        )}
+      >
+        <div className="flex h-[52px] shrink-0 items-center gap-2 px-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Back to editor"
+            className="lg:hidden"
+            onClick={() => setMobilePreview(false)}
+          >
+            <X />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Hide preview"
+            className="hidden lg:inline-flex"
+            onClick={() => setPreviewOpen(false)}
+          >
+            <X />
+          </Button>
+          {active && (
+            <span className="truncate text-xs text-muted-foreground">
+              {PLATFORM_RULES[active.platform].name} preview
+            </span>
+          )}
+          {dmPreview && (
+            <div className="ml-auto">
+              <Segmented
+                label="Preview screen"
+                value={composer.preview}
+                options={[
+                  { value: "post", label: "Post" },
+                  { value: "dm", label: "DM" },
+                ]}
+                onChange={(preview) => useComposerStore.setState({ preview })}
               />
-              <Button
-                type="submit"
-                className="ml-auto"
-                disabled={busy || composer.uploads.length > 0}
-              >
-                {saving && (
-                  <Loader2 data-icon="inline-start" className="animate-spin" />
+            </div>
+          )}
+        </div>
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4 xl:px-6 xl:pb-6">
+          {!active ? (
+            <p className="grid h-full place-content-center text-center text-sm text-muted-foreground">
+              Choose a channel to see a preview.
+            </p>
+          ) : dmPreview && composer.preview === "dm" ? (
+            <div className="grid justify-items-center">
+              <InstagramPreview
+                screen="dm"
+                account={{
+                  username: active.username,
+                  picture: active.profilePictureUrl,
+                }}
+                post={previewOf({
+                  media: draft.media,
+                  caption: captionFor(draft, active.id),
+                })}
+                keyword={keywordsOf(composer.keywords)[0] ?? null}
+                commentReply={composer.response.commentReply}
+                openingDm={composer.response.openingDm}
+                dmMessage={composer.response.dmMessage}
+                buttons={composer.response.dmButtons.map(
+                  (button) => button.label
                 )}
-                {id ? "Save" : "Schedule"}
-              </Button>
-            </footer>
+                productCarousel={
+                  composer.response.dmFormat === "carousel"
+                    ? (composer.response.productCarousel ?? null)
+                    : null
+                }
+                followUp={composer.response.followUp ?? null}
+              />
+            </div>
+          ) : (
+            <PostPreview
+              key={active.id}
+              account={active}
+              caption={captionFor(draft, active.id).trim()}
+              media={draft.media}
+              title={draft.youtube[active.id]?.title.trim() || null}
+              kind={draft.kind}
+            />
           )}
-          {!editable && composer.error && (
-            <footer className="px-4 pb-8 md:px-10">
-              <ErrorBanner message={composer.error} />
-            </footer>
+        </div>
+      </aside>
+      <ScheduleDialog
+        open={scheduling}
+        onOpenChange={setScheduling}
+        formId={formId}
+        accounts={accounts}
+        busy={busy}
+        saving={saving}
+        onPreview={(accountId) => {
+          selectChannel(accountId)
+          setPreviewOpen(true)
+          setMobilePreview(true)
+          setScheduling(false)
+        }}
+      />
+    </form>
+  )
+}
+
+function ChannelMenu({
+  accounts,
+  selected,
+  disabled,
+  canConnect,
+  onToggle,
+  onConnect,
+}: {
+  accounts: Account[]
+  selected: string[]
+  disabled: boolean
+  canConnect: boolean
+  onToggle: (id: string) => void
+  onConnect: (platform: Platform) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Choose channels"
+            title="Choose channels"
+            disabled={disabled}
+          />
+        }
+      >
+        <Plus />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-64">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Publish to</DropdownMenuLabel>
+          {accounts.map((item) => (
+            <DropdownMenuCheckboxItem
+              key={item.id}
+              checked={selected.includes(item.id)}
+              disabled={item.status !== "connected"}
+              onCheckedChange={() => onToggle(item.id)}
+            >
+              <Avatar
+                src={item.profilePictureUrl}
+                name={item.username}
+                className="size-6"
+              />
+              <span className="min-w-0 flex-1 truncate">
+                {accountLabel(item)}
+              </span>
+              <PlatformIcon
+                platform={item.platform}
+                className="size-3.5 text-muted-foreground"
+              />
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger disabled={!canConnect}>
+            <Plus />
+            Connect a channel
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-44">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Opens in a new tab</DropdownMenuLabel>
+              {PLATFORMS.map((platform) => (
+                <DropdownMenuItem
+                  key={platform}
+                  onClick={() => onConnect(platform)}
+                >
+                  <PlatformIcon platform={platform} />
+                  {PLATFORM_RULES[platform].name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  disabled?: boolean
+  onChange: (value: T) => void
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex gap-0.5 justify-self-start rounded-lg bg-muted p-0.5"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          disabled={disabled}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "h-7 rounded-md px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none",
+            value === option.value &&
+              "bg-card font-medium text-foreground shadow-xs dark:bg-accent"
           )}
-        </form>
-      </Panel>
-      <Panel className="hidden flex-1 items-center justify-center overflow-auto bg-muted p-10 lg:flex">
-        <InstagramPreview
-          screen={screen}
-          account={{
-            username: account?.username ?? "",
-            picture: account?.profilePictureUrl ?? null,
-          }}
-          post={previewOf({
-            media: draft.media,
-            caption: draft.caption.trim() || null,
-          })}
-          keyword={keywordsOf(composer.keywords)[0] ?? null}
-          commentReply={
-            composer.automationOn ? composer.response.commentReply : null
-          }
-          openingDm={composer.response.openingDm}
-          dmMessage={composer.response.dmMessage}
-          buttons={composer.response.dmButtons.map((item) => item.label)}
-          productCarousel={
-            composer.response.dmFormat === "carousel"
-              ? (composer.response.productCarousel ?? null)
-              : null
-          }
-          followUp={composer.response.followUp ?? null}
-        />
-      </Panel>
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }

@@ -14,7 +14,9 @@ import { loadApiConfig } from "../config"
 import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
+import { PLANS } from "../contract/billing"
+import { PLATFORMS } from "../contract/platform"
 import { recordingAnalytics } from "./analytics-fixture"
 import {
   grantPlan,
@@ -88,7 +90,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   let owner: ApiSession
   let other: ApiSession
   let ownerEmail: string
-  let account: InstagramAccount
+  let account: Account
   let workspaceId: string
   let otherWorkspaceId: string
   let profileId: string
@@ -921,7 +923,9 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     dodo.state.subscription = dodo.subscription({
       product_id: "pdt_growth_monthly",
     })
-    dodo.state.payments = [dodo.payment({ total_amount: 1900 })]
+    dodo.state.payments = [
+      dodo.payment({ total_amount: PLANS.growth.prices.USD.monthly }),
+    ]
     expect((await billingEvent("subscription.plan_changed")).statusCode).toBe(
       200
     )
@@ -936,15 +940,16 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
         .single()
     ).data!.zernio_profile_id!
 
+    // One more than the plan includes, across platforms: they share a limit.
     const connected = await Promise.all(
-      Array.from({ length: 3 }, (_, index) =>
+      Array.from({ length: PLANS.growth.channels + 1 }, (_, index) =>
         deliver({
           id: newEventId(),
           event: "account.connected",
           account: {
             accountId: `billing-account-${runId}-${index}`,
             profileId: profile,
-            platform: "instagram",
+            platform: PLATFORMS[index % PLATFORMS.length],
             username: `billing_${index}`,
           },
         })
@@ -955,10 +960,10 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     )
     const accounts = (await (
       await customer.request("/accounts")
-    ).json()) as InstagramAccount[]
+    ).json()) as Account[]
     expect(
       accounts.filter((account) => account.status === "connected")
-    ).toHaveLength(2)
+    ).toHaveLength(PLANS.growth.channels)
     expect(
       accounts.filter((account) => account.status === "disconnected")
     ).toHaveLength(1)
@@ -974,7 +979,11 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
             event.name === "instagram_account_limit_reached"
         )
         .at(-1)?.event
-    ).toEqual({ name: "instagram_account_limit_reached", account_id: null })
+    ).toEqual({
+      name: "instagram_account_limit_reached",
+      account_id: null,
+      platform: "instagram",
+    })
     expect(
       (
         await customer.request("/billing/plan", "POST", {
@@ -986,7 +995,8 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     const automation = await customer.request("/automations", "POST", {
       ...automationInput(),
       instagramAccountId: accounts.find(
-        (account) => account.status === "connected"
+        (account) =>
+          account.status === "connected" && account.platform === "instagram"
       )!.id,
       trigger: { postScope: "any_post" },
     })

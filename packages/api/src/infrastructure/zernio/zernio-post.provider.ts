@@ -1,10 +1,20 @@
-import type { InstagramPlatformData, Post } from "@zernio/node"
+import type {
+  CreatePostData,
+  InstagramPlatformData,
+  Post,
+  YouTubePlatformData,
+} from "@zernio/node"
 
+import { PLATFORM_RULES, type Platform } from "../../contract/platform"
 import type {
   CreateMediaUploadInput,
   ScheduledPostStatus,
 } from "../../contract/post"
-import type { PostContent, PublishingState } from "../../modules/posts/post"
+import type {
+  PostContent,
+  PublishingAccount,
+  PublishingState,
+} from "../../modules/posts/post"
 import type {
   PublishingProvider,
   UploadTarget,
@@ -33,9 +43,12 @@ const STATUSES: Record<ZernioStatus, ScheduledPostStatus> = {
 }
 
 // Why a post has a status that comes with no error of its own.
-const STATUS_ERRORS: Partial<Record<ZernioStatus, string>> = {
-  draft: "This post was taken off the schedule before it was published.",
-  cancelled: "This post was removed from Instagram.",
+function statusError(status: ZernioStatus, platform: Platform): string | null {
+  if (status === "draft")
+    return "This post was taken off the schedule before it was published."
+  if (status === "cancelled")
+    return `This post was removed from ${PLATFORM_RULES[platform].name}.`
+  return null
 }
 
 // Zernio no longer has the post, so it can never be published.
@@ -90,17 +103,17 @@ export class ZernioPublishingProvider implements PublishingProvider {
   }
 
   async schedule(
-    providerAccountId: string,
+    account: PublishingAccount,
     content: PostContent
   ): Promise<string> {
-    const action = "schedule the post"
+    const action = `schedule the ${PLATFORM_RULES[account.platform].name} post`
     const body = await request(action, () =>
       this.zernio().posts.createPost({
         throwOnError: true,
         body: {
           ...(content.caption && { content: content.caption }),
           mediaItems: content.media,
-          platforms: [toTarget(providerAccountId, content)],
+          platforms: [toTarget(account, content)],
           scheduledFor: content.scheduledFor,
         },
       })
@@ -115,7 +128,7 @@ export class ZernioPublishingProvider implements PublishingProvider {
 
   async reschedule(
     providerPostId: string,
-    providerAccountId: string,
+    account: PublishingAccount,
     content: PostContent
   ): Promise<void> {
     await request("update the post", () =>
@@ -126,23 +139,24 @@ export class ZernioPublishingProvider implements PublishingProvider {
           // An empty caption removes it.
           content: content.caption ?? "",
           mediaItems: content.media,
-          platforms: [toTarget(providerAccountId, content)],
+          platforms: [toTarget(account, content)],
           scheduledFor: content.scheduledFor,
         },
       })
     )
   }
 
-  async getState(providerPostId: string): Promise<PublishingState> {
+  async getState(
+    providerPostId: string,
+    platform: Platform
+  ): Promise<PublishingState> {
     const action = "load the post"
     const post = await this.find(action, providerPostId)
     if (post === null) return GONE
-    const target = post?.platforms?.find(
-      (platform) => platform.platform === "instagram"
-    )
+    const target = post?.platforms?.find((item) => item.platform === platform)
     if (!target || !post?.status)
       throw new ProviderError(
-        `Couldn't ${action}. The response had no Instagram status.`
+        `Couldn't ${action}. The response had no ${PLATFORM_RULES[platform].name} status.`
       )
     const status = STATUSES[post.status]
     return {
@@ -151,7 +165,7 @@ export class ZernioPublishingProvider implements PublishingProvider {
       permalink: target.platformPostUrl ?? null,
       error:
         status === "failed"
-          ? (STATUS_ERRORS[post.status] ?? target.errorMessage ?? null)
+          ? (statusError(post.status, platform) ?? target.errorMessage ?? null)
           : null,
       publishedAt: target.publishedAt ?? null,
     }
@@ -186,10 +200,35 @@ export class ZernioPublishingProvider implements PublishingProvider {
   }
 }
 
-function toTarget(providerAccountId: string, content: PostContent) {
-  // Sent in full each time: an update replaces what was stored, so a story
-  // that becomes a post loses its story setting.
-  const platformSpecificData: InstagramPlatformData =
+type Target = NonNullable<CreatePostData["body"]["platforms"]>[number]
+
+function toTarget(account: PublishingAccount, content: PostContent): Target {
+  return {
+    platform: account.platform,
+    accountId: account.providerAccountId,
+    platformSpecificData: platformDataOf(account.platform, content),
+  }
+}
+
+// Sent in full each time: an update replaces what was stored, so a story
+// that becomes a post loses its story setting.
+function platformDataOf(
+  platform: Platform,
+  content: PostContent
+): Target["platformSpecificData"] {
+  if (platform === "youtube") {
+    if (!content.youtube)
+      throw new ProviderError(
+        "Couldn't schedule the YouTube video. It has no title."
+      )
+    const data: YouTubePlatformData = {
+      title: content.youtube.title,
+      madeForKids: content.youtube.madeForKids,
+    }
+    return data
+  }
+  if (platform !== "instagram") return {}
+  const data: InstagramPlatformData =
     content.kind === "story"
       ? { contentType: "story" }
       : content.trialReel
@@ -202,9 +241,5 @@ function toTarget(providerAccountId: string, content: PostContent) {
             },
           }
         : {}
-  return {
-    platform: "instagram",
-    accountId: providerAccountId,
-    platformSpecificData,
-  }
+  return data
 }

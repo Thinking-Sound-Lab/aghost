@@ -1,10 +1,16 @@
-import type { CreateAutomationInput } from "../../contract/automation"
+import type {
+  CreateAutomationInput,
+  PostAutomationInput,
+} from "../../contract/automation"
+import { accountLabel, PLATFORM_RULES } from "../../contract/platform"
 import {
   MEDIA_CONTENT_TYPES,
   POST_LIMITS,
   isReelMedia,
+  platformProblems,
   type CreateMediaUploadInput,
   type MediaUpload,
+  type ParsedCrossPostInput,
   type ParsedSchedulePostInput,
   type ParsedUpdateScheduledPostInput,
   type ScheduledPostRange,
@@ -122,6 +128,10 @@ export class PostService {
     }
   }
 
+  /**
+   * Schedules a post on one Instagram account. Clients written for Instagram
+   * alone use this; `crossPost` publishes on any platform.
+   */
   async schedule(
     workspace: WorkspaceRecord,
     input: ParsedSchedulePostInput
@@ -134,48 +144,138 @@ export class PostService {
         workspace.id,
         input.instagramAccountId
       )
-      const content = contentOf(input)
+      if (account.platform !== "instagram")
+        throw new ValidationError({
+          instagramAccountId:
+            "Choose an Instagram account. Posts on other platforms are scheduled from the dashboard.",
+        })
+      const content = contentOf({ ...input, youtube: null })
+      assertFits(account, content, input.automation !== null, "")
       assertAhead(content.scheduledFor)
       await this.assertCanPublish(account)
 
-      const providerPostId = await this.provider.schedule(
-        account.providerAccountId,
-        content
+      const post = await this.publishOn(
+        workspace,
+        account,
+        content,
+        input.automation
       )
-      let post: ScheduledPostRecord
-      try {
-        post = await this.posts.insert({
-          ...content,
-          workspaceId: workspace.id,
-          accountId: account.id,
-          providerPostId,
-        })
-      } catch (error) {
-        // The provider would publish a post the owner cannot see or cancel.
-        await this.provider.delete(providerPostId)
-        throw error
-      }
-
-      if (input.automation) {
-        try {
-          const automation = await this.automations.create(workspace, {
-            ...input.automation,
-            instagramAccountId: account.id,
-            trigger: { postScope: "scheduled_post", scheduledPostId: post.id },
-          })
-          post = { ...post, automationIds: [automation.id] }
-        } catch (error) {
-          // Without its automation the post would go out with nobody
-          // answering its comments, so it is not scheduled either.
-          await this.provider.delete(providerPostId)
-          await this.posts.delete(workspace.id, post.id)
-          throw error
-        }
-      }
-
       this.record(workspace, { name: "post_scheduled", ...shapeOf(post) })
       return post
     })
+  }
+
+  /**
+   * Schedules the post on every chosen account, each copy with its own
+   * caption where one is given. All of them are scheduled or none is: a post
+   * that went out on some accounts only would have to be fixed by hand.
+   */
+  async crossPost(
+    workspace: WorkspaceRecord,
+    input: ParsedCrossPostInput
+  ): Promise<ScheduledPostRecord[]> {
+    return this.operations.run(workspace.id, async () => {
+      await this.plan.assertCanUseWorkspace(workspace)
+      const shared = contentOf({ ...input, youtube: null })
+      const copies = await Promise.all(
+        input.targets.map(async (target) => {
+          const account = await this.getAccount(workspace.id, target.accountId)
+          const instagram = account.platform === "instagram"
+          const content: PostContent = {
+            ...shared,
+            caption:
+              target.caption === null ? shared.caption : target.caption || null,
+            // Trial Reels and automations are Instagram's; the other copies
+            // publish as plain posts.
+            trialReel: instagram ? shared.trialReel : null,
+            youtube: target.youtube,
+          }
+          return {
+            account,
+            content,
+            automation: instagram ? input.automation : null,
+          }
+        })
+      )
+      const problems = Object.assign(
+        {},
+        ...copies.map((copy, index) =>
+          problemsOf(
+            copy.account,
+            copy.content,
+            copy.automation !== null,
+            `targets.${index}.`
+          )
+        )
+      )
+      if (Object.keys(problems).length > 0) throw new ValidationError(problems)
+      assertAhead(shared.scheduledFor)
+      for (const copy of copies) await this.assertCanPublish(copy.account)
+
+      const posts: ScheduledPostRecord[] = []
+      try {
+        for (const copy of copies)
+          posts.push(
+            await this.publishOn(
+              workspace,
+              copy.account,
+              copy.content,
+              copy.automation
+            )
+          )
+      } catch (error) {
+        for (const post of posts) await this.discard(workspace, post)
+        throw error
+      }
+      for (const post of posts)
+        this.record(workspace, { name: "post_scheduled", ...shapeOf(post) })
+      return posts
+    })
+  }
+
+  /**
+   * Schedules one copy with the provider and stores it, with the automation
+   * that answers its comments. A failure leaves nothing of it behind.
+   */
+  private async publishOn(
+    workspace: WorkspaceRecord,
+    account: AccountRecord,
+    content: PostContent,
+    automation: PostAutomationInput | null
+  ): Promise<ScheduledPostRecord> {
+    const providerPostId = await this.provider.schedule(account, content)
+    let post: ScheduledPostRecord
+    try {
+      post = await this.posts.insert({
+        ...content,
+        workspaceId: workspace.id,
+        accountId: account.id,
+        platform: account.platform,
+        providerPostId,
+      })
+    } catch (error) {
+      // The provider would publish a post the owner cannot see or cancel.
+      await this.provider.delete(providerPostId)
+      throw error
+    }
+
+    if (automation) {
+      try {
+        const created = await this.automations.create(workspace, {
+          ...automation,
+          instagramAccountId: account.id,
+          trigger: { postScope: "scheduled_post", scheduledPostId: post.id },
+        })
+        post = { ...post, automationIds: [created.id] }
+      } catch (error) {
+        // Without its automation the post would go out with nobody
+        // answering its comments, so it is not scheduled either.
+        await this.provider.delete(providerPostId)
+        await this.posts.delete(workspace.id, post.id)
+        throw error
+      }
+    }
+    return post
   }
 
   async update(
@@ -196,6 +296,7 @@ export class PostService {
         ...input,
         trialReel:
           input.trialReel === undefined ? current.trialReel : input.trialReel,
+        youtube: input.youtube === undefined ? current.youtube : input.youtube,
       })
       // Validate the effective settings too: an older client may omit
       // trialReel while replacing the video with a photo or carousel.
@@ -204,6 +305,8 @@ export class PostService {
           trialReel:
             "A Trial Reel needs exactly one video and cannot be a story",
         })
+      const account = await this.getAccount(workspace.id, current.accountId)
+      assertFits(account, content, input.automation !== null, "")
       assertAhead(content.scheduledFor)
       // A story has no comments for an automation, and the provider's record
       // of which one a post is cannot be relied on to change.
@@ -211,24 +314,15 @@ export class PostService {
         throw new ValidationError({
           kind: "A post can't become a story or a story a post. Delete it and schedule a new one.",
         })
-      const account = await this.getAccount(workspace.id, current.accountId)
       await this.assertCanPublish(account)
 
-      await this.provider.reschedule(
-        current.providerPostId,
-        account.providerAccountId,
-        content
-      )
+      await this.provider.reschedule(current.providerPostId, account, content)
       let updated: ScheduledPostRecord
       try {
         updated = await this.posts.updateContent(workspace.id, id, content)
       } catch (error) {
         // Put the provider back to what the calendar still shows.
-        await this.provider.reschedule(
-          current.providerPostId,
-          account.providerAccountId,
-          current
-        )
+        await this.provider.reschedule(current.providerPostId, account, current)
         throw error
       }
       if (input.automation) {
@@ -246,7 +340,7 @@ export class PostService {
           // A caption asking for comments must not publish without its DM.
           await this.provider.reschedule(
             current.providerPostId,
-            account.providerAccountId,
+            account,
             current
           )
           await this.posts.updateContent(workspace.id, id, current)
@@ -271,10 +365,12 @@ export class PostService {
       // An automation may have been attached while this request waited.
       if (current.automationIds.length > 0 && !canDeleteAutomations)
         throw new ForbiddenError("automations:write")
-      if (current.status === "publishing" || current.status === "published")
+      if (current.status === "publishing" || current.status === "published") {
+        const { name } = PLATFORM_RULES[current.platform]
         throw new ConflictError(
-          "This post is already on Instagram. Delete it in the Instagram app."
+          `This post is already on ${name}. Delete it on ${name} instead.`
         )
+      }
       await this.remove(workspace, current, "owner")
     })
   }
@@ -336,15 +432,23 @@ export class PostService {
     post: ScheduledPostRecord,
     reason: "owner" | "account_removed"
   ): Promise<void> {
-    // Cancel publishing first: once the record is gone nothing could stop it.
-    await this.provider.delete(post.providerPostId)
-    await this.automations.deleteAllForScheduledPost(workspace, post.id)
-    await this.posts.delete(workspace.id, post.id)
+    await this.discard(workspace, post)
     this.record(workspace, {
       name: "scheduled_post_deleted",
       post_id: post.id,
       reason,
     })
+  }
+
+  /** Cancels a post and deletes it with its automations. */
+  private async discard(
+    workspace: WorkspaceOwner,
+    post: ScheduledPostRecord
+  ): Promise<void> {
+    // Cancel publishing first: once the record is gone nothing could stop it.
+    await this.provider.delete(post.providerPostId)
+    await this.automations.deleteAllForScheduledPost(workspace, post.id)
+    await this.posts.delete(workspace.id, post.id)
   }
 
   /**
@@ -358,7 +462,10 @@ export class PostService {
     if (isSettled(post.status) || Date.parse(post.scheduledFor) > Date.now())
       return post
 
-    const state = await this.provider.getState(post.providerPostId)
+    const state = await this.provider.getState(
+      post.providerPostId,
+      post.platform
+    )
     if (sameState(post, state)) return post
 
     const stored = await this.posts.updateState(
@@ -383,9 +490,9 @@ export class PostService {
 
   private async assertCanPublish(account: AccountRecord): Promise<void> {
     if (account.status !== "connected")
-      throw new AccountDisconnectedError(account.username)
+      throw new AccountDisconnectedError(accountLabel(account))
     if (!(await this.provider.canPublish(account.providerAccountId)))
-      throw new PublishingNotAllowedError(account.username)
+      throw new PublishingNotAllowedError(accountLabel(account))
   }
 
   private async getAccount(
@@ -393,7 +500,7 @@ export class PostService {
     accountId: string
   ): Promise<AccountRecord> {
     const account = await this.accounts.findById(workspaceId, accountId)
-    if (!account) throw new NotFoundError("Instagram account")
+    if (!account) throw new NotFoundError("Account")
     return account
   }
 
@@ -403,15 +510,44 @@ export class PostService {
 }
 
 function contentOf(
-  input: ParsedSchedulePostInput | ParsedUpdateScheduledPostInput
+  input: Pick<
+    ParsedCrossPostInput,
+    "kind" | "caption" | "media" | "scheduledFor"
+  > &
+    Pick<PostContent, "youtube"> & { trialReel?: PostContent["trialReel"] }
 ): PostContent {
   return {
     kind: input.kind,
     caption: input.caption || null,
     media: input.media,
     trialReel: input.trialReel ?? null,
+    youtube: input.youtube,
     scheduledFor: new Date(input.scheduledFor).toISOString(),
   }
+}
+
+/** Where the copy breaks its platform's rules, by field under `prefix`. */
+function problemsOf(
+  account: AccountRecord,
+  content: PostContent,
+  hasAutomation: boolean,
+  prefix: string
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(
+      platformProblems(account.platform, { ...content, hasAutomation })
+    ).map(([field, message]) => [`${prefix}${field}`, message])
+  )
+}
+
+function assertFits(
+  account: AccountRecord,
+  content: PostContent,
+  hasAutomation: boolean,
+  prefix: string
+): void {
+  const problems = problemsOf(account, content, hasAutomation, prefix)
+  if (Object.keys(problems).length > 0) throw new ValidationError(problems)
 }
 
 function assertAhead(scheduledFor: string): void {
@@ -436,6 +572,7 @@ function sameState(post: ScheduledPostRecord, state: PublishingState): boolean {
 function shapeOf(post: ScheduledPostRecord) {
   return {
     post_id: post.id,
+    platform: post.platform,
     kind: post.kind,
     media_count: post.media.length,
     video_count: post.media.filter((item) => item.type === "video").length,

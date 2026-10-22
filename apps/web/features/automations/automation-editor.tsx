@@ -53,9 +53,12 @@ export function AutomationEditor({ id }: { id?: string }) {
       </Panel>
     )
 
+  // Comment-to-DM runs on Instagram accounts only.
   const accounts = workspace.accounts.filter(
     (item) =>
-      item.status === "connected" || item.id === editor.draft.instagramAccountId
+      item.platform === "instagram" &&
+      (item.status === "connected" ||
+        item.id === editor.draft.instagramAccountId)
   )
   if (accounts.length === 0)
     return (

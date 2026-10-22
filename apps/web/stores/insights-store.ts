@@ -72,7 +72,15 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
   ...initial,
   setTimingUtc: (timingUtc) => set({ timingUtc }),
   show: async (workspaceId, accountId) => {
-    set({ workspaceId, accountId, page: 1, timing: null, timingError: null })
+    set({
+      workspaceId,
+      accountId,
+      page: 1,
+      // Platforms report different metrics; views is one they all have.
+      ...(accountId !== get().accountId && { sort: "views" as const }),
+      timing: null,
+      timingError: null,
+    })
     await get().refresh()
   },
   refresh: async () => {
@@ -145,7 +153,18 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
         await get().load()
         return
       }
-      set({ report: { ...latest, ...content }, contentLoading: false })
+      set({
+        // The account's summary stays; only the content table changes.
+        report: {
+          ...latest,
+          posts: content.posts,
+          page: content.page,
+          pages: content.pages,
+          totalPosts: content.totalPosts,
+          contentUpdatedAt: content.contentUpdatedAt,
+        },
+        contentLoading: false,
+      })
     } catch (error) {
       if (current === contentGeneration)
         set({ contentError: errorMessage(error), contentLoading: false })

@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { createAdminSupabaseClient } from "@workspace/supabase/server"
 import type { Database } from "@workspace/supabase/types"
 import type { ApiConfig } from "../config"
+import type { PlanId } from "../contract/billing"
 
 /**
  * Signs a disposable user in without Google: a one-time link from the admin
@@ -60,7 +61,7 @@ export async function workspaceIdOf(config: ApiConfig, userId: string) {
 export async function grantPlan(
   config: ApiConfig,
   workspaceId: string,
-  plan: "pro" | "growth" | "business"
+  plan: PlanId
 ) {
   const admin = createAdminSupabaseClient(config.supabase)
   const now = new Date()

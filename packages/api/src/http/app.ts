@@ -7,6 +7,7 @@ import Fastify, {
   type FastifyRequest,
 } from "fastify"
 import { z } from "zod"
+import { connectAccountSchema } from "../contract/account"
 import { createApiKeySchema } from "../contract/api-key"
 import type { ApiConfig } from "../config"
 import {
@@ -24,6 +25,7 @@ import {
 import {
   completeUploadLinkSchema,
   createMediaUploadSchema,
+  crossPostSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
   updateScheduledPostSchema,
@@ -437,8 +439,12 @@ export function createApp({
         })
         routes.post("/accounts/connect", async (request) => {
           const { services, workspace } = request.identity
+          const { platform } = validate(connectAccountSchema, request.body)
           return {
-            authUrl: await services.accounts.startConnection(workspace),
+            authUrl: await services.accounts.startConnection(
+              workspace,
+              platform
+            ),
           }
         })
         routes.post("/accounts/sync", async (request) => {
@@ -591,6 +597,17 @@ export function createApp({
             .send(
               presentScheduledPost(
                 await services.posts.schedule(workspace, input)
+              )
+            )
+        })
+        routes.post("/scheduled-posts/batch", async (request, reply) => {
+          const { services, workspace } = request.identity
+          const input = validate(crossPostSchema, request.body)
+          return reply
+            .code(201)
+            .send(
+              (await services.posts.crossPost(workspace, input)).map(
+                presentScheduledPost
               )
             )
         })

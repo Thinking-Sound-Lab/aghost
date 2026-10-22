@@ -158,17 +158,18 @@ function service(
 }
 
 describe("plan catalog", () => {
-  it("uses the agreed fixed prices and account counts", () => {
+  it("uses Postiz's channel prices and counts", () => {
     expect(
       PLAN_IDS.map((id) => [
         PLANS[id].prices.USD.monthly,
         PLANS[id].prices.USD.yearly,
-        PLANS[id].instagramAccounts,
+        PLANS[id].channels,
       ])
     ).toEqual([
-      [900, 10800, 1],
-      [1900, 22800, 2],
-      [4900, 58800, 5],
+      [2900, 27600, 5],
+      [3900, 37200, 10],
+      [4900, 46800, 30],
+      [9900, 94800, 100],
     ])
   })
   it("offers only USD prices", () => {
@@ -177,10 +178,13 @@ describe("plan catalog", () => {
       expect(Object.keys(PLANS[plan].prices)).toEqual(["USD"])
   })
 
-  it("bills a year as twelve months on every plan and currency", () => {
+  it("bills a year upfront for less than twelve monthly payments", () => {
     for (const plan of PLAN_IDS)
-      for (const prices of Object.values(PLANS[plan].prices))
-        expect(prices.yearly).toBe(prices.monthly * 12)
+      for (const prices of Object.values(PLANS[plan].prices)) {
+        expect(prices.yearly).toBeLessThan(prices.monthly * 12)
+        // A whole number of dollars a month.
+        expect(prices.yearly % 1200).toBe(0)
+      }
     expect(BILLING_INTERVALS).toEqual(["monthly", "yearly"])
   })
 })
@@ -236,13 +240,13 @@ describe("plan entitlements", () => {
 
   it("stops at the plan's account limit", async () => {
     await expect(
-      entitlements(subscription(), 1).assertCanConnectAccount(workspace)
+      entitlements(subscription(), 5).assertCanConnectAccount(workspace)
     ).rejects.toMatchObject({
       code: "plan_limit_reached",
-      message: "Pro includes 1 Instagram account. Upgrade to connect another.",
+      message: "Pro includes 5 channels. Upgrade to connect another.",
     })
     await expect(
-      entitlements(subscription({ plan: "growth" }), 1).assertCanConnectAccount(
+      entitlements(subscription({ plan: "growth" }), 5).assertCanConnectAccount(
         workspace
       )
     ).resolves.toBeUndefined()
@@ -265,7 +269,7 @@ describe("plan entitlements", () => {
 
   it("holds automations while more accounts are connected than the plan includes", async () => {
     await expect(
-      entitlements(subscription(), 2).assertCanRunAutomations(workspace)
+      entitlements(subscription(), 6).assertCanRunAutomations(workspace)
     ).rejects.toMatchObject({ code: "plan_limit_reached" })
   })
 })
@@ -325,7 +329,7 @@ describe("billing", () => {
     expect(recorded.events[0]!.event).toMatchObject({
       plan: "growth",
       billing_interval: "yearly",
-      price_usd: 228,
+      price_usd: 372,
     })
   })
 
@@ -590,7 +594,7 @@ describe("billing", () => {
     const { billing, pauseAll, cancelAll } = service(
       repository,
       provider({ getSubscription: async () => subscription({ plan: "pro" }) }),
-      3
+      6
     )
     await billing.refreshSubscription("sub_1")
     expect(pauseAll).toHaveBeenCalledExactlyOnceWith(
@@ -624,7 +628,7 @@ describe("billing", () => {
           name: "subscription_ended",
           status: "on_hold",
           mrr_usd: 0,
-          previous_mrr_usd: 9,
+          previous_mrr_usd: 29,
         }),
       },
     ])
@@ -759,7 +763,7 @@ describe("billing", () => {
         subscription: subscription({ plan: "business" }),
       }),
       dodo,
-      3
+      11
     )
     await expect(
       billing.changePlan(workspace, { plan: "growth", interval: "monthly" })
@@ -786,7 +790,7 @@ describe("billing", () => {
           plan: "growth",
           billing_interval: "yearly",
           subscription_status: "active",
-          mrr_usd: 19,
+          mrr_usd: 31,
           cancel_at_period_end: false,
         },
       },
@@ -823,8 +827,8 @@ describe("subscription analytics", () => {
         plan: "pro",
         billing_interval: "yearly",
         status: "active",
-        price_usd: 108,
-        mrr_usd: 9,
+        price_usd: 276,
+        mrr_usd: 23,
         previous_status: null,
       },
     ])
@@ -858,8 +862,8 @@ describe("subscription analytics", () => {
         name: "subscription_plan_changed",
         plan: "growth",
         from_plan: "pro",
-        mrr_usd: 19,
-        previous_mrr_usd: 9,
+        mrr_usd: 39,
+        previous_mrr_usd: 29,
       }),
     ])
     expect(

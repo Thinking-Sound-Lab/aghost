@@ -61,7 +61,7 @@ curl --fail-with-body http://localhost:3000/api/v1/automations \
 
 ## Instagram analytics
 
-Agents can read the same [Analytics reports](instagram-analytics.md) as the dashboard. All four reads use `accounts:read`, including on existing keys; no new key or database migration is needed. Read `/accounts` first and pass its workspace account `id` as `accountId`.
+Agents can read the same [Analytics reports](instagram-analytics.md) as the dashboard, for an account on any platform. All four reads use `accounts:read`, including on existing keys; no new key is needed. Read `/accounts` first and pass its workspace account `id` as `accountId`. A ready report has `platform`: Instagram reports have `summary` and `dailyReach`; other platforms have `totals`, `postCount`, `dailyMetric` and `daily`, built from the posts published in the period ([channels](channels.md#analytics)). `sort` also accepts `impressions`, `likes`, `comments` and `clicks`; metrics a platform doesn't report are `null`.
 
 | GET path under `/api/v1`  | Parameters                          | Result                                                                                          |
 | ------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -127,7 +127,9 @@ curl --fail-with-body http://localhost:3000/api/v1/scheduled-posts \
 
 The response lists the post's `automationIds`; the automation's trigger is `{ "postScope": "scheduled_post", "scheduledPost": { "id": "…", "caption": "…" } }`. To add an automation while editing a scheduled post, include `automation` in its `PATCH` request. This also needs `automations:write`, and restores the previous content and time if creating the automation fails. To add only an automation, create one with the trigger `{ "postScope": "scheduled_post", "scheduledPostId": "POST_UUID" }`.
 
-`GET /scheduled-posts` takes `from` and `to` as ISO 8601 times up to 92 days apart and returns the posts in that period, earliest first. Reading a post after its time returns its outcome: `published` with `platformPostId` and `permalink`, or `failed` with `error`. Only `scheduled` posts can be changed; `PATCH` replaces `caption`, `media` and `scheduledFor`, and `kind` must stay the same. `DELETE` cancels a scheduled or failed post together with its automations, so a post with automations also needs `automations:write`. Published posts stay on Instagram. When a workspace's plan ends, its posts still waiting to publish are cancelled and kept as `failed`, with the reason in `error`.
+Accounts and scheduled posts can be on Instagram, Facebook, LinkedIn, X, Threads or YouTube: `GET /accounts` returns each account's `platform`, and each scheduled post has `accountId` and `platform` (`instagramAccountId` repeats `accountId` for older clients). `POST /scheduled-posts` publishes on an Instagram account only; posts on the other platforms, and cross-posts, are scheduled from the dashboard ([channels](channels.md)). `PATCH` and `DELETE` work on every platform, under that platform's limits; a YouTube post takes `youtube: { "title", "madeForKids" }`, kept when omitted.
+
+`GET /scheduled-posts` takes `from` and `to` as ISO 8601 times up to 92 days apart and returns the posts in that period, earliest first. Reading a post after its time returns its outcome: `published` with `platformPostId` and `permalink`, or `failed` with `error`. Only `scheduled` posts can be changed; `PATCH` replaces `caption`, `media` and `scheduledFor`, and `kind` must stay the same. `DELETE` cancels a scheduled or failed post together with its automations, so a post with automations also needs `automations:write`. Published posts stay on their platform. When a workspace's plan ends, its posts still waiting to publish are cancelled and kept as `failed`, with the reason in `error`.
 
 ### Trial Reels
 

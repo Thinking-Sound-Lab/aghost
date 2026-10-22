@@ -81,9 +81,8 @@ export function Billing() {
                       </p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      {store.state.connectedAccounts} of{" "}
-                      {currentPlan?.instagramAccounts} Instagram accounts
-                      connected
+                      {store.state.connectedAccounts} of {currentPlan?.channels}{" "}
+                      channels connected
                     </p>
                   </>
                 ) : (
@@ -163,8 +162,7 @@ export function Billing() {
                   subscription.interval === store.interval
                 // Only a plan change: nothing can be disconnected at the paywall.
                 const tooSmall =
-                  active &&
-                  store.state!.connectedAccounts > plan.instagramAccounts
+                  active && store.state!.connectedAccounts > plan.channels
                 if (current)
                   return (
                     <Button className="w-full" variant="secondary" disabled>

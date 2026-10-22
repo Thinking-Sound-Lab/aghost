@@ -65,13 +65,14 @@ export class InsightsService {
     id: string
   ): Promise<InsightAccount | null> {
     const account = await this.accounts.findById(workspace.id, id)
-    if (!account) throw new NotFoundError("Instagram account")
+    if (!account) throw new NotFoundError("Account")
     if (account.status !== "connected") return null
     if (!workspace.providerProfileId)
-      throw new NotFoundError("Instagram profile")
+      throw new NotFoundError("Provider profile")
     return {
       profileId: workspace.providerProfileId,
       accountId: account.providerAccountId,
+      platform: account.platform,
     }
   }
 

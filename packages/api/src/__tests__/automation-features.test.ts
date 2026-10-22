@@ -187,6 +187,7 @@ describe("durable follow-up delivery", () => {
         id: automation.accountId,
         workspaceId: automation.workspaceId,
         providerAccountId: job.providerAccountId,
+        platform: "instagram" as const,
         username: "studio",
         displayName: null,
         profilePictureUrl: null,

@@ -41,7 +41,7 @@ export const audiences = [
 
 const planPrices = PLAN_IDS.map((id) => {
   const plan = PLANS[id]
-  const accounts = `${plan.instagramAccounts} Instagram account${plan.instagramAccounts > 1 ? "s" : ""}`
+  const accounts = `${plan.channels} channels`
   return `${plan.name} is ${price(plan.prices.USD.monthly, "USD")} a month for ${accounts}`
 })
 
@@ -50,7 +50,7 @@ export const agentClients = ["Claude Code", "Codex", "Cursor"]
 
 /** What a workspace API key lets an agent do, over MCP or the REST API. */
 export const agentAbilities = [
-  "Schedule, edit, and cancel Instagram posts and stories",
+  "Schedule Instagram posts and stories, and edit or cancel posts on every platform",
   "Create, edit, pause, and delete automations",
   "Read each automation's stats and its log of every DM",
   "Look up your accounts, posts, and contacts",
@@ -105,14 +105,14 @@ export const features = [
     text: "Send the link only to people who follow you. Anyone Instagram can't confirm as a follower is asked to follow first.",
   },
   {
-    label: "Product carousel · Growth and Business",
+    label: "Product carousel · Growth and up",
     title: "Your products, one swipe away",
-    text: "Send up to 10 product cards in a DM, each with an image, description and its own tracked link. Included on Growth and Business.",
+    text: "Send up to 10 product cards in a DM, each with an image, description and its own tracked link. Included on Growth, Business and Ultimate.",
   },
   {
-    label: "Follow-up nudges · Business",
+    label: "Follow-up nudges · Business and up",
     title: "A gentle reminder, automatically",
-    text: "Follow up once after 30 minutes to 20 hours. Reminders stop after a reply or link click, and only send within Instagram's messaging window. Included on Business.",
+    text: "Follow up once after 30 minutes to 20 hours. Reminders stop after a reply or link click, and only send within Instagram's messaging window. Included on Business and Ultimate.",
   },
   {
     label: "Analytics",
@@ -130,7 +130,7 @@ export const faqs = [
   {
     question: "Can I send a product carousel in a DM?",
     answer:
-      "Yes. Growth and Business include up to 10 swipeable product cards. Each has an image, title, short description and a link button. A carousel replaces the main text DM; you can still use an opening DM and a public comment reply.",
+      "Yes. Growth, Business and Ultimate include up to 10 swipeable product cards. Each has an image, title, short description and a link button. A carousel replaces the main text DM; you can still use an opening DM and a public comment reply.",
   },
   {
     question: "Can I send an automatic follow-up reminder?",
@@ -158,7 +158,7 @@ export const faqs = [
   },
   {
     question: "How much does aghost cost?",
-    answer: `${planPrices.join(", ")}. Every plan includes Instagram scheduling, MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Growth adds product carousels, and Business adds follow-up nudges. Prices are in US dollars with taxes included, billed monthly or yearly.`,
+    answer: `${planPrices.join(", ")}. Every plan includes scheduling and cross-posting to Instagram, Facebook, LinkedIn, X, Threads and YouTube, analytics for each channel, MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Growth adds product carousels, and Business adds follow-up nudges. Prices are in US dollars with taxes included, billed monthly or yearly.`,
   },
   {
     question: "Which AI agents work with aghost?",

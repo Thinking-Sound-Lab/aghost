@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const PLAN_IDS = ["pro", "growth", "business"] as const
+export const PLAN_IDS = ["pro", "growth", "business", "ultimate"] as const
 export const BILLING_INTERVALS = ["monthly", "yearly"] as const
 export const BILLING_CURRENCIES = ["USD"] as const
 
@@ -13,42 +13,52 @@ type PlanPrices = Record<BillingCurrency, Record<BillingInterval, number>>
 export type Plan = {
   id: PlanId
   name: string
-  instagramAccounts: number
+  /** Connected accounts on any platform, counted together. */
+  channels: number
   features: { productCarousel: boolean; followUpNudge: boolean }
   /** Tax-inclusive, in US cents. */
   prices: PlanPrices
 }
 
 /**
- * Every plan is a flat US dollar price, in every country.
- * Yearly billing costs twelve months, paid upfront.
+ * Every plan is a flat US dollar price, in every country, following Postiz's
+ * channel pricing. Yearly billing is about 20% less, paid upfront.
  */
 export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: "pro",
     name: "Pro",
-    instagramAccounts: 1,
+    channels: 5,
     features: { productCarousel: false, followUpNudge: false },
     prices: {
-      USD: { monthly: 900, yearly: 10_800 },
+      USD: { monthly: 2_900, yearly: 27_600 },
     },
   },
   growth: {
     id: "growth",
     name: "Growth",
-    instagramAccounts: 2,
+    channels: 10,
     features: { productCarousel: true, followUpNudge: false },
     prices: {
-      USD: { monthly: 1_900, yearly: 22_800 },
+      USD: { monthly: 3_900, yearly: 37_200 },
     },
   },
   business: {
     id: "business",
     name: "Business",
-    instagramAccounts: 5,
+    channels: 30,
     features: { productCarousel: true, followUpNudge: true },
     prices: {
-      USD: { monthly: 4_900, yearly: 58_800 },
+      USD: { monthly: 4_900, yearly: 46_800 },
+    },
+  },
+  ultimate: {
+    id: "ultimate",
+    name: "Ultimate",
+    channels: 100,
+    features: { productCarousel: true, followUpNudge: true },
+    prices: {
+      USD: { monthly: 9_900, yearly: 94_800 },
     },
   },
 }
@@ -94,7 +104,7 @@ export type BillingState = {
   currency: BillingCurrency
   /** The workspace's most recent subscription, which may have ended. */
   subscription: Subscription | null
-  /** Instagram accounts connected now, counted against the plan. */
+  /** Accounts connected now on every platform, counted against the plan. */
   connectedAccounts: number
 }
 

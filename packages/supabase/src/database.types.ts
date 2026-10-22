@@ -59,6 +59,7 @@ export type Database = {
       }
       automations: {
         Row: {
+          account_platform: string
           comment_reply: string | null
           created_at: string
           dm_buttons: NonNullable<Json>
@@ -85,6 +86,7 @@ export type Database = {
         }
         ComputedFields: never
         Insert: {
+          account_platform?: string
           comment_reply?: string | null
           created_at?: string
           dm_buttons?: NonNullable<Json>
@@ -110,6 +112,7 @@ export type Database = {
           zernio_automation_id: string
         }
         Update: {
+          account_platform?: string
           comment_reply?: string | null
           created_at?: string
           dm_buttons?: NonNullable<Json>
@@ -135,6 +138,13 @@ export type Database = {
           zernio_automation_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "automations_account_platform_fkey"
+            columns: ["instagram_account_id", "account_platform"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id", "platform"]
+          },
           {
             foreignKeyName: "automations_account_workspace_fkey"
             columns: ["workspace_id", "instagram_account_id"]
@@ -262,6 +272,7 @@ export type Database = {
           disconnect_reason: string | null
           display_name: string | null
           id: string
+          platform: string
           profile_picture_url: string | null
           status: string
           updated_at: string
@@ -275,6 +286,7 @@ export type Database = {
           disconnect_reason?: string | null
           display_name?: string | null
           id?: string
+          platform?: string
           profile_picture_url?: string | null
           status: string
           updated_at?: string
@@ -287,6 +299,7 @@ export type Database = {
           disconnect_reason?: string | null
           display_name?: string | null
           id?: string
+          platform?: string
           profile_picture_url?: string | null
           status?: string
           updated_at?: string
@@ -394,6 +407,7 @@ export type Database = {
           kind: string
           media: NonNullable<Json>
           permalink: string | null
+          platform: string
           platform_post_id: string | null
           published_at: string | null
           scheduled_for: string
@@ -401,6 +415,8 @@ export type Database = {
           trial_graduation_strategy: string | null
           updated_at: string
           workspace_id: string
+          youtube_made_for_kids: boolean | null
+          youtube_title: string | null
           zernio_post_id: string
         }
         ComputedFields: never
@@ -413,6 +429,7 @@ export type Database = {
           kind: string
           media: NonNullable<Json>
           permalink?: string | null
+          platform?: string
           platform_post_id?: string | null
           published_at?: string | null
           scheduled_for: string
@@ -420,6 +437,8 @@ export type Database = {
           trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id: string
+          youtube_made_for_kids?: boolean | null
+          youtube_title?: string | null
           zernio_post_id: string
         }
         Update: {
@@ -431,6 +450,7 @@ export type Database = {
           kind?: string
           media?: NonNullable<Json>
           permalink?: string | null
+          platform?: string
           platform_post_id?: string | null
           published_at?: string | null
           scheduled_for?: string
@@ -438,9 +458,18 @@ export type Database = {
           trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id?: string
+          youtube_made_for_kids?: boolean | null
+          youtube_title?: string | null
           zernio_post_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_account_platform_fkey"
+            columns: ["instagram_account_id", "platform"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id", "platform"]
+          },
           {
             foreignKeyName: "scheduled_posts_instagram_account_id_fkey"
             columns: ["instagram_account_id"]

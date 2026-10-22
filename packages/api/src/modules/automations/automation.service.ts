@@ -1,3 +1,4 @@
+import { accountLabel } from "../../contract/platform"
 import { isDeepStrictEqual } from "node:util"
 import type { InstagramPost } from "../../contract/account"
 import type {
@@ -459,7 +460,8 @@ export class AutomationService {
   ): Promise<AccountRecord> {
     const account = await this.accounts.findById(workspaceId, accountId)
 
-    if (!account) {
+    // Comment-to-DM runs on Instagram only.
+    if (!account || account.platform !== "instagram") {
       throw new NotFoundError("Instagram account")
     }
 
@@ -594,7 +596,7 @@ export class AutomationService {
 
 function assertConnected(account: AccountRecord): void {
   if (account.status !== "connected") {
-    throw new AccountDisconnectedError(account.username)
+    throw new AccountDisconnectedError(accountLabel(account))
   }
 }
 

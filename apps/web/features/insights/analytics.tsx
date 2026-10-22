@@ -1,9 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { ChartNoAxesCombined, ExternalLink, RefreshCw } from "lucide-react"
 import {
   INSIGHT_PERIODS,
+  PLATFORM_RULES,
+  accountLabel,
+  type Account,
+  type ChannelReport,
   type InsightMetrics,
   type InsightPeriod,
   type InsightsUnavailable,
@@ -16,13 +21,8 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
-import {
-  Avatar,
-  EmptyState,
-  ErrorBanner,
-  Loading,
-  Page,
-} from "@/components/interface"
+import { EmptyState, ErrorBanner, Loading, Page } from "@/components/interface"
+import { ChannelAvatar } from "@/components/platform-icon"
 import { count, timeAgo } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useInsightsStore } from "@/stores/insights-store"
@@ -30,6 +30,8 @@ import { contactHref } from "@/features/marketing/contact"
 import {
   ContentPerformance,
   kindLabels,
+  metricLabels,
+  metricsOf,
   percentage,
 } from "./content-performance"
 import { DitherChart } from "./dither-chart"
@@ -37,37 +39,75 @@ import { PostingTimes } from "./posting-times"
 
 function AccessNotice({
   status,
-  accountId,
-}: InsightsUnavailable & { accountId: string }) {
+  account,
+}: InsightsUnavailable & { account: Account }) {
   const { reconnect, busy } = useWorkspaceStore()
+  const { name } = PLATFORM_RULES[account.platform]
   return (
     <EmptyState
       icon={<ChartNoAxesCombined />}
       title={
         status === "reconnect_required"
-          ? "Allow access to Instagram insights"
+          ? `Allow access to ${name} insights`
           : "Analytics isn't enabled yet"
       }
     >
       <p className="max-w-sm text-sm text-muted-foreground">
         {status === "reconnect_required"
-          ? "Reconnect your Instagram account and allow insights access to see how your content performs."
+          ? `Reconnect ${accountLabel(account)} and allow insights access to see how your content performs.`
           : "Analytics access needs to be enabled for your workspace. Contact support to get started."}
       </p>
       {status === "reconnect_required" && (
-        <Button disabled={busy} onClick={() => void reconnect(accountId)}>
-          Reconnect Instagram
+        <Button disabled={busy} onClick={() => void reconnect(account.id)}>
+          Reconnect {name}
         </Button>
       )}
       {status === "not_enabled" && (
         <a
-          href={contactHref("Instagram analytics access")}
+          href={contactHref("Analytics access")}
           className={buttonVariants({ variant: "outline" })}
         >
           Contact support
         </a>
       )}
     </EmptyState>
+  )
+}
+
+/**
+ * A platform other than Instagram: the lifetime totals of the posts published
+ * in the period, and its main metric by the day they were published.
+ */
+function ChannelSummary({ report }: { report: ChannelReport }) {
+  const label = metricLabels[report.dailyMetric]
+  return (
+    <>
+      <dl className="grid grid-cols-2 gap-6 border-y py-6 sm:grid-cols-4">
+        {[
+          ...metricsOf(report.platform).map(
+            (metric) => [metricLabels[metric], report.totals[metric]] as const
+          ),
+          ["Posts", report.postCount] as const,
+        ].map(([name, value]) => (
+          <div key={name} className="grid gap-2">
+            <dt className="text-xs text-muted-foreground">{name}</dt>
+            <dd className="text-3xl font-semibold tracking-tight tabular-nums">
+              {count(value)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <section className="grid gap-5" aria-labelledby="daily-chart-title">
+        <h2 id="daily-chart-title" className="text-sm font-semibold">
+          {label} by publish date
+        </h2>
+        <DitherChart
+          points={report.daily}
+          label={label}
+          description={`Lifetime ${label.toLowerCase()} of the posts published each day (UTC)`}
+        />
+      </section>
+    </>
   )
 }
 
@@ -107,8 +147,12 @@ function ReelMetrics({ metrics }: { metrics: InsightMetrics }) {
   )
 }
 
-function PostDetails({ accountId }: { accountId: string }) {
+function PostDetails({ account }: { account: Account }) {
   const store = useInsightsStore()
+  const metrics =
+    account.platform === "instagram"
+      ? (["views", "reach", "likes", "comments", "saves", "shares"] as const)
+      : metricsOf(account.platform)
   const detail = store.postReport?.status === "ready" ? store.postReport : null
   return (
     <Dialog
@@ -135,27 +179,15 @@ function PostDetails({ accountId }: { accountId: string }) {
           }}
         />
         {store.postReport && store.postReport.status !== "ready" && (
-          <AccessNotice
-            status={store.postReport.status}
-            accountId={accountId}
-          />
+          <AccessNotice status={store.postReport.status} account={account} />
         )}
         {detail && (
           <div className="grid gap-6">
             <dl className="grid grid-cols-3 gap-x-5 gap-y-4 sm:grid-cols-6">
-              {(
-                [
-                  "views",
-                  "reach",
-                  "likes",
-                  "comments",
-                  "saves",
-                  "shares",
-                ] as const
-              ).map((key) => (
+              {metrics.map((key) => (
                 <div key={key} className="grid gap-1">
-                  <dt className="text-xs text-muted-foreground capitalize">
-                    {key}
+                  <dt className="text-xs text-muted-foreground">
+                    {metricLabels[key]}
                   </dt>
                   <dd className="text-lg font-semibold tabular-nums">
                     {count(detail.post.metrics[key])}
@@ -163,9 +195,10 @@ function PostDetails({ accountId }: { accountId: string }) {
                 </div>
               ))}
             </dl>
-            {detail.post.kind === "reel" && (
-              <ReelMetrics metrics={detail.post.metrics} />
-            )}
+            {account.platform === "instagram" &&
+              detail.post.kind === "reel" && (
+                <ReelMetrics metrics={detail.post.metrics} />
+              )}
             <section className="grid gap-4">
               <h3 className="text-sm font-semibold">Views over time</h3>
               <DitherChart
@@ -187,7 +220,8 @@ function PostDetails({ accountId }: { accountId: string }) {
                   rel="noopener noreferrer"
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                 >
-                  View on Instagram <ExternalLink aria-hidden="true" />
+                  View on {PLATFORM_RULES[account.platform].name}{" "}
+                  <ExternalLink aria-hidden="true" />
                 </a>
               )}
             </div>
@@ -248,36 +282,32 @@ export function Analytics() {
       {!account ? (
         <EmptyState
           icon={<ChartNoAxesCombined />}
-          title="See how your Instagram content performs"
+          title="See how your content performs"
         >
           <p className="max-w-sm text-sm text-muted-foreground">
-            Connect a Business or Creator account to see views, reach,
-            engagement, and reel watch time.
+            Connect a channel to see views, reach, engagement, and more.
           </p>
-          <Button
-            disabled={workspace.busy}
-            onClick={() => void workspace.connect()}
-          >
-            Connect Instagram
-          </Button>
+          <Link href="/settings#channels" className={buttonVariants()}>
+            Connect a channel
+          </Link>
         </EmptyState>
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <Avatar src={account.profilePictureUrl} name={account.username} />
+              <ChannelAvatar account={account} />
               <label className="sr-only" htmlFor="analytics-account">
-                Instagram account
+                Account
               </label>
               <NativeSelect
                 id="analytics-account"
-                className="max-w-56"
+                className="max-w-64"
                 value={account.id}
                 onChange={(event) => setSelectedId(event.target.value)}
               >
                 {workspace.accounts.map((item) => (
                   <option key={item.id} value={item.id}>
-                    @{item.username}
+                    {accountLabel(item)} · {PLATFORM_RULES[item.platform].name}
                   </option>
                 ))}
               </NativeSelect>
@@ -304,46 +334,58 @@ export function Analytics() {
           />
           {loading && <Loading className="min-h-96" />}
           {report && report.status !== "ready" && (
-            <AccessNotice status={report.status} accountId={account.id} />
+            <AccessNotice status={report.status} account={account} />
+          )}
+          {ready?.platform !== "instagram" && ready && (
+            <ChannelSummary report={ready} />
           )}
           {ready && (
             <>
-              <dl className="grid grid-cols-2 gap-y-6 border-y py-6 sm:grid-cols-4 sm:divide-x">
-                {[
-                  ["Views", ready.summary.views],
-                  ["Accounts reached", ready.summary.reach],
-                  ["Interactions", ready.summary.totalInteractions],
-                  ["Accounts engaged", ready.summary.accountsEngaged],
-                ].map(([label, value], index) => (
-                  <div
-                    key={label}
-                    className={`grid gap-2 ${index > 0 ? "sm:pl-6" : ""}`}
+              {ready.platform === "instagram" && (
+                <>
+                  <dl className="grid grid-cols-2 gap-y-6 border-y py-6 sm:grid-cols-4 sm:divide-x">
+                    {[
+                      ["Views", ready.summary.views],
+                      ["Accounts reached", ready.summary.reach],
+                      ["Interactions", ready.summary.totalInteractions],
+                      ["Accounts engaged", ready.summary.accountsEngaged],
+                    ].map(([label, value], index) => (
+                      <div
+                        key={label}
+                        className={`grid gap-2 ${index > 0 ? "sm:pl-6" : ""}`}
+                      >
+                        <dt className="text-xs text-muted-foreground">
+                          {label}
+                        </dt>
+                        <dd className="text-3xl font-semibold tracking-tight tabular-nums">
+                          {count(value as number | null)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <section
+                    className="grid gap-5"
+                    aria-labelledby="reach-chart-title"
                   >
-                    <dt className="text-xs text-muted-foreground">{label}</dt>
-                    <dd className="text-3xl font-semibold tracking-tight tabular-nums">
-                      {count(value as number | null)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              <section
-                className="grid gap-5"
-                aria-labelledby="reach-chart-title"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 id="reach-chart-title" className="text-sm font-semibold">
-                    Reach over time
-                  </h2>
-                  <span className="text-xs text-muted-foreground">
-                    Account performance
-                  </span>
-                </div>
-                <DitherChart
-                  points={ready.dailyReach}
-                  label="Accounts reached"
-                  description="Unique accounts reached each day (UTC)"
-                />
-              </section>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2
+                        id="reach-chart-title"
+                        className="text-sm font-semibold"
+                      >
+                        Reach over time
+                      </h2>
+                      <span className="text-xs text-muted-foreground">
+                        Account performance
+                      </span>
+                    </div>
+                    <DitherChart
+                      points={ready.dailyReach}
+                      label="Accounts reached"
+                      description="Unique accounts reached each day (UTC)"
+                    />
+                  </section>
+                </>
+              )}
               <PostingTimes
                 utc={store.timingUtc}
                 onUtcChange={store.setTimingUtc}
@@ -355,7 +397,7 @@ export function Analytics() {
                   store.timing && store.timing.status !== "ready" ? (
                     <AccessNotice
                       status={store.timing.status}
-                      accountId={account.id}
+                      account={account}
                     />
                   ) : null
                 }
@@ -371,10 +413,9 @@ export function Analytics() {
                 onOpen={(id) => void store.openPost(id)}
               />
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Instagram insights can be delayed by up to 48 hours. A dash
-                means a metric hasn't been reported. Account reach counts unique
-                accounts for the period and may differ from the sum of daily
-                reach.
+                {ready.platform === "instagram"
+                  ? "Instagram insights can be delayed by up to 48 hours. A dash means a metric hasn't been reported. Account reach counts unique accounts for the period and may differ from the sum of daily reach."
+                  : `Totals add up the lifetime metrics of the posts published in this period. A dash means ${PLATFORM_RULES[ready.platform].name} doesn't report that metric or it hasn't synced yet.`}
                 {ready.contentUpdatedAt && (
                   <span className="ml-1">
                     Content last synced {timeAgo(ready.contentUpdatedAt)}.
@@ -383,7 +424,7 @@ export function Analytics() {
               </p>
             </>
           )}
-          <PostDetails accountId={account.id} />
+          <PostDetails account={account} />
         </>
       )}
     </Page>

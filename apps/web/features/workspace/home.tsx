@@ -16,7 +16,10 @@ export function Home() {
   useEffect(() => {
     void loadStats()
   }, [loadStats])
-  const connected = store.accounts.some((item) => item.status === "connected")
+  // Automations run on Instagram, so it is the account Home asks for.
+  const connected = store.accounts.some(
+    (item) => item.platform === "instagram" && item.status === "connected"
+  )
   function total(key: "dmsSent" | "linkClicks") {
     if (!store.stats) return "—"
     const values = store.automations.map(
@@ -50,7 +53,10 @@ export function Home() {
           <p className="mr-auto text-sm font-medium">
             Connect your Instagram account
           </p>
-          <Button disabled={store.busy} onClick={() => void store.connect()}>
+          <Button
+            disabled={store.busy}
+            onClick={() => void store.connect("instagram")}
+          >
             Connect
           </Button>
         </div>

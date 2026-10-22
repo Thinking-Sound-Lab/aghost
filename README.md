@@ -6,7 +6,7 @@
 
 **Agentic DM automation for Instagram.**
 
-Create, manage and monitor comment-to-DM automations, and schedule the Instagram posts they answer, through MCP, the REST API, or the dashboard. MCP and API access are included on every plan.
+Create, manage and monitor comment-to-DM automations, and schedule the Instagram posts they answer, through MCP, the REST API, or the dashboard. The dashboard also cross-posts to Facebook, LinkedIn, X, Threads and YouTube, with analytics for each channel. MCP and API access are included on every plan.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
@@ -18,14 +18,14 @@ Create, manage and monitor comment-to-DM automations, and schedule the Instagram
 
 ## Stack
 
-| Layer              | Built with                                                            |
-| ------------------ | --------------------------------------------------------------------- |
-| **Web**            | Next.js marketing site and dashboard, Zustand, shadcn/ui · on Vercel  |
-| **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS |
-| **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth              |
-| **Instagram**      | Zernio for accounts, automations, publishing, inbox, and contacts     |
-| **Analytics**      | PostHog for product events, web analytics, and session replay         |
-| **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                |
+| Layer              | Built with                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------- |
+| **Web**            | Next.js marketing site and dashboard, Zustand, shadcn/ui · on Vercel                                      |
+| **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS                                     |
+| **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth                                                  |
+| **Channels**       | Zernio for six platforms' accounts, publishing, and analytics; Instagram automations, inbox, and contacts |
+| **Analytics**      | PostHog for product events, web analytics, and session replay                                             |
+| **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                                                    |
 
 ## Architecture
 
@@ -146,7 +146,7 @@ The trycloudflare.com address changes each time the tunnel starts, so run `pnpm 
 | `POSTHOG_KEY`                             | API, Web | PostHog project key; empty leaves [analytics](#analytics) off    |
 | `POSTHOG_HOST`                            | API, Web | PostHog's address for the project's region                       |
 
-The dashboard, REST API and MCP need a plan: after sign-in the app shows only the paywall until the workspace subscribes, so configure Dodo to use it locally. To connect Instagram, also set `ZERNIO_API_KEY`. Pro, Growth and Business cost $9 / $19 / $49 per month, billed in US dollars in every country with taxes included. Yearly billing costs twelve monthly payments, paid upfront. See [pricing and billing setup](docs/billing.md). Without Dodo credentials, sign-in works and nobody can subscribe. Without Zernio credentials, Instagram features are unavailable; the app never substitutes sample accounts or analytics.
+The dashboard, REST API and MCP need a plan: after sign-in the app shows only the paywall until the workspace subscribes, so configure Dodo to use it locally. To connect channels, also set `ZERNIO_API_KEY`. Pro, Growth, Business and Ultimate cost $29 / $39 / $49 / $99 per month for 5 / 10 / 30 / 100 channels, following Postiz's pricing, billed in US dollars in every country with taxes included. Yearly billing is about 20% less, paid upfront. See [pricing and billing setup](docs/billing.md) and [channels](docs/channels.md). Without Dodo credentials, sign-in works and nobody can subscribe. Without Zernio credentials, Instagram features are unavailable; the app never substitutes sample accounts or analytics.
 
 - Only `APP_URL`, `API_URL` and the PostHog key and host reach Next.js; the PostHog key is public by design. Supabase, Zernio and Dodo credentials go to the API container only, and the Google client to Supabase only. Env files are ignored by Git and excluded from Docker images.
 - Compose gives the API container `http://supabase_kong_aghost:8000` as `SUPABASE_URL`, so it talks to Supabase over the Docker network.

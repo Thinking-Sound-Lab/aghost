@@ -77,20 +77,22 @@ export class ConflictError extends AppError {
 }
 
 export class AccountDisconnectedError extends AppError {
-  constructor(username: string) {
+  /** `account` is the account's label, such as its @handle. */
+  constructor(account: string) {
     super(
       "account_disconnected",
-      `@${username} is disconnected. Reconnect it to continue.`
+      `${account} is disconnected. Reconnect it to continue.`
     )
   }
 }
 
 /** The account was connected without permission to publish posts. */
 export class PublishingNotAllowedError extends AppError {
-  constructor(username: string) {
+  /** `account` is the account's label, such as its @handle. */
+  constructor(account: string) {
     super(
       "publishing_not_allowed",
-      `@${username} has not allowed aghost to publish posts. Reconnect it in Settings to continue.`
+      `${account} has not allowed aghost to publish posts. Reconnect it in Settings to continue.`
     )
   }
 }
@@ -102,7 +104,7 @@ export class PlanRequiredError extends AppError {
   }
 }
 
-/** The workspace's plan does not include another Instagram account. */
+/** The workspace's plan does not include another channel. */
 export class PlanLimitError extends AppError {
   constructor(message: string) {
     super("plan_limit_reached", message)

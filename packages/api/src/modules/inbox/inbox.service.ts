@@ -1,3 +1,4 @@
+import { accountLabel } from "../../contract/platform"
 import type { Conversation, Message } from "../../contract/inbox"
 import { AccountDisconnectedError, NotFoundError } from "../../shared/errors"
 import type { AccountRecord } from "../accounts/account"
@@ -31,7 +32,9 @@ export class InboxService {
     ])
 
     const accountIdByProviderId = new Map(
-      accounts.map((account) => [account.providerAccountId, account.id])
+      accounts
+        .filter((account) => account.platform === "instagram")
+        .map((account) => [account.providerAccountId, account.id])
     )
 
     // Only the workspace's own accounts are shown, even if the profile holds
@@ -70,7 +73,7 @@ export class InboxService {
     )
 
     if (account.status !== "connected") {
-      throw new AccountDisconnectedError(account.username)
+      throw new AccountDisconnectedError(accountLabel(account))
     }
 
     await this.provider.sendMessage(
@@ -96,7 +99,8 @@ export class InboxService {
   ): Promise<AccountRecord> {
     const account = await this.accounts.findById(workspace.id, accountId)
 
-    if (!account) {
+    // The inbox holds Instagram DMs only.
+    if (!account || account.platform !== "instagram") {
       throw new NotFoundError("Instagram account")
     }
 

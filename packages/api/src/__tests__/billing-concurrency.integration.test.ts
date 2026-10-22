@@ -8,6 +8,8 @@ import {
 } from "@workspace/supabase/server"
 import { loadApiConfig } from "../config"
 import type { CreateAutomationInput } from "../contract/automation"
+import { PLANS } from "../contract/billing"
+import { PLATFORMS } from "../contract/platform"
 import { SupabaseAccountRepository } from "../infrastructure/supabase/supabase-account.repository"
 import { SupabaseAutomationRepository } from "../infrastructure/supabase/supabase-automation.repository"
 import { SupabaseBillingRepository } from "../infrastructure/supabase/supabase-billing.repository"
@@ -16,7 +18,7 @@ import { SupabaseWorkspaceOperations } from "../infrastructure/supabase/supabase
 import { SupabaseWebhookProcessor } from "../infrastructure/supabase/supabase-webhook.processor"
 import { AccountService } from "../modules/accounts/account.service"
 import type { ProviderAccount } from "../modules/accounts/account"
-import type { InstagramProvider } from "../modules/accounts/instagram.provider"
+import type { AccountProvider } from "../modules/accounts/account.provider"
 import type { AutomationProvider } from "../modules/automations/automation.provider"
 import { AutomationService } from "../modules/automations/automation.service"
 import type { SubscriptionSnapshot } from "../modules/billing/billing"
@@ -121,7 +123,7 @@ async function context() {
   const recorded = recordingAnalytics()
   const analytics = recorded.source("webhook")
   const reported = new Map<string, ProviderAccount>()
-  const instagram: InstagramProvider = {
+  const instagram: AccountProvider = {
     getConnectUrl: async () => "https://instagram.example/connect",
     listAccounts: async () => structuredClone([...reported.values()]),
     listRecentPosts: async () => [],
@@ -193,6 +195,7 @@ async function context() {
     if (row.error) throw row.error
     reported.set(`account_${workspace.id}`, {
       providerAccountId: `account_${workspace.id}`,
+      platform: "instagram",
       username: "race_creator",
       displayName: null,
       profilePictureUrl: null,
@@ -213,6 +216,29 @@ async function context() {
     }
     return input
   }
+  /** Connects more accounts on other platforms, which count toward the same limit. */
+  async function connectMore(count: number) {
+    for (let index = 0; index < count; index++) {
+      const providerAccountId = `channel_${index}_${workspace.id}`
+      const platform = PLATFORMS[1 + (index % (PLATFORMS.length - 1))]!
+      const row = await admin.from("instagram_accounts").insert({
+        workspace_id: workspace.id,
+        zernio_account_id: providerAccountId,
+        platform,
+        username: `channel_${index}`,
+        status: "connected",
+      })
+      if (row.error) throw row.error
+      reported.set(providerAccountId, {
+        providerAccountId,
+        platform,
+        username: `channel_${index}`,
+        displayName: null,
+        profilePictureUrl: null,
+        connected: true,
+      })
+    }
+  }
   return {
     workspace,
     email,
@@ -227,6 +253,7 @@ async function context() {
     instagram,
     services,
     paidAccount,
+    connectMore,
     recorded,
   }
 }
@@ -472,9 +499,12 @@ describe("billing coordination in PostgreSQL", () => {
       const test = await context()
       test.snapshot.plan = "growth"
       const input = await test.paidAccount()
+      // Pro's limit is reached, so the extra account leaves it over.
+      await test.connectMore(PLANS.pro.channels - 1)
       await test.services().automation.create(test.workspace, input)
       const extra: ProviderAccount = {
         providerAccountId: `extra_${test.workspace.id}`,
+        platform: "instagram",
         username: "extra_creator",
         displayName: null,
         profilePictureUrl: null,
@@ -551,7 +581,9 @@ describe("billing coordination in PostgreSQL", () => {
         finish.release()
         await Promise.all([callback, downgrade])
       }
-      expect(await test.accounts.countConnected(test.workspace.id)).toBe(2)
+      expect(await test.accounts.countConnected(test.workspace.id)).toBe(
+        PLANS.pro.channels + 1
+      )
       expect(
         (await test.repository.findByWorkspace(test.workspace.id))?.subscription
           ?.plan
@@ -568,8 +600,10 @@ describe("billing coordination in PostgreSQL", () => {
     async (source) => {
       const test = await context()
       await test.paidAccount()
+      await test.connectMore(PLANS.pro.channels - 1)
       const extra: ProviderAccount = {
         providerAccountId: `rejected_${test.workspace.id}`,
+        platform: "instagram",
         username: "rejected_creator",
         displayName: null,
         profilePictureUrl: null,
@@ -626,7 +660,9 @@ describe("billing coordination in PostgreSQL", () => {
           (await test.repository.findByWorkspace(test.workspace.id))
             ?.subscription?.plan
         ).toBe("pro")
-        expect(await test.accounts.countConnected(test.workspace.id)).toBe(1)
+        expect(await test.accounts.countConnected(test.workspace.id)).toBe(
+          PLANS.pro.channels
+        )
       } finally {
         finish.release()
         await Promise.all([callback, upgrade])
@@ -637,7 +673,9 @@ describe("billing coordination in PostgreSQL", () => {
       await second.account.sync(test.workspace)
       if (source === "webhook")
         expect(await second.webhooks.process(event)).toBe("duplicate")
-      expect(await test.accounts.countConnected(test.workspace.id)).toBe(2)
+      expect(await test.accounts.countConnected(test.workspace.id)).toBe(
+        PLANS.pro.channels + 1
+      )
       expect(test.reported.has(extra.providerAccountId)).toBe(true)
       expect(disconnect).toHaveBeenCalledExactlyOnceWith(
         extra.providerAccountId

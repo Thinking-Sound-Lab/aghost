@@ -4,7 +4,8 @@ import {
   type Automation,
   type AutomationActivityPage,
   type AutomationStatsById,
-  type ConnectInstagramResult,
+  type ConnectAccountResult,
+  type CrossPostInput,
   type CompleteUploadLinkInput,
   type ContactPage,
   type Conversation,
@@ -12,7 +13,7 @@ import {
   type ApiKey,
   type CreateApiKeyInput,
   type CreatedApiKey,
-  type InstagramAccount,
+  type Account,
   type InstagramPost,
   type IntegrationStatus,
   type InsightQuery,
@@ -24,11 +25,11 @@ import {
   type MediaContentType,
   type MediaUpload,
   type Message,
+  type Platform,
   type PostMedia,
   type PublishingAccess,
   type ScheduledPost,
   type ScheduledPostRange,
-  type SchedulePostInput,
   type UpdateScheduledPostInput,
   type UploadLink,
   type SendMessageInput,
@@ -162,12 +163,14 @@ export function createApiClient(
       portal: () => request<BillingRedirect>("/billing/portal", "POST", {}),
     },
     accounts: {
-      list: () => request<InstagramAccount[]>("/accounts"),
-      connect: () =>
-        request<ConnectInstagramResult>("/accounts/connect", "POST", {}),
-      sync: () => request<InstagramAccount[]>("/accounts/sync", "POST", {}),
+      list: () => request<Account[]>("/accounts"),
+      connect: (platform: Platform) =>
+        request<ConnectAccountResult>("/accounts/connect", "POST", {
+          platform,
+        }),
+      sync: () => request<Account[]>("/accounts/sync", "POST", {}),
       reconnect: (id: string) =>
-        request<ConnectInstagramResult>(
+        request<ConnectAccountResult>(
           `/accounts/${encodeURIComponent(id)}/reconnect`,
           "POST",
           {}
@@ -245,8 +248,9 @@ export function createApiClient(
         ),
       get: (id: string) =>
         request<ScheduledPost>(`/scheduled-posts/${encodeURIComponent(id)}`),
-      create: (input: SchedulePostInput) =>
-        request<ScheduledPost>("/scheduled-posts", "POST", input),
+      /** Schedules the post on each target account, all of them or none. */
+      create: (input: CrossPostInput) =>
+        request<ScheduledPost[]>("/scheduled-posts/batch", "POST", input),
       update: (id: string, input: UpdateScheduledPostInput) =>
         request<ScheduledPost>(
           `/scheduled-posts/${encodeURIComponent(id)}`,

@@ -3,12 +3,14 @@ import { ApiClientError } from "@workspace/api/client"
 import type {
   Automation,
   AutomationStatsById,
-  InstagramAccount,
+  Account,
   IntegrationStatus,
+  Platform,
   Workspace,
   BillingState,
 } from "@workspace/api/contract"
-import { isEntitled } from "@workspace/api/contract"
+import { PLANS, isEntitled } from "@workspace/api/contract"
+import { announceAccountsChanged } from "@/lib/account-events"
 import { analytics } from "@/lib/analytics"
 import { api } from "@/lib/api"
 import { useAuthStore } from "./auth-store"
@@ -17,6 +19,18 @@ import { useAuthStore } from "./auth-store"
 export function hasPlan(billing: BillingState | null): boolean {
   const subscription = billing?.subscription
   return Boolean(subscription && isEntitled(subscription.status))
+}
+
+/** Whether another account can be connected: the plan has room for it. */
+export function canConnect(
+  state: Pick<WorkspaceState, "accounts" | "billing" | "integration">
+): boolean {
+  const subscription = state.billing?.subscription
+  const limit = subscription ? PLANS[subscription.plan].channels : 0
+  const connected = state.accounts.filter(
+    (account) => account.status === "connected"
+  ).length
+  return Boolean(state.integration?.instagramConfigured) && connected < limit
 }
 
 export function errorMessage(error: unknown): string {
@@ -32,7 +46,7 @@ export function errorMessage(error: unknown): string {
 
 type WorkspaceState = {
   workspace: Workspace | null
-  accounts: InstagramAccount[]
+  accounts: Account[]
   automations: Automation[]
   stats: AutomationStatsById | null
   integration: IntegrationStatus | null
@@ -47,10 +61,17 @@ type WorkspaceState = {
   load: () => Promise<void>
   loadStats: () => Promise<void>
   applySaved: (automation: Automation) => void
-  connect: () => Promise<void>
+  connect: (platform: Platform) => Promise<void>
+  /**
+   * Authorizes a new account in another tab, so the page stays as it is.
+   * That tab closes itself once the account is saved.
+   */
+  connectInNewTab: (platform: Platform) => Promise<void>
   /** Authorizes an account again, to grant the permissions it lacks. */
   reconnect: (id: string) => Promise<void>
   sync: () => Promise<void>
+  /** Reads the accounts again, after another tab changed them. */
+  reloadAccounts: () => Promise<void>
   toggle: (automation: Automation) => Promise<void>
   removeAutomation: (id: string) => Promise<void>
   removeAccount: (id: string) => Promise<void>
@@ -135,14 +156,34 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     // Updates the counts in place; the page keeps rendering meanwhile.
     void get().loadStats()
   },
-  connect: async () => {
+  connect: async (platform) => {
     if (get().busy) return
     set({ busy: true, error: null })
     try {
-      const { authUrl } = await api.accounts.connect()
+      const { authUrl } = await api.accounts.connect(platform)
       window.location.assign(authUrl)
     } catch (error) {
       set({ error: errorMessage(error), busy: false })
+    }
+  },
+  connectInNewTab: async (platform) => {
+    if (get().busy) return
+    // Opened during the click, before the request, so it is not blocked.
+    const tab = window.open("", "_blank")
+    if (!tab) {
+      set({ error: "Allow pop-ups for aghost to connect a channel here." })
+      return
+    }
+    tab.opener = null
+    set({ busy: true, error: null })
+    try {
+      const { authUrl } = await api.accounts.connect(platform)
+      tab.location.href = authUrl
+    } catch (error) {
+      tab.close()
+      set({ error: errorMessage(error) })
+    } finally {
+      set({ busy: false })
     }
   },
   reconnect: async (id) => {
@@ -159,10 +200,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ busy: true, error: null })
     try {
       set({ accounts: await api.accounts.sync() })
+      announceAccountsChanged()
     } catch (error) {
       set({ error: errorMessage(error) })
     } finally {
       set({ busy: false })
+    }
+  },
+  reloadAccounts: async () => {
+    try {
+      set({ accounts: await api.accounts.list() })
+    } catch (error) {
+      set({ error: errorMessage(error) })
     }
   },
   toggle: async (automation) => {

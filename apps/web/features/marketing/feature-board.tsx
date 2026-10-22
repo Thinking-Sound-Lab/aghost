@@ -93,7 +93,7 @@ const cards: Card[] = [
     picture: <StatsScene />,
   },
   {
-    label: "Product carousel · Growth and Business",
+    label: "Product carousel · Growth and up",
     gradient: "ocean",
     picture: (
       <Screen>
@@ -102,7 +102,7 @@ const cards: Card[] = [
     ),
   },
   {
-    label: "Follow-up nudges · Business",
+    label: "Follow-up nudges · Business and up",
     gradient: "blue",
     picture: (
       <Screen>
