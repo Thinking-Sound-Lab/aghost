@@ -39,15 +39,17 @@ function Upgrade({
   children: React.ReactNode
 }) {
   return (
-    <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-      <LockKeyhole className="size-3.5" aria-hidden="true" />
-      {children}
-      <Link
-        className="font-medium text-foreground underline underline-offset-4"
-        href={billingPath({ plan, interval: "monthly" })}
-      >
-        View {PLANS[plan].name}
-      </Link>
+    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+      <LockKeyhole className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+      <span>
+        {children}{" "}
+        <Link
+          className="font-medium text-foreground underline underline-offset-4"
+          href={billingPath({ plan, interval: "monthly" })}
+        >
+          View {PLANS[plan].name}
+        </Link>
+      </span>
     </p>
   )
 }
@@ -74,6 +76,9 @@ export function ProductCarouselEditor({
     ;[next[index], next[to]] = [next[to]!, next[index]!]
     onChange({ productCarousel: next })
   }
+  // Plans without carousels don't offer them. A carousel kept from an earlier
+  // plan stays visible so it can be switched back to a text DM.
+  if (!canUse && !cards) return null
   return (
     <section
       className="grid gap-3 rounded-xl bg-muted p-5"
@@ -102,7 +107,6 @@ export function ProductCarouselEditor({
               name="dm-format"
               value="carousel"
               checked={Boolean(cards)}
-              disabled={!canUse && !cards}
               onChange={() =>
                 onChange({
                   dmFormat: "carousel",
@@ -116,7 +120,10 @@ export function ProductCarouselEditor({
         </div>
       </fieldset>
       {!canUse && (
-        <Upgrade plan="growth">Product carousels start on Growth.</Upgrade>
+        <Upgrade plan="growth">
+          Product carousels need the Growth plan. Choose Message & links to go
+          live without one.
+        </Upgrade>
       )}
       {cards && (
         <>
@@ -260,6 +267,9 @@ export function FollowUpEditor({ draft, fields, onChange }: ExtrasProps) {
         : null,
     })
   }
+  // Plans without reminders don't offer them. One kept from an earlier plan
+  // stays visible so it can be turned off.
+  if (!canUse && !followUp) return null
   return (
     <section
       className="grid gap-3 rounded-xl bg-muted p-5"
@@ -270,13 +280,13 @@ export function FollowUpEditor({ draft, fields, onChange }: ExtrasProps) {
         <Switch
           aria-label="Enable follow-up nudge"
           checked={Boolean(followUp)}
-          disabled={!canUse && !followUp}
           onCheckedChange={enable}
         />
       </div>
       {!canUse && (
         <Upgrade plan="business">
-          Automatic reminders are included on Business.
+          Follow-up nudges need the Business plan. Turn this off to go live
+          without one.
         </Upgrade>
       )}
       <p className="text-xs text-muted-foreground">

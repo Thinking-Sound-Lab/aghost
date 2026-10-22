@@ -308,9 +308,9 @@ export function AutomationFields({
           >
             {typeof draft.notFollowingMessage === "string" && (
               <Field
-                label="If they don't follow you yet"
+                label="Message for people who don't follow you yet"
                 error={fields.notFollowingMessage}
-                hint={`Sent with a "${confirmLabelOf(draft.openingDm)}" button. The link follows once they follow you and tap it.`}
+                hint={`It comes with the "${confirmLabelOf(draft.openingDm)}" button. They get the link after they follow you and tap it.`}
               >
                 <Textarea
                   aria-label="Message if they don't follow you"
