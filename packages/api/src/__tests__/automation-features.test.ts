@@ -49,6 +49,7 @@ const automation: AutomationRecord = {
   followUp,
   commentReply: null,
   requireFollow: false,
+  notFollowingMessage: null,
   createdAt: "2026-10-13T10:00:00.000Z",
   updatedAt: "2026-10-13T10:00:00.000Z",
 }

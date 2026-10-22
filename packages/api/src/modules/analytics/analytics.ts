@@ -36,6 +36,7 @@ type AutomationShape = {
   button_count: number
   has_comment_reply: boolean
   requires_follow: boolean
+  has_not_following_message: boolean
 }
 
 type PostShape = {

@@ -114,6 +114,7 @@ export function AutomationEditor({ id }: { id?: string }) {
       keyword={editor.anyWord ? null : (keywords[0] ?? null)}
       commentReply={draft.commentReply}
       openingDm={draft.openingDm}
+      notFollowingMessage={draft.notFollowingMessage ?? null}
       dmMessage={draft.dmMessage}
       buttons={draft.dmButtons.map((item) => item.label)}
       productCarousel={

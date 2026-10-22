@@ -10,7 +10,11 @@ import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Field } from "@/components/interface"
-import type { AutomationDraft } from "@/lib/automation-draft"
+import {
+  DEFAULT_NOT_FOLLOWING_MESSAGE,
+  confirmLabelOf,
+  type AutomationDraft,
+} from "@/lib/automation-draft"
 
 import { FollowUpEditor, ProductCarouselEditor } from "./automation-extras"
 
@@ -24,6 +28,7 @@ export type ResponseDraft = Pick<
   | "dmButtons"
   | "commentReply"
   | "requireFollow"
+  | "notFollowingMessage"
   | "productCarousel"
   | "followUp"
   | "dmFormat"
@@ -294,8 +299,31 @@ export function AutomationFields({
           <Card
             title="the link only if they follow you"
             enabled={draft.requireFollow}
-            onToggle={(on) => onChange({ requireFollow: on })}
-          />
+            onToggle={(on) =>
+              onChange({
+                requireFollow: on,
+                notFollowingMessage: on ? DEFAULT_NOT_FOLLOWING_MESSAGE : null,
+              })
+            }
+          >
+            {typeof draft.notFollowingMessage === "string" && (
+              <Field
+                label="Message for people who don't follow you yet"
+                error={fields.notFollowingMessage}
+                hint={`It comes with the "${confirmLabelOf(draft.openingDm)}" button. They get the link after they follow you and tap it.`}
+              >
+                <Textarea
+                  aria-label="Message if they don't follow you"
+                  placeholder={DEFAULT_NOT_FOLLOWING_MESSAGE}
+                  maxLength={AUTOMATION_LIMITS.notFollowingMessageMaxLength}
+                  value={draft.notFollowingMessage}
+                  onChange={(event) =>
+                    onChange({ notFollowingMessage: event.target.value })
+                  }
+                />
+              </Field>
+            )}
+          </Card>
         </Step>
       )}
     </>

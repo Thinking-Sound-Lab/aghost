@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type {
+  Automation,
   InstagramAccount,
   InstagramPost,
   ScheduledPost,
 } from "@workspace/api/contract"
 import { POST_LIMITS } from "@workspace/api/contract"
 import { api } from "@/lib/api"
+import { DEFAULT_NOT_FOLLOWING_MESSAGE } from "@/lib/automation-draft"
 import { useEditorStore } from "./editor-store"
 import { useWorkspaceStore } from "./workspace-store"
 
@@ -140,5 +142,59 @@ describe("independent published and scheduled post pickers", () => {
       scheduledPostsError: "Selected post was deleted",
       posts: [recent],
     })
+  })
+})
+
+describe("asking non-followers to follow", () => {
+  const saved: Automation = {
+    id: "33333333-3333-4333-8333-333333333333",
+    instagramAccountId: account.id,
+    name: "Trial reel",
+    status: "active",
+    trigger: { postScope: "any_post" },
+    keywords: ["STATS"],
+    matchMode: "word",
+    openingDm: null,
+    dmMessage: "Here you go",
+    dmButtons: [],
+    commentReply: null,
+    requireFollow: true,
+    notFollowingMessage: null,
+    productCarousel: null,
+    followUp: null,
+    createdAt: "2026-10-19T00:00:00Z",
+    updatedAt: "2026-10-19T00:00:00Z",
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    useEditorStore.setState(useEditorStore.getInitialState(), true)
+    vi.mocked(api.accounts.posts).mockResolvedValue([])
+    vi.mocked(api.scheduledPosts.list).mockResolvedValue([])
+  })
+
+  it("offers the message on a followers-only automation saved without one", async () => {
+    vi.mocked(api.automations.get).mockResolvedValue(saved)
+    await useEditorStore.getState().initialize(saved.id)
+    expect(useEditorStore.getState().draft.notFollowingMessage).toBe(
+      DEFAULT_NOT_FOLLOWING_MESSAGE
+    )
+  })
+
+  it("keeps a saved message, and none without the follower rule", async () => {
+    vi.mocked(api.automations.get).mockResolvedValue({
+      ...saved,
+      notFollowingMessage: "Follow first",
+    })
+    await useEditorStore.getState().initialize(saved.id)
+    expect(useEditorStore.getState().draft.notFollowingMessage).toBe(
+      "Follow first"
+    )
+    vi.mocked(api.automations.get).mockResolvedValue({
+      ...saved,
+      requireFollow: false,
+    })
+    await useEditorStore.getState().initialize(saved.id)
+    expect(useEditorStore.getState().draft.notFollowingMessage).toBeNull()
   })
 })
