@@ -1,14 +1,14 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Check, ChevronsRight, Code2, Terminal } from "lucide-react"
+import { ArrowRight, Check, Code2, Terminal } from "lucide-react"
 import { agentAbilities, agentClients } from "@/features/marketing/content"
-import { gradients } from "@/features/marketing/feature-board"
 import { McpConfigApp } from "@/features/marketing/agent-apps"
 import { RestScene } from "@/features/marketing/illustrations"
 import {
   MarketingCta,
   MarketingPage,
   PageIntro,
+  Painting,
   Pill,
   SectionHeading,
   card,
@@ -20,14 +20,14 @@ import {
 import { openGraph, site } from "@/lib/site"
 
 const description =
-  "Connect Claude Code, Codex, Cursor, or any HTTP MCP client to schedule Instagram content, manage DM automations, read stats and answer your inbox in aghost."
+  "Connect Claude Code, Codex, Cursor or any MCP client to schedule Instagram posts, run DM automations and read analytics."
 export const metadata: Metadata = {
-  title: "Instagram MCP server and REST API for AI agents",
+  title: "Social media MCP server and REST API for AI agents",
   description,
   alternates: { canonical: "/agents" },
   openGraph: {
     ...openGraph,
-    title: "Instagram MCP server and REST API for AI agents · aghost",
+    title: "Social media MCP server and REST API for AI agents · aghost",
     description,
     url: "/agents",
   },
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 const connectionSteps = [
   {
     title: "Get your workspace ready",
-    text: "Sign in with Google, choose a plan, and connect your Instagram professional account in Settings → Channels.",
+    text: "Sign in with Google, choose a plan, and connect your channels in Settings → Channels. Comment automations need an Instagram professional account.",
   },
   {
     title: "Create an API key",
@@ -48,7 +48,7 @@ const connectionSteps = [
   },
 ]
 
-const clientGradients = [gradients.blue, gradients.teal, gradients.ocean]
+const clientTones = ["sky", "gold", "dusk"] as const
 
 const exampleRequests = [
   {
@@ -79,7 +79,7 @@ export default function Page() {
     <MarketingPage>
       <PageIntro
         category="AI agents"
-        title="Run Instagram from your AI agent"
+        title="Run your social media from your AI agent"
         description={description}
       />
       <section
@@ -88,29 +88,25 @@ export default function Page() {
         <div className={prose}>
           <h2>What your agent can do</h2>
           <p>
-            Your agent works in the same workspace you use. Ask for a scheduled
-            post, prepare its DM automation, check how it’s doing, or get help
-            with a reply.
+            Your agent works in your workspace. New posts to platforms other
+            than Instagram are scheduled in the dashboard for now.
           </p>
-          <ul className="grid gap-3 text-white">
+          <ul className="grid gap-3 text-ink">
             {agentAbilities.map((ability) => (
               <li key={ability} className="flex items-start gap-3">
-                <Check
-                  aria-hidden="true"
-                  className="mt-1 size-5 shrink-0 text-brand"
-                />
+                <Check aria-hidden="true" className="mt-1 size-5 shrink-0" />
                 {ability}
               </li>
             ))}
           </ul>
           <a href="/api/mcp/skill.md" className={`${primaryButton} mt-3 w-fit`}>
             Read the setup skill
-            <ChevronsRight aria-hidden="true" className="size-4" />
+            <ArrowRight aria-hidden="true" className="size-4" />
           </a>
         </div>
-        <div className={`rounded-[2rem] p-5 sm:p-10 ${gradients.deep}`}>
+        <Painting tone="dusk" className="p-5 sm:p-10">
           <McpConfigApp endpoint={`${site.url}/api/mcp`} />
-        </div>
+        </Painting>
       </section>
       <section
         id="connection"
@@ -125,11 +121,11 @@ export default function Page() {
         <ol className="mt-12 grid gap-4 md:grid-cols-3">
           {connectionSteps.map((step, index) => (
             <li key={step.title} className={`${card} grid content-start gap-4`}>
-              <Pill className="bg-brand text-black">Step {index + 1}</Pill>
-              <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+              <Pill>Step {index + 1}</Pill>
+              <h3 className="text-2xl font-medium tracking-[-0.035em]">
                 {step.title}
               </h3>
-              <p className="text-white/70">{step.text}</p>
+              <p className="text-ink/65">{step.text}</p>
             </li>
           ))}
         </ol>
@@ -141,24 +137,32 @@ export default function Page() {
         />
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {agentClients.map((agent, index) => (
-            <article
+            <Painting
               key={agent}
-              id={agent.toLowerCase().replaceAll(" ", "-")}
-              className={`grid scroll-mt-24 content-start gap-4 rounded-[2rem] p-8 ${clientGradients[index]}`}
+              tone={clientTones[index] ?? "sky"}
+              className={`grid scroll-mt-24 content-start gap-4 p-8 ${clientTones[index] === "dusk" ? "text-white" : "text-ink"}`}
             >
-              <Terminal aria-hidden="true" className="size-8" />
-              <h3 className="text-3xl font-extrabold tracking-[-0.03em]">
-                {agent}
-              </h3>
-              <p className="text-white/85">
-                The setup skill includes configuration for {agent}. Give it the
-                skill and make your aghost API key available through its
-                environment or secret store.
-              </p>
-              <a href="/api/mcp/skill.md" className={`${textLink} w-fit`}>
-                Read {agent} setup
-              </a>
-            </article>
+              <article
+                id={agent.toLowerCase().replaceAll(" ", "-")}
+                className="grid content-start gap-4"
+              >
+                <Terminal aria-hidden="true" className="size-8" />
+                <h3 className="text-3xl font-medium tracking-[-0.04em]">
+                  {agent}
+                </h3>
+                <p className="opacity-85">
+                  The setup skill includes configuration for {agent}. Give it
+                  the skill and make your aghost API key available through its
+                  environment or secret store.
+                </p>
+                <a
+                  href="/api/mcp/skill.md"
+                  className="w-fit underline decoration-current/40 underline-offset-4 hover:decoration-current"
+                >
+                  Read {agent} setup
+                </a>
+              </article>
+            </Painting>
           ))}
         </div>
       </section>
@@ -174,20 +178,20 @@ export default function Page() {
               key={example.title}
               className={`${card} grid content-start gap-5`}
             >
-              <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+              <h3 className="text-2xl font-medium tracking-[-0.035em]">
                 {example.title}
               </h3>
-              <blockquote className="border-l-4 border-brand pl-4 text-white/85">
+              <blockquote className="border-l-2 border-ink pl-4 text-ink/80">
                 “{example.prompt}”
               </blockquote>
-              <div className="grid gap-2 text-sm leading-relaxed text-white/70">
-                <p className="font-semibold text-white">What to check</p>
+              <div className="grid gap-2 text-sm leading-relaxed text-ink/65">
+                <p className="font-medium text-ink">What to check</p>
                 <p>{example.check}</p>
               </div>
             </li>
           ))}
         </ul>
-        <p className="mx-auto mt-6 max-w-3xl text-center text-white/70">
+        <p className="mx-auto mt-6 max-w-3xl text-center text-ink/65">
           Scheduled posts publish at the chosen time. Active automations can
           send real messages after a qualifying interaction. Review Instagram’s{" "}
           <Link href="/blog/instagram-dm-limits" className={textLink}>
@@ -201,12 +205,13 @@ export default function Page() {
           <h2>Keep the keys</h2>
           <p>
             A key gives your agent access to your workspace’s scheduled posts,
-            automations, stats, contacts, and inbox. Give it only to an agent
-            you trust and revoke it in Settings → API when you’re finished.
+            automations, analytics, contacts, and inbox. Give it only to an
+            agent you trust and revoke it in Settings → API when you’re
+            finished.
           </p>
           <p>
             Agents cannot create more API keys, change workspace settings, or
-            connect or disconnect Instagram accounts. Those actions stay in your
+            connect or disconnect accounts. Those actions stay in your
             dashboard.
           </p>
           <Link href="/privacy-policy#agents" className={`${textLink} w-fit`}>
@@ -219,18 +224,19 @@ export default function Page() {
         aria-labelledby="rest-heading"
         className={`${section} scroll-mt-24`}
       >
-        <div
-          className={`grid items-center gap-10 rounded-[2rem] p-7 sm:p-10 lg:grid-cols-[2fr_3fr] ${gradients.blue}`}
+        <Painting
+          tone="sky"
+          className="grid items-center gap-10 p-7 text-ink sm:p-10 lg:grid-cols-[2fr_3fr]"
         >
           <div className="grid min-w-0 content-start gap-4">
             <Code2 aria-hidden="true" className="size-10" />
             <h2
               id="rest-heading"
-              className="text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl"
+              className="text-4xl font-medium tracking-[-0.045em] sm:text-5xl"
             >
               There’s an API, too
             </h2>
-            <p className="text-lg text-white/85">
+            <p className="text-lg text-ink/80">
               Use the same workspace API key for scripts and clients that don’t
               use MCP. Settings → API has the REST setup guide. The OpenAPI
               document describes the endpoints and requires your API key.
@@ -242,7 +248,7 @@ export default function Page() {
                 { name: "OpenAPI document", path: "/api/v1/openapi.json" },
               ].map((endpoint) => (
                 <div key={endpoint.path}>
-                  <dt className="text-sm text-white/70">{endpoint.name}</dt>
+                  <dt className="text-sm text-ink/65">{endpoint.name}</dt>
                   <dd>
                     <code className="font-mono text-sm break-all">
                       {site.url}
@@ -254,7 +260,7 @@ export default function Page() {
             </dl>
           </div>
           <RestScene endpoint={`${site.url}/api/v1/automations`} />
-        </div>
+        </Painting>
       </section>
       <MarketingCta />
     </MarketingPage>

@@ -14,7 +14,7 @@ import {
   buttonsScene,
   tapScene,
 } from "@/features/marketing/illustrations"
-import { MarketingCanvas, textLink } from "@/features/marketing/shell"
+import { MarketingCanvas, Painting, textLink } from "@/features/marketing/shell"
 import { api } from "@/lib/api"
 import { site } from "@/lib/site"
 
@@ -87,27 +87,27 @@ export function SignIn({
       <main className="grid w-full gap-3 lg:h-[calc(100svh-1.5rem)] lg:grid-cols-[minmax(0,36rem)_1fr]">
         <section
           aria-labelledby="sign-in-heading"
-          className="flex min-h-[calc(100svh-1.5rem)] items-center rounded-3xl bg-[#1a1a1a] px-8 py-12 sm:px-16 lg:min-h-0"
+          className="flex min-h-[calc(100svh-1.5rem)] items-center border border-ink/10 bg-white/60 px-8 py-12 sm:px-16 lg:min-h-0"
         >
           <div className="mx-auto w-full max-w-md">
             <Brand />
             <h1
               id="sign-in-heading"
-              className="mt-10 text-4xl font-bold tracking-[-0.035em] sm:text-5xl"
+              className="mt-10 text-4xl font-medium tracking-[-0.045em] sm:text-5xl"
             >
               Log in or sign up
             </h1>
-            <p className="mt-8 font-medium">Continue with</p>
+            <p className="mt-8 text-ink/70">Continue with</p>
             <ErrorBanner message={error} className="mt-3" />
             {/* A full navigation: the API sends the browser to Google and back. */}
             <a
               href={`${api.auth.googleSignInUrl}${returnTo ? `?${new URLSearchParams(returnTo)}` : ""}`}
-              className="mt-3 flex h-13 items-center justify-center gap-3 rounded-xl bg-white px-6 text-base font-semibold text-black transition-colors outline-none hover:bg-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
+              className="mt-3 flex h-13 items-center justify-center gap-3 border border-ink/15 bg-white px-6 text-base font-medium text-ink transition-colors outline-none hover:border-ink/40 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
             >
               <Google size={21} />
               Google
             </a>
-            <p className="mt-6 text-sm leading-relaxed text-white/50">
+            <p className="mt-6 text-sm leading-relaxed text-ink/55">
               By continuing, you agree to the{" "}
               <Link href="/terms-of-service" className={textLink}>
                 Terms of Service
@@ -118,7 +118,7 @@ export function SignIn({
               </Link>
               .
             </p>
-            <p className="mt-10 text-sm text-white/70">
+            <p className="mt-10 text-sm text-ink/65">
               Need a hand?{" "}
               <Link href="/contact" className={textLink}>
                 Contact us
@@ -126,19 +126,23 @@ export function SignIn({
             </p>
           </div>
         </section>
-        <section
-          aria-labelledby="sign-in-agent-heading"
-          className="hidden min-h-0 flex-col pt-20 lg:flex"
+        <Painting
+          tone="sky"
+          className="hidden min-h-0 flex-col pt-20 text-ink lg:flex"
         >
-          <h2
-            id="sign-in-agent-heading"
-            className="mx-auto mb-10 max-w-3xl px-6 text-center text-4xl font-bold tracking-[-0.035em] text-balance xl:text-5xl"
+          <section
+            aria-labelledby="sign-in-agent-heading"
+            className="flex min-h-0 flex-1 flex-col"
           >
-            Turn Instagram comments into DMs with your{" "}
-            <span className="text-brand">AI agent</span>
-          </h2>
-          <AgentWall />
-        </section>
+            <h2
+              id="sign-in-agent-heading"
+              className="mx-auto mb-10 max-w-3xl px-6 text-center text-4xl font-medium tracking-[-0.045em] text-balance xl:text-5xl"
+            >
+              Post everywhere. Answer every comment.
+            </h2>
+            <AgentWall />
+          </section>
+        </Painting>
       </main>
     </MarketingCanvas>
   )

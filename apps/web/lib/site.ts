@@ -11,16 +11,27 @@ function origin(): string {
 export const site = {
   name: "aghost",
   url: origin(),
-  title: "Instagram scheduling and DM automation · aghost",
+  title: "Social media scheduling and Instagram DM automation · aghost",
   description:
-    "Schedule Instagram posts, reels, carousels and stories, and turn comments into DMs. Manage your calendar and automations from the dashboard or an AI agent.",
+    "Schedule posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and turn Instagram comments into DMs. Run it yourself or with your AI agent.",
 }
 
-/** A page that sets `openGraph` replaces the layout's, so both start here. */
+/**
+ * A page that sets `openGraph` replaces the layout's, so both start here,
+ * share image included: app/opengraph-image.tsx draws it.
+ */
 export const openGraph = {
   type: "website",
   siteName: site.name,
   title: site.title,
   description: site.description,
   locale: "en_US",
+  images: [
+    {
+      url: "/opengraph-image",
+      width: 1200,
+      height: 630,
+      alt: "aghost: social media scheduler and Instagram DM automation",
+    },
+  ],
 }

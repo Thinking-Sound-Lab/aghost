@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Mascot } from "@/components/brand"
-import { gradients } from "@/features/marketing/feature-board"
+import { Monogram } from "@/components/brand"
 import {
   MarketingCta,
   MarketingPage,
   PageIntro,
+  Painting,
   SectionHeading,
   card,
   prose,
@@ -15,7 +15,7 @@ import {
 import { openGraph } from "@/lib/site"
 
 const description =
-  "aghost helps creators and brands turn Instagram comments into conversations, with a dashboard and tools for AI agents."
+  "Why we built aghost: one post on every channel, and an answer for every comment."
 export const metadata: Metadata = {
   title: "About",
   description,
@@ -30,8 +30,8 @@ export const metadata: Metadata = {
 
 const values = [
   {
-    title: "Built around Instagram",
-    text: "For creators sharing resources, brands answering product questions, and anyone delivering a link from a post or reel.",
+    title: "One post, every channel",
+    text: "Write once for Instagram, Facebook, LinkedIn, X, Threads and YouTube, and tune each copy for the platform it lands on.",
   },
   {
     title: "Works with your agent",
@@ -49,73 +49,67 @@ export default function Page() {
       <PageIntro
         category="About"
         title="About aghost"
-        description="A small tool for the work that piles up after you hit publish."
+        description="One post on every channel. An answer for every comment."
       />
       <section
         className={`${section} mt-0! grid items-center gap-12 lg:grid-cols-2`}
       >
-        <div
-          className={`grid aspect-square place-items-center rounded-[2rem] ${gradients.green}`}
+        <Painting
+          tone="sky"
+          className="grid aspect-square place-items-center text-ink"
         >
-          <Mascot size={260} />
-        </div>
+          <Monogram className="w-1/3" />
+        </Painting>
         <div className={prose}>
           <h2>Why aghost exists</h2>
-          <p className="text-2xl font-semibold text-white">
-            You publish a reel. Someone comments “send me the guide.” Then
-            another person asks. And another.
+          <p className="text-2xl font-medium tracking-[-0.02em] text-ink">
+            You finish a reel. Then you post it five more times and answer “send
+            me the guide” under every copy.
           </p>
           <p>
-            The interest is there, but getting everyone the right link turns
-            into a job of its own. aghost takes care of that handoff. You choose
-            the comments to respond to and the message to send. Your audience
-            gets the next step in their inbox, and you get back to creating.
+            aghost does that busywork: one post to every channel, and a DM for
+            everyone who comments on Instagram. Your AI agent can do it too.
           </p>
-          <p>
-            We built it so your AI agent can do that work too. The same
-            automations, inbox, contacts, and stats are available through MCP
-            and the REST API.
-          </p>
-          <Link href="/features" className={`${textLink} w-fit text-white`}>
+          <Link href="/features" className={`${textLink} w-fit`}>
             Explore what aghost does
           </Link>
         </div>
       </section>
       <section aria-labelledby="values-heading" className={section}>
-        <SectionHeading id="values-heading" title="One clear job" />
+        <SectionHeading id="values-heading" title="What we care about" />
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {values.map((value) => (
             <div key={value.title} className={`${card} grid gap-3`}>
-              <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+              <h3 className="text-2xl font-medium tracking-[-0.035em]">
                 {value.title}
               </h3>
-              <p className="text-white/70">{value.text}</p>
+              <p className="text-ink/65">{value.text}</p>
             </div>
           ))}
         </div>
       </section>
       <section className={`${section} grid gap-8 lg:grid-cols-[1fr_2fr]`}>
-        <h2 className="text-4xl font-extrabold tracking-[-0.035em]">
+        <h2 className="text-4xl font-medium tracking-[-0.045em]">
           Know what you’re connecting
         </h2>
         <div className={prose}>
           <p>
-            aghost is an independent product. Instagram connections and message
-            delivery use Zernio; Instagram decides which permissions and actions
-            are available. You sign in through Instagram and don’t share your
-            Instagram password with aghost.
+            aghost is an independent product. Channel connections, publishing
+            and message delivery use Zernio; each platform decides which
+            permissions and actions are available. You sign in through each
+            platform’s own login and don’t share your passwords with aghost.
           </p>
           <p>
             Read our{" "}
-            <Link href="/privacy-policy" className={`${textLink} text-white`}>
+            <Link href="/privacy-policy" className={textLink}>
               Privacy Policy
             </Link>{" "}
             and{" "}
-            <Link href="/terms-of-service" className={`${textLink} text-white`}>
+            <Link href="/terms-of-service" className={textLink}>
               Terms of Service
             </Link>
             , or{" "}
-            <Link href="/contact" className={`${textLink} text-white`}>
+            <Link href="/contact" className={textLink}>
               contact the team
             </Link>
             .

@@ -20,12 +20,12 @@ const body = `# ${site.name}
 
 ${productSummary}
 
-aghost handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. It requires an Instagram Business or Creator account and an active plan. MCP and REST API access are included on every plan.
+aghost schedules posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. Comment automations need an Instagram Business or Creator account. Every feature needs an active plan, and MCP and REST API access are included on every plan. Agents can schedule new posts on Instagram only; the dashboard schedules to every platform.
 
 ## Product information
 
 - [Instagram DM automation guide](${site.url}/instagram-dm-automation): What comment-to-DM automation is, how to set it up, and how it fits into social media management
-- [Features](${site.url}/features): Instagram scheduling, AI agents, comment automations, analytics, and inbox tools
+- [Features](${site.url}/features): Cross-posting to six platforms, platform previews, AI agents, comment automations, analytics, and inbox tools
 - [Pricing](${site.url}/pricing): Current monthly and yearly plans in USD
 - [Contact](${site.url}/contact): Support and privacy requests
 

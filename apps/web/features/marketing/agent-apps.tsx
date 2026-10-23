@@ -392,37 +392,3 @@ export function McpConfigApp({ endpoint }: { endpoint: string }) {
     </div>
   )
 }
-
-/** The connection details every MCP client needs, whatever file it keeps. */
-export function McpSettingsApp({ endpoint }: { endpoint: string }) {
-  const settings = [
-    ["Name", "aghost"],
-    ["Transport", "HTTP"],
-    ["URL", endpoint],
-    ["Header", "Authorization: Bearer <API key>"],
-  ]
-  return (
-    <div
-      aria-hidden
-      className="overflow-hidden rounded-xl bg-[#1e1e1e] text-[11.5px] text-[#d4d4d4] shadow-2xl ring-1 shadow-black/40 ring-white/10"
-    >
-      <TitleBar dark title="Add an MCP server" />
-      <div className="grid gap-2 p-4">
-        {settings.map(([label, value]) => (
-          <div key={label} className="grid gap-1">
-            <span className="text-[10.5px] font-medium text-white/50">
-              {label}
-            </span>
-            <span className="truncate rounded-md bg-black/40 px-2.5 py-1.5 font-mono text-white ring-1 ring-white/10">
-              {value}
-            </span>
-          </div>
-        ))}
-        <p className="mt-1 text-white/55">
-          Claude Code, Codex, and Cursor each keep this in their own config. The
-          setup skill has the exact entry for each.
-        </p>
-      </div>
-    </div>
-  )
-}
