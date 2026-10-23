@@ -14,13 +14,13 @@ export function supportsAutomation(
   )
 }
 
-/** Counts the Instagram accounts a plan's limit applies to. */
+/** Counts the accounts a plan's limit applies to, on every platform. */
 export interface ConnectedAccounts {
   countConnected(workspaceId: string): Promise<number>
 }
 
-export function accountCount(count: number): string {
-  return `${count} Instagram account${count === 1 ? "" : "s"}`
+export function channelCount(count: number): string {
+  return `${count} channel${count === 1 ? "" : "s"}`
 }
 
 /** Decides what a workspace may do on its current plan. */
@@ -36,12 +36,12 @@ export class PlanEntitlements {
   }
 
   async assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void> {
-    const plan = await this.currentPlan(workspace, "connect Instagram")
+    const plan = await this.currentPlan(workspace, "connect a channel")
     const connected = await this.accounts.countConnected(workspace.id)
 
-    if (connected >= plan.instagramAccounts) {
+    if (connected >= plan.channels) {
       throw new PlanLimitError(
-        `${plan.name} includes ${accountCount(plan.instagramAccounts)}. Upgrade to connect another.`
+        `${plan.name} includes ${channelCount(plan.channels)}. Upgrade to connect another.`
       )
     }
   }
@@ -50,9 +50,9 @@ export class PlanEntitlements {
     const plan = await this.currentPlan(workspace, "turn automations on")
     const connected = await this.accounts.countConnected(workspace.id)
 
-    if (connected > plan.instagramAccounts) {
+    if (connected > plan.channels) {
       throw new PlanLimitError(
-        `${plan.name} includes ${accountCount(plan.instagramAccounts)} and ${connected} are connected. Disconnect one or upgrade to turn automations on.`
+        `${plan.name} includes ${channelCount(plan.channels)} and ${connected} are connected. Disconnect one or upgrade to turn automations on.`
       )
     }
   }
@@ -64,11 +64,11 @@ export class PlanEntitlements {
     const plan = await this.currentPlan(workspace, "configure automations")
     if (config.productCarousel && !plan.features.productCarousel)
       throw new PlanLimitError(
-        "Product carousels are included on Growth and Business. Upgrade to use them."
+        "Product carousels are included on Growth, Business and Ultimate. Upgrade to use them."
       )
     if (config.followUp && !plan.features.followUpNudge)
       throw new PlanLimitError(
-        "Follow-up nudges are included on Business. Upgrade to use them."
+        "Follow-up nudges are included on Business and Ultimate. Upgrade to use them."
       )
   }
 

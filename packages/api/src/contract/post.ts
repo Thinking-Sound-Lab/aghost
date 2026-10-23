@@ -1,9 +1,9 @@
 import { z } from "zod"
 
 import { postAutomationSchema } from "./automation"
+import { CAPTION_MAX_LENGTH, PLATFORM_RULES, type Platform } from "./platform"
 
 export const POST_LIMITS = {
-  captionMaxLength: 2200,
   maxMediaItems: 10,
   // Larger files are compressed for Instagram before they are published.
   imageMaxBytes: 20 * 1024 * 1024,
@@ -15,6 +15,8 @@ export const POST_LIMITS = {
   maxRangeDays: 92,
   /** How long the owner has to upload files through an upload link. */
   uploadLinkHours: 24,
+  /** Accounts one post can be published on at once. */
+  maxTargets: 50,
 } as const
 
 /** A feed post (one photo, a reel from one video, or a carousel) or a story. */
@@ -84,26 +86,43 @@ export const postMediaSchema = z.object({
 
 export type PostMedia = z.infer<typeof postMediaSchema>
 
+const captionSchema = z
+  .string()
+  .trim()
+  .max(CAPTION_MAX_LENGTH, `Use ${CAPTION_MAX_LENGTH} characters or fewer`)
+
 const postContentShape = {
   kind: z.enum(POST_KINDS),
-  caption: z
-    .string()
-    .trim()
-    .max(
-      POST_LIMITS.captionMaxLength,
-      `Use ${POST_LIMITS.captionMaxLength} characters or fewer`
-    )
-    .default(""),
-  // In order: the first item is the cover of a carousel.
+  caption: captionSchema.default(""),
+  // In order: the first item is the cover of a carousel. Each platform's own
+  // limits are checked against the account the post is published on.
   media: z
     .array(postMediaSchema)
-    .min(1, "Add a photo or video")
     .max(
       POST_LIMITS.maxMediaItems,
       `Add up to ${POST_LIMITS.maxMediaItems} photos or videos`
     ),
   scheduledFor: dateTimeSchema,
 }
+
+/** A YouTube video's settings. */
+export const youtubeSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Give the video a title")
+    .max(
+      PLATFORM_RULES.youtube.titleMaxLength!,
+      `Use ${PLATFORM_RULES.youtube.titleMaxLength} characters or fewer`
+    ),
+  madeForKids: z
+    .boolean()
+    .describe(
+      "YouTube's audience setting: whether the video is made for kids."
+    ),
+})
+
+export type YouTubeSettings = z.infer<typeof youtubeSchema>
 
 type PostShape = {
   kind: PostKind
@@ -123,9 +142,56 @@ function checkKind(ctx: z.core.ParsePayload<PostShape>): void {
       "A Trial Reel needs exactly one video and cannot be a story"
     )
   if (kind !== "story") return
-  if (media.length > 1) issue("media", "A story has one photo or video")
+  if (media.length !== 1) issue("media", "A story has one photo or video")
   if (caption) issue("caption", "Stories have no caption")
   if (automation) issue("automation", "Stories have no comments to answer")
+}
+
+/** What one platform's copy of a post holds, for checking against its rules. */
+export type PlatformPost = {
+  kind: PostKind
+  caption: string | null
+  media: PostMedia[]
+  trialReel: TrialReel | null
+  youtube: YouTubeSettings | null
+  hasAutomation: boolean
+}
+
+/**
+ * Where a post breaks the rules of the platform it is published on, by field.
+ * Each message names the platform, since one post can go to several.
+ */
+export function platformProblems(
+  platform: Platform,
+  post: PlatformPost
+): Record<string, string> {
+  const rules = PLATFORM_RULES[platform]
+  const { name } = rules
+  const problems: Record<string, string> = {}
+  const videos = post.media.filter((item) => item.type === "video").length
+  if (!rules.instagramFeatures) {
+    if (post.kind === "story") problems.kind = `${name} has no stories here`
+    if (post.trialReel) problems.trialReel = "Trial Reels are for Instagram"
+    if (post.hasAutomation)
+      problems.automation = "Comment-to-DM automations are for Instagram"
+  }
+  if ((post.caption?.length ?? 0) > rules.captionMaxLength)
+    problems.caption = `${name} takes up to ${rules.captionMaxLength.toLocaleString("en")} characters`
+  if (rules.videoOnly && (post.media.length !== 1 || videos !== 1))
+    problems.media = `${name} needs one video`
+  else if (rules.needsMedia && post.media.length === 0)
+    problems.media = `${name} needs a photo or video`
+  else if (post.media.length > rules.maxMedia)
+    problems.media = `${name} takes up to ${rules.maxMedia} photos`
+  else if (!rules.mixesMedia && videos > 0 && post.media.length > 1)
+    problems.media = `${name} takes several photos or one video`
+  else if (!post.caption && post.media.length === 0)
+    problems.caption = "Write something or add a photo or video"
+  if (rules.titleMaxLength !== null && !post.youtube)
+    problems["youtube.title"] = "Give the video a title"
+  if (rules.titleMaxLength === null && post.youtube)
+    problems.youtube = `${name} videos have no title`
+  return problems
 }
 
 export const schedulePostSchema = z
@@ -148,6 +214,40 @@ export const updateScheduledPostSchema = z
       .describe(
         "Omit to preserve Trial Reel settings; null makes a regular reel."
       ),
+    youtube: youtubeSchema
+      .nullable()
+      .optional()
+      .describe(
+        "A YouTube video's title and audience. Omit to keep them; other platforms have none."
+      ),
+    automation: postAutomationSchema.nullable().default(null),
+  })
+  .check(checkKind)
+
+/** One account a post is published on, with what differs there. */
+const postTargetSchema = z.object({
+  accountId: z.uuid("Choose an account"),
+  // Replaces the shared caption on this account, for example a shorter one for X.
+  caption: captionSchema.nullable().default(null),
+  youtube: youtubeSchema.nullable().default(null),
+})
+
+/** The same post scheduled on several accounts, each publishing its own copy. */
+export const crossPostSchema = z
+  .object({
+    targets: z
+      .array(postTargetSchema)
+      .min(1, "Choose at least one account")
+      .max(POST_LIMITS.maxTargets)
+      .refine(
+        (targets) =>
+          new Set(targets.map((target) => target.accountId)).size ===
+          targets.length,
+        "Choose each account once"
+      ),
+    ...postContentShape,
+    trialReel: trialReelSchema.nullable().default(null),
+    // Answers comments on the Instagram copies once they are published.
     automation: postAutomationSchema.nullable().default(null),
   })
   .check(checkKind)
@@ -158,6 +258,8 @@ export type UpdateScheduledPostInput = z.input<typeof updateScheduledPostSchema>
 export type ParsedUpdateScheduledPostInput = z.output<
   typeof updateScheduledPostSchema
 >
+export type CrossPostInput = z.input<typeof crossPostSchema>
+export type ParsedCrossPostInput = z.output<typeof crossPostSchema>
 
 export const scheduledPostRangeSchema = z
   .object({ from: dateTimeSchema, to: dateTimeSchema })
@@ -252,6 +354,10 @@ export function uploadLinkLoginPath(linkId: string): string {
 
 export type ScheduledPost = {
   id: string
+  /** The account the post is published on. */
+  accountId: string
+  platform: Platform
+  /** The same as accountId, kept for clients written for Instagram alone. */
   instagramAccountId: string
   kind: PostKind
   caption: string | null
@@ -259,8 +365,10 @@ export type ScheduledPost = {
   scheduledFor: string
   /** How the reel was configured to launch, not its current graduation state. */
   trialReel: TrialReel | null
+  /** A YouTube video's title and audience; null on other platforms. */
+  youtube: YouTubeSettings | null
   status: ScheduledPostStatus
-  /** Instagram's id for the post, once it is published. */
+  /** The platform's id for the post, once it is published. */
   platformPostId: string | null
   permalink: string | null
   /** Why publishing failed. Null unless the status is failed. */

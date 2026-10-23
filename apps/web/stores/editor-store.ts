@@ -150,7 +150,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         set({ status: "ready" })
         const account = useWorkspaceStore
           .getState()
-          .accounts.find((item) => item.status === "connected")
+          .accounts.find(
+            (item) =>
+              item.platform === "instagram" && item.status === "connected"
+          )
         if (account) await get().selectAccount(account.id)
       }
     } catch (error) {

@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* The public site is always light, so dark styles stop at its wrapper. */
+@custom-variant dark (&:is(.dark *):not(.marketing, .marketing *));
 @source "../**/*.{ts,tsx}";
 
 @theme inline {
@@ -57,6 +58,12 @@
   --color-brand-red: #ff3b18;
   --color-brand-gray: #687280;
   --color-brand-offwhite: #f6f7f8;
+  /* The public site's editorial palette: slate ink on a warm canvas. */
+  --color-canvas: #f7f7f4;
+  --color-ink: #16252b;
+  --color-sage: #e6eeec;
+  --color-mist: #c3d9ec;
+  --color-pine: #13282f;
 }
 
 :root {

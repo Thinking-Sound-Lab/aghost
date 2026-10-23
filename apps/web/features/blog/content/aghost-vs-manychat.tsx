@@ -151,10 +151,11 @@ export const aghostVsManychat: ArticleContent = {
       body: (
         <>
           <p>
-            aghost’s plan depends on the Instagram accounts and features you
-            need. More contacts and DMs do not increase the subscription price.
-            Instagram’s publishing and messaging limits and fair use still
-            apply.
+            aghost’s plan depends on the channels and features you need: each
+            connected Instagram, Facebook, LinkedIn, X, Threads or YouTube
+            account is one channel. More contacts and DMs do not increase the
+            subscription price. Instagram’s publishing and messaging limits and
+            fair use still apply.
           </p>
           <ComparisonTable
             caption="aghost monthly USD plans; applicable tax included"
@@ -163,17 +164,17 @@ export const aghostVsManychat: ArticleContent = {
               [
                 "Pro",
                 aghostPrice(),
-                `${PLANS.pro.instagramAccounts} Instagram account; scheduling, comment-to-DM, inbox, MCP, and REST`,
+                `${PLANS.pro.channels} channels; cross-posting, comment-to-DM, inbox, MCP, and REST`,
               ],
               [
                 "Growth",
                 aghostPrice("growth"),
-                `${PLANS.growth.instagramAccounts} Instagram accounts; Pro features plus product carousels`,
+                `${PLANS.growth.channels} channels; Pro features plus product carousels`,
               ],
               [
                 "Business",
                 aghostPrice("business"),
-                `${PLANS.business.instagramAccounts} Instagram accounts; Growth features plus follow-up nudges`,
+                `${PLANS.business.channels} channels; Growth features plus follow-up nudges`,
               ],
             ]}
           />

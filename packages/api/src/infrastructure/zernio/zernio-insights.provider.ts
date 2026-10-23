@@ -6,6 +6,7 @@ import type {
 import { ZernioApiError } from "@zernio/node"
 import { z } from "zod"
 import type {
+  ChannelReport,
   InsightMetrics,
   InsightPoint,
   InsightPost,
@@ -17,6 +18,12 @@ import type {
   InsightTimingData,
   InsightContentReport,
 } from "../../contract/insights"
+import {
+  CHANNEL_METRICS,
+  PLATFORM_RULES,
+  type ChannelMetric,
+  type Platform,
+} from "../../contract/platform"
 import type {
   InsightAccount,
   InsightsProvider,
@@ -66,7 +73,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
           query: {
             profileId: account.profileId,
             accountId: account.accountId,
-            platform: "instagram",
+            platform: account.platform,
             source: "all",
           },
         })
@@ -101,6 +108,8 @@ export class ZernioInsightsProvider implements InsightsProvider {
     return available(async () => {
       if (!(await this.canRead(account.accountId)))
         return { status: "reconnect_required" }
+      if (account.platform !== "instagram")
+        return this.channelReport(account, account.platform, range, query)
 
       const client = this.zernio()
       const [totals, daily, content] = await Promise.all([
@@ -142,6 +151,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
 
       return {
         ...content,
+        platform: "instagram",
         summary: {
           views: number(totals.metrics?.views?.total),
           reach: number(totals.metrics?.reach?.total),
@@ -170,7 +180,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
             postId,
             profileId: account.profileId,
             accountId: account.accountId,
-            platform: "instagram",
+            platform: account.platform,
           },
         })
       )
@@ -179,7 +189,8 @@ export class ZernioInsightsProvider implements InsightsProvider {
       const detail = result as AnalyticsSinglePostResponse
       const platform = detail.platformAnalytics?.find(
         (item) =>
-          item.platform === "instagram" && item.accountId === account.accountId
+          item.platform === account.platform &&
+          item.accountId === account.accountId
       )
       if (!platform) throw new NotFoundError("Post")
       const timeline = await request("load the post's view history", () =>
@@ -192,7 +203,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
           },
         })
       )
-      const post = toPost({
+      const post = toPost(account.platform, {
         id: postId,
         platformPostId: platform.platformPostId ?? null,
         content: detail.content,
@@ -215,7 +226,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
           (timeline.timeline ?? [])
             .filter(
               (item) =>
-                item.platform === "instagram" &&
+                item.platform === account.platform &&
                 Boolean(post.platformPostId) &&
                 item.platformPostId === post.platformPostId
             )
@@ -223,6 +234,71 @@ export class ZernioInsightsProvider implements InsightsProvider {
         ),
       }
     })
+  }
+
+  /**
+   * A platform without account insights is summed from its posts: their
+   * lifetime metrics, by the day each was published.
+   */
+  private async channelReport(
+    account: InsightAccount,
+    platform: ChannelReport["platform"],
+    range: InsightRange,
+    query: Pick<InsightQuery, "page" | "sort">
+  ): Promise<InsightReport> {
+    const [result, content] = await Promise.all([
+      request("load daily performance", () =>
+        this.zernio().analytics.getDailyMetrics({
+          throwOnError: true,
+          query: {
+            profileId: account.profileId,
+            accountId: account.accountId,
+            platform,
+            ...range,
+          },
+        })
+      ),
+      this.readContent(account, range, query),
+    ])
+    if (content.status !== "ready") return content
+    if ("hasAnalyticsAccess" in result && result.hasAnalyticsAccess === false)
+      return { status: "not_enabled" }
+    const days = result.dailyData ?? []
+    const breakdown = result.platformBreakdown ?? []
+    if (
+      breakdown.some((item) => item.platform !== platform) ||
+      days.some((day) =>
+        Object.entries(day.platforms ?? {}).some(
+          ([key, count]) => key !== platform && count > 0
+        )
+      )
+    )
+      throw new ProviderError(
+        "Couldn't load daily performance. The response included another platform."
+      )
+    const rules = PLATFORM_RULES[platform]
+    const reported = (metric: ChannelMetric, value: unknown) =>
+      rules.metrics.includes(metric) ? number(value) : null
+    const sums = breakdown[0]
+    return {
+      ...content,
+      platform,
+      totals: Object.fromEntries(
+        CHANNEL_METRICS.map((metric) => [
+          metric,
+          reported(metric, sums?.[metric]),
+        ])
+      ) as ChannelReport["totals"],
+      postCount: number(sums?.postCount) ?? 0,
+      dailyMetric: rules.primaryMetric,
+      daily: series(
+        range,
+        days.map((day) => ({
+          date: day.date,
+          value: day.metrics?.[rules.primaryMetric],
+        }))
+      ),
+    }
   }
 
   private async readContent(
@@ -236,7 +312,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
         query: {
           profileId: account.profileId,
           accountId: account.accountId,
-          platform: "instagram",
+          platform: account.platform,
           ...range,
           page: query.page,
           limit: PAGE_SIZE,
@@ -254,6 +330,7 @@ export class ZernioInsightsProvider implements InsightsProvider {
     const list = result as AnalyticsListResponse
     return {
       status: "ready",
+      platform: account.platform,
       range,
       posts: (list.posts ?? []).map((post) => listedPost(post, account)),
       page: list.pagination?.page ?? query.page,
@@ -303,19 +380,19 @@ async function available<T>(
 function listedPost(post: ListedPost, account: InsightAccount): InsightPost {
   const platform = post.platforms?.find(
     (item) =>
-      item.platform === "instagram" && item.accountId === account.accountId
+      item.platform === account.platform && item.accountId === account.accountId
   )
   if (
     (post.profileId && post.profileId !== account.profileId) ||
     (post.platforms?.length && !platform) ||
-    (post.platform && post.platform !== "instagram")
+    (post.platform && post.platform !== account.platform)
   )
     throw new ProviderError(
       "Couldn't load post performance. A post belonged to another account."
     )
   if (!post._id)
     throw new ProviderError("Couldn't load post performance. A post had no id.")
-  return toPost({
+  return toPost(account.platform, {
     id: post._id,
     platformPostId: platform?.platformPostId ?? null,
     content: post.content,
@@ -333,27 +410,21 @@ function listedPost(post: ListedPost, account: InsightAccount): InsightPost {
   })
 }
 
-function toPost(input: {
-  id: string
-  platformPostId: string | null
-  content?: string
-  publishedAt?: string | null
-  permalink?: string | null
-  thumbnailUrl?: string | null
-  mediaType?: string | null
-  mediaProductType?: string
-  analytics?: PostAnalytics | null
-}): InsightPost {
-  const kind =
-    input.mediaProductType === "STORY"
-      ? "story"
-      : input.mediaProductType === "REELS"
-        ? "reel"
-        : input.mediaType === "carousel"
-          ? "carousel"
-          : input.mediaProductType === "FEED" || input.mediaType === "image"
-            ? "post"
-            : "unknown"
+function toPost(
+  platform: Platform,
+  input: {
+    id: string
+    platformPostId: string | null
+    content?: string
+    publishedAt?: string | null
+    permalink?: string | null
+    thumbnailUrl?: string | null
+    mediaType?: string | null
+    mediaProductType?: string
+    analytics?: PostAnalytics | null
+  }
+): InsightPost {
+  const kind = kindOf(platform, input.mediaType, input.mediaProductType)
   return {
     id: input.id,
     platformPostId: input.platformPostId,
@@ -362,28 +433,57 @@ function toPost(input: {
     permalink: httpsUrl(input.permalink),
     thumbnailUrl: httpsUrl(input.thumbnailUrl),
     kind,
-    metrics: metrics(input.analytics, kind === "reel"),
+    metrics: metrics(platform, input.analytics, kind === "reel"),
     updatedAt: input.analytics?.lastUpdated ?? null,
   }
 }
 
+function kindOf(
+  platform: Platform,
+  mediaType: string | null | undefined,
+  mediaProductType: string | undefined
+): InsightPost["kind"] {
+  if (platform !== "instagram")
+    return mediaType === "video"
+      ? "video"
+      : mediaType === "carousel"
+        ? "carousel"
+        : "post"
+  return mediaProductType === "STORY"
+    ? "story"
+    : mediaProductType === "REELS"
+      ? "reel"
+      : mediaType === "carousel"
+        ? "carousel"
+        : mediaProductType === "FEED" || mediaType === "image"
+          ? "post"
+          : "unknown"
+}
+
 function metrics(
+  platform: Platform,
   data: PostAnalytics | null | undefined,
   reel: boolean
 ): InsightMetrics {
-  const likes = number(data?.likes)
-  const comments = number(data?.comments)
-  const saves = number(data?.saves)
-  const shares = number(data?.shares)
-  const reach = number(data?.reach)
+  // A platform reports zero for what it does not measure, which is unknown.
+  const reported = PLATFORM_RULES[platform].metrics
+  const metric = (name: ChannelMetric) =>
+    reported.includes(name) ? number(data?.[name]) : null
+  const likes = metric("likes")
+  const comments = metric("comments")
+  const saves = metric("saves")
+  const shares = metric("shares")
+  const reach = metric("reach")
   return {
-    views: number(data?.views),
+    impressions: metric("impressions"),
+    views: metric("views"),
     reach,
     likes,
     comments,
     saves,
     shares,
-    reposts: number(data?.reposts),
+    clicks: metric("clicks"),
+    reposts: platform === "instagram" ? number(data?.reposts) : null,
     engagementRate:
       reach &&
       likes !== null &&

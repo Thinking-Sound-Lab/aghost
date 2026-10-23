@@ -6,7 +6,7 @@ import { createAdminSupabaseClient } from "@workspace/supabase/server"
 import { createApi } from "../container"
 import { loadApiConfig } from "../config"
 import type { ApiApp } from "../http/app"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
 import type {
   InsightReport,
   InsightPostReport,
@@ -33,7 +33,7 @@ const admin = createAdminSupabaseClient(config.supabase)
 describe("Instagram analytics HTTP lifecycle", () => {
   let fixture: Awaited<ReturnType<typeof startZernioFixture>>
   let app: ApiApp
-  let account: InstagramAccount
+  let account: Account
   const users: string[] = []
   const cookies: string[] = []
   const get = (path: string, user = 0) =>
@@ -99,7 +99,7 @@ describe("Instagram analytics HTTP lifecycle", () => {
       payload: {},
     })
     expect(synced.statusCode).toBe(200)
-    account = synced.json<InstagramAccount[]>()[0]!
+    account = synced.json<Account[]>()[0]!
   })
   afterAll(async () => {
     await app?.close()
@@ -196,7 +196,8 @@ describe("Instagram analytics HTTP lifecycle", () => {
     const response = await get(`/insights?accountId=${account.id}&days=7`)
     expect(response.statusCode).toBe(200)
     const report = response.json<InsightReport>()
-    if (report.status !== "ready") throw new Error("Expected insights")
+    if (report.status !== "ready" || report.platform !== "instagram")
+      throw new Error("Expected Instagram insights")
     expect(report.summary.reach).toBe(13_200)
     expect(report.dailyReach).toHaveLength(7)
     expect(report.posts[0]?.metrics.averageWatchSeconds).toBe(12.5)

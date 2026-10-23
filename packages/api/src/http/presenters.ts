@@ -1,5 +1,5 @@
 import type { Automation } from "../contract/automation"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
 import type { ScheduledPost } from "../contract/post"
 import type { SessionUser } from "../contract/auth"
 import type { User } from "@supabase/supabase-js"
@@ -24,9 +24,10 @@ export function presentUser(user: User): SessionUser {
   }
 }
 
-export function presentAccount(record: AccountRecord): InstagramAccount {
+export function presentAccount(record: AccountRecord): Account {
   const {
     id,
+    platform,
     username,
     displayName,
     profilePictureUrl,
@@ -36,6 +37,7 @@ export function presentAccount(record: AccountRecord): InstagramAccount {
   } = record
   return {
     id,
+    platform,
     username,
     displayName,
     profilePictureUrl,
@@ -64,5 +66,5 @@ export function presentScheduledPost(
     providerPostId: _providerId,
     ...post
   } = record
-  return { ...post, instagramAccountId: accountId }
+  return { ...post, accountId, instagramAccountId: accountId }
 }

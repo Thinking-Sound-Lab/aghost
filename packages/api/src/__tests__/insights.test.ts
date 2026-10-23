@@ -25,6 +25,7 @@ const account: AccountRecord = {
   id: "11111111-1111-4111-8111-111111111111",
   workspaceId: workspace.id,
   providerAccountId: "provider-account",
+  platform: "instagram",
   username: "creator",
   status: "connected",
   displayName: null,
@@ -109,6 +110,7 @@ describe("workspace-scoped Instagram insights", () => {
     expect(provider.getPostingTimes).toHaveBeenCalledWith({
       profileId: workspace.providerProfileId,
       accountId: account.providerAccountId,
+      platform: "instagram",
     })
   })
 
@@ -119,6 +121,7 @@ describe("workspace-scoped Instagram insights", () => {
       {
         profileId: workspace.providerProfileId,
         accountId: account.providerAccountId,
+        platform: "instagram",
       },
       { fromDate: "2026-12-27", toDate: "2027-01-02" },
       query
@@ -128,6 +131,7 @@ describe("workspace-scoped Instagram insights", () => {
       {
         profileId: workspace.providerProfileId,
         accountId: account.providerAccountId,
+        platform: "instagram",
       },
       { fromDate: "2026-12-27", toDate: "2027-01-02" },
       query
@@ -155,7 +159,11 @@ describe("Instagram insight SDK adapter", () => {
   let fixture: Awaited<ReturnType<typeof startZernioFixture>>
   let provider: ZernioInsightsProvider
   const range = { fromDate: "2026-10-01", toDate: "2026-10-07" }
-  const owner = () => ({ profileId: "profile", accountId: fixture.accountId })
+  const owner = () => ({
+    profileId: "profile",
+    accountId: fixture.accountId,
+    platform: "instagram" as const,
+  })
 
   beforeAll(async () => {
     fixture = await startZernioFixture()
@@ -189,7 +197,8 @@ describe("Instagram insight SDK adapter", () => {
       sort: "saves",
     })
     expect(result.status).toBe("ready")
-    if (result.status !== "ready") throw new Error("Expected insights")
+    if (result.status !== "ready" || result.platform !== "instagram")
+      throw new Error("Expected Instagram insights")
     expect(result.summary.reach).toBe(13_200)
     expect(result.dailyReach.slice(0, 3)).toEqual([
       { date: "2026-10-01", value: 240 },
@@ -227,7 +236,8 @@ describe("Instagram insight SDK adapter", () => {
       status: "ready",
       summary: { views: null, reach: null },
     })
-    if (absent.status !== "ready") throw new Error("Expected insights")
+    if (absent.status !== "ready" || absent.platform !== "instagram")
+      throw new Error("Expected Instagram insights")
     expect(absent.posts[0]?.metrics.views).toBeNull()
     expect(absent.dailyReach.every((point) => point.value === null)).toBe(true)
     fixture.state.analyticsMissing = false

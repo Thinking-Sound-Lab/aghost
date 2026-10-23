@@ -2,6 +2,7 @@ import type { Json, Database } from "@workspace/supabase/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { ACCOUNT_STATUSES } from "../../contract/account"
+import { PLATFORMS, platformSchema } from "../../contract/platform"
 import type { InboundEvent } from "../../modules/webhooks/inbound-event"
 import type {
   WebhookProcessor,
@@ -11,9 +12,10 @@ import { InternalError } from "../../shared/errors"
 import {
   accountChange,
   DISCONNECT_REASONS,
+  type AccountRecord,
   type AccountState,
 } from "../../modules/accounts/account"
-import type { InstagramProvider } from "../../modules/accounts/instagram.provider"
+import type { AccountProvider } from "../../modules/accounts/account.provider"
 import {
   actorOf,
   type ProductAnalytics,
@@ -25,7 +27,7 @@ import { optional, required } from "./query"
 export class SupabaseWebhookProcessor implements WebhookProcessor {
   constructor(
     private readonly db: SupabaseClient<Database>,
-    private readonly instagram: Pick<InstagramProvider, "disconnectAccount">,
+    private readonly provider: Pick<AccountProvider, "disconnectAccount">,
     private readonly operations: WorkspaceOperations,
     private readonly analytics: ProductAnalytics
   ) {}
@@ -62,7 +64,7 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
       event.kind === "unhandled" ||
       event.kind === "automation_dm_sent" ||
       event.kind === "dm_received" ||
-      event.account.platform !== "instagram"
+      !(PLATFORMS as readonly string[]).includes(event.account.platform)
     )
       return null
     if (event.kind === "account_connected") {
@@ -96,11 +98,11 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
   private async account(
     workspaceId: string,
     providerAccountId: string
-  ): Promise<(AccountState & { id: string }) | null> {
+  ): Promise<(AccountState & Pick<AccountRecord, "id" | "platform">) | null> {
     const row = optional(
       await this.db
         .from("instagram_accounts")
-        .select("id, status, disconnect_reason")
+        .select("id, platform, status, disconnect_reason")
         .eq("workspace_id", workspaceId)
         .eq("zernio_account_id", providerAccountId)
         .maybeSingle(),
@@ -109,6 +111,7 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
     return (
       row && {
         id: row.id,
+        platform: platformSchema.parse(row.platform),
         status: z.enum(ACCOUNT_STATUSES).parse(row.status),
         disconnectReason: row.disconnect_reason,
       }
@@ -150,7 +153,7 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
       event.account.providerAccountId
     )
     if (after && outcome === "processed") {
-      const change = accountChange(after.id, before, after)
+      const change = accountChange(after, before, after)
       if (change) this.analytics.capture(actorOf(workspace), change)
     }
     // Recheck duplicates too: the DB commit can succeed before the provider
@@ -160,7 +163,7 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
       after?.status === "disconnected" &&
       after.disconnectReason === DISCONNECT_REASONS.planLimit
     )
-      await this.instagram.disconnectAccount(event.account.providerAccountId)
+      await this.provider.disconnectAccount(event.account.providerAccountId)
     return outcome
   }
 }

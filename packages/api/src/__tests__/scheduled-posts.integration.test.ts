@@ -10,7 +10,7 @@ import type { InjectOptions } from "fastify"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { loadApiConfig } from "../config"
 import { createApi } from "../container"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
 import type { ApiKeyScope, CreatedApiKey } from "../contract/api-key"
 import type { Automation, PostAutomationInput } from "../contract/automation"
 import type {
@@ -53,7 +53,7 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
   let app: ApiApp
   let fixture: Awaited<ReturnType<typeof startZernioFixture>>
   let address: string
-  let account: InstagramAccount
+  let account: Account
   let ownerCookie: string
   let otherCookie: string
   let ownerId: string
@@ -195,7 +195,7 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     )
     const synced = await session("/accounts/sync", "POST", {})
     expect(synced.statusCode).toBe(200)
-    account = synced.json<InstagramAccount[]>()[0]!
+    account = synced.json<Account[]>()[0]!
   })
 
   afterAll(async () => {
@@ -568,6 +568,7 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     ).toEqual({
       name: "post_scheduled",
       post_id: created.id,
+      platform: "instagram",
       kind: "post",
       media_count: 2,
       video_count: 1,

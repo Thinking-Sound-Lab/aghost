@@ -31,8 +31,9 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-const ready: Extract<InsightReport, { status: "ready" }> = {
+const ready: Extract<InsightReport, { platform: "instagram" }> = {
   status: "ready",
+  platform: "instagram",
   range: { fromDate: "2026-10-01", toDate: "2026-10-07" },
   summary: {
     views: 100,
@@ -49,6 +50,7 @@ const ready: Extract<InsightReport, { status: "ready" }> = {
 }
 const content: Extract<InsightContentReport, { status: "ready" }> = {
   status: "ready",
+  platform: "instagram",
   range: ready.range,
   posts: [],
   page: 1,
@@ -214,7 +216,8 @@ describe("analytics request ownership", () => {
       sort: "reach",
     })
     const report = useInsightsStore.getState().report
-    if (report?.status !== "ready") throw new Error("Expected report")
+    if (report?.status !== "ready" || report.platform !== "instagram")
+      throw new Error("Expected report")
     expect(report.summary).toBe(ready.summary)
     expect(report.dailyReach).toBe(ready.dailyReach)
     await useInsightsStore.getState().refresh()

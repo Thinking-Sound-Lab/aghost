@@ -7,10 +7,12 @@ import type {
   InsightTimingData,
   InsightsUnavailable,
 } from "../../contract/insights"
+import type { Platform } from "../../contract/platform"
 
 export type InsightAccount = {
   profileId: string
   accountId: string
+  platform: Platform
 }
 
 export interface InsightsProvider {

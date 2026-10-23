@@ -23,7 +23,7 @@ import {
 } from "./billing-analytics"
 import type { BillingProvider } from "./billing.provider"
 import type { BillingRepository } from "./billing.repository"
-import { accountCount, type ConnectedAccounts } from "./plan-entitlements"
+import { channelCount, type ConnectedAccounts } from "./plan-entitlements"
 
 /** Stops the automations of a workspace whose plan has ended. */
 export interface WorkspaceAutomations {
@@ -221,9 +221,9 @@ export class BillingService {
     const plan = PLANS[choice.plan]
     const connected = await this.accounts.countConnected(workspace.id)
 
-    if (connected > plan.instagramAccounts) {
+    if (connected > plan.channels) {
       throw new PlanLimitError(
-        `${plan.name} includes ${accountCount(plan.instagramAccounts)} and ${connected} are connected. Disconnect accounts first.`
+        `${plan.name} includes ${channelCount(plan.channels)} and ${connected} are connected. Disconnect accounts first.`
       )
     }
 
@@ -382,7 +382,7 @@ export class BillingService {
       return
     }
     const connected = await this.accounts.countConnected(workspace.id)
-    if (connected > PLANS[subscription.plan].instagramAccounts)
+    if (connected > PLANS[subscription.plan].channels)
       await this.automations.pauseAll(workspace)
     else
       await this.automations.pauseUnsupported(

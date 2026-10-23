@@ -4,45 +4,48 @@ import { price } from "@/features/billing/plan-cards"
 // One copy of the marketing text: the landing page, its structured data, and
 // llms.txt all read it, so what crawlers are told matches what visitors see.
 
-export const productSummary =
-  "aghost combines Instagram scheduling and comment-to-DM automation for creators and brands. Plan posts, reels, carousels and stories, and send links by DM when people comment on your posts or reels. Manage it from the dashboard or an AI agent over MCP or REST."
+/** The platforms a post can go to, in the order the site names them. */
+const platformNames = "Instagram, Facebook, LinkedIn, X, Threads and YouTube"
+
+export const productSummary = `aghost schedules posts to ${platformNames}, turns Instagram comments into DMs, and tracks every channel. Run it from the dashboard or an AI agent over MCP or REST.`
 
 /** The hero's promise, in one sentence under the headline. */
-export const heroSummary =
-  "Schedule your Instagram content and turn comments into DMs from one workspace. Let your AI agent prepare the posts and automations, or manage everything in the dashboard."
+export const heroSummary = `Schedule one post to ${platformNames}, and turn Instagram comments into DMs. From your dashboard or your AI agent.`
 
 export const growthCta = {
-  title: "Ready to grow your Instagram?",
-  description:
-    "Bring your content, automations, and conversations together. Connect your AI agent and run it all from aghost.",
+  title: "Your audience is everywhere. Be there with one post.",
+  description: "Six platforms. Every comment answered. One workspace.",
 }
 
 const schedulingFeature = {
   label: "Scheduling",
-  title: "Schedule the post. Have the DMs ready.",
-  text: "Schedule Instagram posts, reels, carousels and stories from one calendar. Add a comment-to-DM automation to a post or reel before it publishes.",
+  title: "Plan the month in one calendar",
+  text: "Posts, reels, carousels and stories, with Trial Reels and DM automations ready before they publish.",
 }
 
 /** Who signs up, and what each of them gets out of it. */
 export const audiences = [
   {
-    title: "AI-first content creators",
-    text: "Tell Claude Code or Codex what to send, and your agent sets it up. Everyone who comments gets your guide, checklist, or course link in their DMs.",
+    title: "Creators",
+    text: "Post one reel everywhere. Send your link to everyone who comments.",
   },
   {
     title: "Brands and shops",
-    text: "Answer “link?” and “price?” under every post with the product page or a discount code, the moment someone comments.",
+    text: "One launch calendar for every channel. Product links in every DM.",
+  },
+  {
+    title: "Agencies",
+    text: "Up to 100 channels in one workspace, with analytics for each.",
   },
   {
     title: "Developers",
-    text: "Build on the REST API and MCP server. One API key lets your scripts and apps create automations, read their stats, and answer the inbox.",
+    text: "One API key for MCP and REST: schedule, automate, read analytics.",
   },
 ]
 
 const planPrices = PLAN_IDS.map((id) => {
   const plan = PLANS[id]
-  const accounts = `${plan.instagramAccounts} Instagram account${plan.instagramAccounts > 1 ? "s" : ""}`
-  return `${plan.name} is ${price(plan.prices.USD.monthly, "USD")} a month for ${accounts}`
+  return `${plan.name} ${price(plan.prices.USD.monthly, "USD")}/month for ${plan.channels} channels`
 })
 
 /** The agents the setup skill names. Any MCP client over HTTP works. */
@@ -50,168 +53,171 @@ export const agentClients = ["Claude Code", "Codex", "Cursor"]
 
 /** What a workspace API key lets an agent do, over MCP or the REST API. */
 export const agentAbilities = [
-  "Schedule, edit, and cancel Instagram posts and stories",
-  "Create, edit, pause, and delete automations",
-  "Read each automation's stats and its log of every DM",
-  "Look up your accounts, posts, and contacts",
-  "Read the inbox and reply to conversations",
+  "Schedule Instagram posts and stories; edit or cancel posts on every platform",
+  "Read analytics and posting times for every channel",
+  "Create, edit, pause and delete automations",
+  "Read automation stats and the log of every DM",
+  "Look up accounts, posts and contacts",
+  "Read and reply to the inbox",
 ]
 
 export const steps = [
   {
-    title: "Connect Instagram",
-    text: "Sign in with Google, choose a plan, then connect your Instagram professional account through Instagram's own login. You never share your password.",
+    title: "Connect your channels",
+    text: "Sign in to each platform once. Every account is one channel.",
   },
   {
-    title: "Connect your agent",
-    text: "Create an API key in Settings and copy the setup skill into Claude Code, Codex, or Cursor. Prefer to click? Skip this step and use the dashboard.",
+    title: "Write once, preview everywhere",
+    text: "One caption, tuned per channel and previewed on a phone.",
   },
   {
-    title: "Say what you want",
-    text: "Ask in plain words: “DM the guide to everyone who comments GUIDE.” Your agent finds the post, sets the keywords, and writes the DM.",
+    title: "Turn comments into DMs",
+    text: "Attach an automation to an Instagram post. Commenters get your link.",
+  },
+  {
+    title: "See what worked",
+    text: "Reach, clicks and best posting times for every channel.",
   },
 ]
 
 export const features = [
+  {
+    label: "Cross-posting",
+    title: "One post, six platforms",
+    text: `Schedule to ${platformNames}. Each copy is checked against its platform's limits.`,
+  },
+  {
+    label: "Platform previews",
+    title: "See it the way your audience will",
+    text: "Preview every post as it appears on X, LinkedIn, Instagram or YouTube.",
+  },
+  {
+    label: "Per-channel captions",
+    title: "One caption, tuned per channel",
+    text: "Keep it in sync, or write a version for one channel.",
+  },
   schedulingFeature,
   {
     label: "Agentic",
     title: "Run it from your AI agent",
-    text: "Let Claude Code, Codex, Cursor, or another AI agent schedule content, manage comment automations, check results, and reply in your inbox through MCP or the REST API.",
+    text: "Claude Code, Codex or Cursor schedule Instagram posts, run automations and read analytics over MCP or REST.",
   },
   {
     label: "Comment automation",
     title: "Keyword triggers",
-    text: `Up to ${AUTOMATION_LIMITS.maxKeywords} keywords per automation, matched anywhere in a comment, as a whole word, or exactly.`,
+    text: `Up to ${AUTOMATION_LIMITS.maxKeywords} keywords, or any comment.`,
   },
   {
     label: "Public replies",
     title: "Reply under the comment",
-    text: "Answer in public too, so everyone scrolling sees the DM is on its way.",
+    text: "Let everyone see the DM is on its way.",
   },
   {
     label: "Tap to open",
     title: "Tap-to-open DMs",
-    text: "Open with a short message and a button. Your link follows the moment they tap.",
+    text: "A short opener and a button. The link follows the tap.",
   },
   {
     label: "Link buttons",
     title: "Personal DMs with link buttons",
-    text: `Greet people by first name or username, and add up to ${AUTOMATION_LIMITS.maxDmButtons} link buttons.`,
+    text: `First names and up to ${AUTOMATION_LIMITS.maxDmButtons} link buttons.`,
   },
   {
     label: "Follower growth",
     title: "Followers-only links",
-    text: "Send the link only to people who follow you. Anyone Instagram can't confirm as a follower is asked to follow first.",
+    text: "Non-followers are asked to follow before they get the link.",
   },
   {
-    label: "Product carousel · Growth and Business",
+    label: "Product carousel · Growth and up",
     title: "Your products, one swipe away",
-    text: "Send up to 10 product cards in a DM, each with an image, description and its own tracked link. Included on Growth and Business.",
+    text: "Up to 10 product cards in a DM, each with its own tracked link.",
   },
   {
-    label: "Follow-up nudges · Business",
+    label: "Follow-up nudges · Business and up",
     title: "A gentle reminder, automatically",
-    text: "Follow up once after 30 minutes to 20 hours. Reminders stop after a reply or link click, and only send within Instagram's messaging window. Included on Business.",
+    text: "One follow-up after 30 minutes to 20 hours. Stops when they reply or click.",
   },
   {
     label: "Analytics",
-    title: "Know what got the click",
-    text: "See comments, DMs sent, and link clicks for each automation, and a log of every DM: sent, waiting for a tap, or failed.",
+    title: "Know what worked, everywhere",
+    text: "Reach, views and engagement per channel, plus clicks per automation.",
   },
   {
     label: "Inbox",
     title: "Keep the conversation going",
-    text: "Read and answer Instagram DMs in one inbox. Search conversations, find contacts, and pick up where the automation leaves off.",
+    text: "Answer Instagram DMs where the automation leaves off.",
   },
 ]
 
 export const faqs = [
   {
-    question: "Can I send a product carousel in a DM?",
-    answer:
-      "Yes. Growth and Business include up to 10 swipeable product cards. Each has an image, title, short description and a link button. A carousel replaces the main text DM; you can still use an opening DM and a public comment reply.",
-  },
-  {
-    question: "Can I send an automatic follow-up reminder?",
-    answer:
-      "Business includes one follow-up nudge per original DM. Choose a delay from 30 minutes to 20 hours, write the reminder, and optionally include a link button. It is skipped if the person replies or clicks a tracked link, if the conversation has continued, or if Instagram no longer allows another message. An opening DM helps people opt in by tapping before they receive your offer.",
-  },
-  {
     question: "What is aghost?",
     answer: productSummary,
   },
   {
-    question: "What does agentic mean?",
-    answer:
-      "It means an AI agent can operate aghost for you. Connect Claude Code, Codex, Cursor, or any MCP client with an API key, and the agent can schedule content, manage automations, read their stats and delivery logs, look up contacts, and read and answer the inbox.",
+    question: "Which platforms can I post to?",
+    answer: `${platformNames}. Each connected account is one channel on your plan.`,
   },
   {
-    question: "Can I schedule Instagram posts with aghost?",
+    question: "Can I write a different caption for each platform?",
     answer:
-      "Yes. Use the Calendar to schedule posts, reels, carousels and stories. Add your media, choose a publishing time, and review your upcoming content. You can also schedule through your AI agent over MCP or the REST API. Scheduling is included on every plan.",
-  },
-  {
-    question: "Can I prepare a DM automation before my post is published?",
-    answer:
-      "Yes. Attach a comment-to-DM automation while scheduling a post or reel. Set its keywords, message and links in advance so it can answer comments after the post is published. Stories can be scheduled too, but do not support comment-to-DM automations.",
+      "Yes. Every channel shares one caption until you give it its own. YouTube posts also get a title.",
   },
   {
     question: "How much does aghost cost?",
-    answer: `${planPrices.join(", ")}. Every plan includes Instagram scheduling, MCP and REST API access, unlimited automations, and unlimited contacts and DMs, so your price never grows with your audience. Growth adds product carousels, and Business adds follow-up nudges. Prices are in US dollars with taxes included, billed monthly or yearly.`,
+    answer: `${planPrices.join(", ")}. Every plan includes all six platforms, analytics, MCP and REST, and unlimited DMs and contacts. Prices in USD, taxes included.`,
   },
   {
     question: "Which AI agents work with aghost?",
     answer:
-      "Any client that speaks MCP over HTTP with a Bearer token. The setup skill has instructions for Claude Code, Codex, and Cursor. Everything is also available as a REST API with an OpenAPI document, for agents and scripts that don't use MCP.",
+      "Claude Code, Codex, Cursor or any MCP client over HTTP. There is also a REST API.",
+  },
+  {
+    question: "Can my AI agent post to every platform?",
+    answer:
+      "Agents schedule Instagram posts and can edit, cancel and read analytics on every platform. New posts to other platforms are scheduled in the dashboard for now.",
   },
   {
     question: "What can't an agent do?",
     answer:
-      "An agent's API key can't create more keys, change workspace settings, or connect or disconnect Instagram accounts. You create keys in Settings and can revoke one at any time; it stops working on the next request.",
-  },
-  {
-    question: "Will Instagram flag my account?",
-    answer:
-      "aghost sends messages only the way Instagram allows professional accounts to: one private reply to each comment, within seven days of the comment, and more messages only after the person responds. You connect through Instagram's own login and never share your password.",
+      "Create API keys, change settings, or connect and disconnect accounts. You can revoke a key at any time.",
   },
   {
     question: "What is comment-to-DM automation?",
     answer:
-      "Comment-to-DM automation sends a private message to someone as soon as they comment on your post. Creators and brands use it to deliver links, guides, discount codes, and sign-up pages, because links in Instagram captions and comments are not clickable.",
+      "An automatic DM to anyone who comments on your post, usually with a link, since links in Instagram captions aren't clickable.",
+  },
+  {
+    question: "Can I set up the DM before the post goes live?",
+    answer: "Yes. Attach the automation while you schedule the post or reel.",
+  },
+  {
+    question: "Will Instagram flag my account?",
+    answer:
+      "aghost follows Instagram's rules: one private reply per comment within seven days, and more messages only after the person responds.",
   },
   {
     question: "Do I need a business or creator account?",
     answer:
-      "Yes. Instagram allows automated replies only from professional accounts, which means a Business or Creator account. Switching is free in Instagram's settings.",
-  },
-  {
-    question: "Does it work on reels?",
-    answer:
-      "Yes. Comments on reels work exactly like comments on posts. An automation can watch one post or reel, or all of them.",
+      "For DM automation, yes. Switching is free in Instagram's settings.",
   },
   {
     question: "Why does the first DM have a button?",
     answer:
-      "Instagram allows one automatic message per comment. Once the commenter responds, for example by tapping a button, you can message them for the next 24 hours. With an opening message, the commenter taps its button and the DM with your link follows. The opening message is optional: without it, and without the follower rule, the link DM is sent straight away.",
-  },
-  {
-    question: "Can aghost reply to every comment, not only keywords?",
-    answer: `Yes. An automation can react to any comment, or only to comments that contain one of up to ${AUTOMATION_LIMITS.maxKeywords} keywords. It can cover one post or reel, or all of them.`,
+      "Instagram allows one automatic message per comment. A tap opens a 24-hour window, so your link can follow. The button is optional.",
   },
   {
     question: "Can I send the link only to my followers?",
-    answer:
-      "Yes. With the follower rule on, people Instagram can confirm as your followers get the link straight away. Everyone else gets a message asking them to follow, and the link is sent once they tap to confirm.",
-  },
-  {
-    question: "Do you track link clicks?",
-    answer:
-      "Yes. Every automation shows its comments, DMs sent, and link clicks, and a log of each DM: sent, waiting for a tap, or failed.",
+    answer: "Yes. Everyone else is asked to follow first, then gets the link.",
   },
   {
     question: "How is aghost different from ManyChat?",
     answer:
-      "ManyChat is a chatbot platform for several channels, including Instagram, Messenger, and WhatsApp, with a visual flow builder. aghost brings Instagram scheduling, comment-to-DM automation and an inbox into one workspace, and lets an AI agent run it over MCP or REST.",
+      "ManyChat is a multi-channel chatbot builder. aghost combines scheduling to six platforms with Instagram DM automation, run by you or your AI agent.",
+  },
+  {
+    question: "How is aghost different from Buffer?",
+    answer:
+      "aghost also schedules to six platforms, and adds Instagram DM automation, an inbox and API access for AI agents.",
   },
 ]

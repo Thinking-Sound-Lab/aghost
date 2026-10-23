@@ -109,7 +109,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_accounts",
     description:
-      "List the workspace's Instagram accounts and connection status.",
+      "List the workspace's connected accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube, with each one's platform and connection status.",
     scope: "accounts:read",
     schema: noInput,
     run: async ({ workspace, services }) =>
@@ -118,7 +118,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_account_posts",
     description:
-      "List recent posts for an Instagram account. Use platformPostId when targeting a specific post.",
+      "List recent posts for an Instagram account, to pick one for a comment-to-DM automation. Use platformPostId when targeting a specific post.",
     scope: "accounts:read",
     schema: accountId,
     run: ({ workspace, services }, { accountId }) =>
@@ -127,7 +127,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_account_insights",
     description:
-      "Read the Analytics account report for 7, 30 or 90 UTC days including today (default 30), plus a page of published content. Summary totals cover the selected dates; reach is unique accounts and must not be summed across posts or days. Post metrics are lifetime totals for content published in the range. Null means unknown, not zero; recent account data may lag up to 48 hours. Returns reconnect_required or not_enabled when analytics access is unavailable.",
+      "Read the Analytics account report for 7, 30 or 90 UTC days including today (default 30), plus a page of published content, for an account on any platform. Instagram reports have summary account totals for the selected dates; reach is unique accounts and must not be summed across posts or days. Other platforms have totals: the lifetime metrics of posts published in the range, with daily values by publish date. Post metrics are lifetime totals for content published in the range. Null means unknown or not reported by that platform, not zero; recent account data may lag up to 48 hours. Returns reconnect_required or not_enabled when analytics access is unavailable.",
     scope: "accounts:read",
     schema: insightInputSchema,
     run: ({ workspace, services }, query) =>
@@ -136,7 +136,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_content_insights",
     description:
-      "Browse published Instagram content and lifetime performance metrics, including views, reach, engagement and Reel watch time in seconds. Filter publication dates to 7, 30 or 90 UTC days including today, sort by views, reach, saves, shares or date, and paginate with page (starting at 1) through pages. Use this for further pages without reloading account insights. Use each returned post's id for get_post_insights. Null metrics are unknown, not zero; unavailable access returns reconnect_required or not_enabled.",
+      "Browse an account's published content and lifetime performance metrics, including views, reach, impressions, engagement and Instagram Reel watch time in seconds; metrics a platform does not report are null. Filter publication dates to 7, 30 or 90 UTC days including today, sort by a metric the platform reports or by date, and paginate with page (starting at 1) through pages. Use this for further pages without reloading account insights. Use each returned post's id for get_post_insights. Null metrics are unknown, not zero; unavailable access returns reconnect_required or not_enabled.",
     scope: "accounts:read",
     schema: insightInputSchema,
     run: ({ workspace, services }, query) =>
@@ -198,7 +198,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_automation",
     description:
-      "Create an Instagram comment-to-DM automation. Growth and Business allow productCarousel (1–10 cards, replaces the main text bubble; dmButtons must be empty). Business allows followUp (one reminder, 30–1200 minutes, optional link button; skipped after replies, clicks, or expiry of messaging consent). Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
+      "Create an Instagram comment-to-DM automation. Growth, Business and Ultimate allow productCarousel (1–10 cards, replaces the main text bubble; dmButtons must be empty). Business and Ultimate allow followUp (one reminder, 30–1200 minutes, optional link button; skipped after replies, clicks, or expiry of messaging consent). Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
     scope: "automations:write",
     schema: createAutomationSchema,
     run: async ({ workspace, services }, input) =>
@@ -264,7 +264,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_scheduled_post",
     description:
-      "Get a scheduled post's content, time, Trial Reel launch settings and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
+      "Get a scheduled post's platform, account, content, time, Trial Reel launch settings, YouTube title and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
     scope: "posts:read",
     schema: postId,
     run: async ({ workspace, services }, { postId }) =>
@@ -296,7 +296,7 @@ export const AGENT_OPERATIONS = [
   }),
   operation({
     name: "schedule_post",
-    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
+    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. instagramAccountId must be an Instagram account; posts on other platforms are scheduled from the dashboard for now. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
     scope: "posts:write",
     schema: schedulePostSchema,
     run: async ({ workspace, services, apiKey }, input) => {
@@ -310,7 +310,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "update_scheduled_post",
     description:
-      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
+      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write on an Instagram post. The post's platform rules apply, such as 280 characters on X; set youtube to {title, madeForKids} on a YouTube video, or omit it to keep them. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
     scope: "posts:write",
     schema: postId.extend({ input: updateScheduledPostSchema }),
     destructive: true,
@@ -325,7 +325,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "delete_scheduled_post",
     description:
-      "Cancel a scheduled or failed post and delete the automations attached to it, which also requires automations:write. Published posts stay on Instagram and cannot be deleted here.",
+      "Cancel a scheduled or failed post and delete the automations attached to it, which also requires automations:write. Published posts stay on their platform and cannot be deleted here.",
     scope: "posts:write",
     destructive: true,
     schema: postId,

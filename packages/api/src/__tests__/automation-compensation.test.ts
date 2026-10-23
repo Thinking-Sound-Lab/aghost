@@ -44,6 +44,7 @@ describe("automation creation compensation", () => {
           id: "account",
           workspaceId: "workspace",
           providerAccountId: "remote-account",
+          platform: "instagram",
           username: "creator",
           displayName: null,
           profilePictureUrl: null,

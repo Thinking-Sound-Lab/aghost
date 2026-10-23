@@ -83,7 +83,7 @@ const steps = [
   },
 ]
 
-const link = `${textLink} w-fit text-white`
+const link = `${textLink} w-fit`
 
 export default function Page() {
   return (
@@ -101,7 +101,7 @@ export default function Page() {
       />
       <nav
         aria-label="More Instagram guides"
-        className="mx-auto mb-12 max-w-3xl px-5 text-center text-lg text-white/70 sm:px-8"
+        className="mx-auto mb-12 max-w-7xl px-5 text-lg text-ink/65 sm:px-8 lg:px-12"
       >
         <p>
           Planning your next campaign? Learn about{" "}
@@ -141,15 +141,15 @@ export default function Page() {
           <h2>A small part of your social media workflow</h2>
           <p>
             Social media management includes planning content, publishing,
-            answering your audience, and measuring results. aghost focuses on
-            Instagram engagement: scheduling a post together with the automation
-            that answers its comments, delivering requested links, managing DM
-            conversations, and tracking automation activity.
+            answering your audience, and measuring results. aghost schedules
+            posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and
+            handles Instagram engagement: the automation that answers a post’s
+            comments, requested links, DM conversations, and automation
+            activity.
           </p>
           <p>
-            Use it alongside the tools you use for other networks. Your
-            dashboard and AI agent work with the same posts, automations,
-            contacts, inbox, and stats.
+            Your dashboard and AI agent work with the same posts, automations,
+            contacts, inbox, and analytics.
           </p>
         </div>
       </section>
@@ -165,11 +165,11 @@ export default function Page() {
         <ol className="mt-12 grid gap-4 md:grid-cols-3">
           {steps.map((step, index) => (
             <li key={step.title} className={`${card} grid content-start gap-4`}>
-              <Pill className="bg-brand text-black">Step {index + 1}</Pill>
-              <h3 className="text-2xl font-extrabold tracking-[-0.03em]">
+              <Pill>Step {index + 1}</Pill>
+              <h3 className="text-2xl font-medium tracking-[-0.035em]">
                 {step.title}
               </h3>
-              <p className="text-white/70">{step.text}</p>
+              <p className="text-ink/65">{step.text}</p>
             </li>
           ))}
         </ol>

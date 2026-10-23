@@ -10,12 +10,16 @@ import {
   Images,
   ImageIcon,
 } from "lucide-react"
-import type {
-  InsightPost,
-  InsightReport,
-  InsightQuery,
+import {
+  PLATFORM_RULES,
+  type ChannelMetric,
+  type InsightPost,
+  type InsightQuery,
+  type InsightReport,
+  type Platform,
 } from "@workspace/api/contract"
 import { Button } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
 import { NativeSelect } from "@workspace/ui/components/native-select"
 import { count } from "@/lib/format"
 import { ErrorBanner, Loading } from "@/components/interface"
@@ -25,7 +29,56 @@ export const kindLabels: Record<InsightPost["kind"], string> = {
   post: "Post",
   carousel: "Carousel",
   story: "Story",
+  video: "Video",
   unknown: "Content",
+}
+
+export const metricLabels: Record<ChannelMetric, string> = {
+  impressions: "Impressions",
+  reach: "Reach",
+  views: "Views",
+  likes: "Likes",
+  comments: "Comments",
+  shares: "Shares",
+  saves: "Saves",
+  clicks: "Clicks",
+}
+
+// The order metrics take on a platform other than Instagram, most telling first.
+const ORDER: ChannelMetric[] = [
+  "impressions",
+  "views",
+  "likes",
+  "comments",
+  "shares",
+  "clicks",
+  "saves",
+  "reach",
+]
+
+/** The metrics a platform reports, in display order. */
+export function metricsOf(platform: Platform): ChannelMetric[] {
+  const reported = PLATFORM_RULES[platform].metrics
+  return platform === "instagram"
+    ? ["views", "reach", "saves", "shares"]
+    : ORDER.filter((metric) => reported.includes(metric))
+}
+
+/** Engagement rate needs reach, which only some platforms report. */
+function hasEngagement(platform: Platform): boolean {
+  return PLATFORM_RULES[platform].metrics.includes("reach")
+}
+
+const SORT_LABELS: Record<InsightQuery["sort"], string> = {
+  views: "Most views",
+  reach: "Highest reach",
+  saves: "Most saves",
+  shares: "Most shares",
+  impressions: "Most impressions",
+  likes: "Most likes",
+  comments: "Most comments",
+  clicks: "Most clicks",
+  date: "Newest first",
 }
 const published = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -42,7 +95,11 @@ export function percentage(value: number | null) {
 function Thumbnail({ post }: { post: InsightPost }) {
   const [failed, setFailed] = useState(false)
   const Icon =
-    post.kind === "reel" ? Film : post.kind === "carousel" ? Images : ImageIcon
+    post.kind === "reel" || post.kind === "video"
+      ? Film
+      : post.kind === "carousel"
+        ? Images
+        : ImageIcon
   return (
     <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-muted-foreground">
       {post.thumbnailUrl && !failed ? (
@@ -80,6 +137,9 @@ export function ContentPerformance({
   error: string | null
   retry: () => void
 }) {
+  // Five metric columns at most keep the table readable.
+  const columns = metricsOf(report.platform).slice(0, 5)
+  const engagement = hasEngagement(report.platform)
   return (
     <section
       className="grid gap-4"
@@ -104,11 +164,11 @@ export function ContentPerformance({
             }
             className="text-xs"
           >
-            <option value="views">Most views</option>
-            <option value="reach">Highest reach</option>
-            <option value="saves">Most saves</option>
-            <option value="shares">Most shares</option>
-            <option value="date">Newest first</option>
+            {[...metricsOf(report.platform), "date" as const].map((key) => (
+              <option key={key} value={key}>
+                {SORT_LABELS[key]}
+              </option>
+            ))}
           </NativeSelect>
         </label>
       </header>
@@ -135,17 +195,18 @@ export function ContentPerformance({
                   <th scope="col" className="px-4 py-3 font-medium">
                     Content
                   </th>
-                  {["Views", "Reach", "Saves", "Shares", "Engagement"].map(
-                    (label) => (
-                      <th
-                        scope="col"
-                        key={label}
-                        className="px-3 py-3 text-right font-medium"
-                      >
-                        {label}
-                      </th>
-                    )
-                  )}
+                  {[
+                    ...columns.map((metric) => metricLabels[metric]),
+                    ...(engagement ? ["Engagement"] : []),
+                  ].map((label) => (
+                    <th
+                      scope="col"
+                      key={label}
+                      className="px-3 py-3 text-right font-medium"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -183,21 +244,22 @@ export function ContentPerformance({
                         />
                       </button>
                     </th>
-                    <td className="px-3 py-3 text-right font-medium">
-                      {count(post.metrics.views)}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {count(post.metrics.reach)}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {count(post.metrics.saves)}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {count(post.metrics.shares)}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {percentage(post.metrics.engagementRate)}
-                    </td>
+                    {columns.map((metric, index) => (
+                      <td
+                        key={metric}
+                        className={cn(
+                          "px-3 py-3 text-right",
+                          index === 0 && "font-medium"
+                        )}
+                      >
+                        {count(post.metrics[metric])}
+                      </td>
+                    ))}
+                    {engagement && (
+                      <td className="px-3 py-3 text-right">
+                        {percentage(post.metrics.engagementRate)}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -205,7 +267,8 @@ export function ContentPerformance({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
             <span>
-              Engagement = (likes + comments + saves + shares) ÷ reach.
+              {engagement &&
+                "Engagement = (likes + comments + saves + shares) ÷ reach."}
             </span>
             <div className="flex items-center gap-3 tabular-nums">
               <span>

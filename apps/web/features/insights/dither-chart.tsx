@@ -50,7 +50,7 @@ export function DitherChart({
       <div className="grid h-64 place-content-center gap-1 rounded-md border border-dashed px-6 text-center">
         <p className="text-sm font-medium">No history reported yet</p>
         <p className="text-xs text-muted-foreground">
-          Instagram data can take up to 48 hours to appear.
+          New data can take up to 48 hours to appear.
         </p>
       </div>
     )

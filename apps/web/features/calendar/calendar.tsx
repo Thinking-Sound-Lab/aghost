@@ -2,15 +2,17 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react"
-import type {
-  ScheduledPost,
-  ScheduledPostStatus,
+import { ChevronLeft, ChevronRight, Plus, Share2, Zap } from "lucide-react"
+import {
+  PLATFORM_RULES,
+  accountLabel,
+  type ScheduledPost,
+  type ScheduledPostStatus,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import { EmptyState, ErrorBanner, Page } from "@/components/interface"
-import { Instagram } from "@/components/instagram-icon"
+import { PlatformIcon } from "@/components/platform-icon"
 import { MediaThumb } from "@/features/calendar/post-media"
 import { daysOf, useCalendarStore } from "@/stores/calendar-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
@@ -59,7 +61,7 @@ export function Calendar() {
   if (accounts.length === 0)
     return (
       <Page title="Calendar">
-        <EmptyState icon={<Instagram />} title="Connect Instagram first">
+        <EmptyState icon={<Share2 />} title="Connect a channel first">
           <Link
             href="/settings#channels"
             className={buttonVariants({ variant: "secondary" })}
@@ -205,16 +207,26 @@ export function Calendar() {
 
 function PostChip({ post }: { post: ScheduledPost }) {
   const accounts = useWorkspaceStore((state) => state.accounts)
-  const account = accounts.find((item) => item.id === post.instagramAccountId)
+  const account = accounts.find((item) => item.id === post.accountId)
   const status = STATUS[post.status]
+  const cover = post.media[0]
   return (
     <Link
       href={`/calendar/${post.id}`}
       title={post.caption ?? undefined}
       className="flex min-w-0 items-center gap-1.5 rounded-md p-1 text-xs transition-colors hover:bg-muted"
     >
-      <span className="relative size-7 shrink-0 overflow-hidden rounded bg-muted">
-        <MediaThumb media={post.media[0]!} />
+      <span className="relative grid size-7 shrink-0 place-items-center overflow-hidden rounded bg-muted text-muted-foreground">
+        {cover ? (
+          <MediaThumb media={cover} />
+        ) : (
+          <PlatformIcon platform={post.platform} size={12} />
+        )}
+        {cover && (
+          <span className="absolute right-0.5 bottom-0.5 grid size-3.5 place-items-center rounded-full bg-background text-foreground">
+            <PlatformIcon platform={post.platform} size={8} />
+          </span>
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1 font-medium whitespace-nowrap tabular-nums">
@@ -237,7 +249,11 @@ function PostChip({ post }: { post: ScheduledPost }) {
         <span className="block truncate text-muted-foreground">
           {post.kind === "story"
             ? "Story"
-            : (post.caption ?? `@${account?.username ?? ""}`)}
+            : (post.youtube?.title ??
+              post.caption ??
+              (account
+                ? accountLabel(account)
+                : PLATFORM_RULES[post.platform].name))}
         </span>
       </span>
       <span

@@ -2,6 +2,7 @@ import type { Database } from "@workspace/supabase/types"
 import { z } from "zod"
 
 import { ACCOUNT_STATUSES } from "../../contract/account"
+import { platformSchema } from "../../contract/platform"
 import type {
   AccountRecord,
   AccountSnapshot,
@@ -20,6 +21,7 @@ function toRecord(row: AccountRow): AccountRecord {
     id: row.id,
     workspaceId: row.workspace_id,
     providerAccountId: row.zernio_account_id,
+    platform: platformSchema.parse(row.platform),
     username: row.username,
     displayName: row.display_name,
     profilePictureUrl: row.profile_picture_url,
@@ -39,7 +41,7 @@ export class SupabaseAccountRepository implements AccountRepository {
         .select()
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: true }),
-      "list Instagram accounts"
+      "list the connected accounts"
     )
 
     return rows.map(toRecord)
@@ -51,10 +53,10 @@ export class SupabaseAccountRepository implements AccountRepository {
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", workspaceId)
       .eq("status", "connected")
-    completed({ error }, "count the connected Instagram accounts")
+    completed({ error }, "count the connected accounts")
     if (count === null) {
       throw new InternalError(
-        "The database did not count the connected Instagram accounts."
+        "The database did not count the connected accounts."
       )
     }
     return count
@@ -71,7 +73,7 @@ export class SupabaseAccountRepository implements AccountRepository {
         .eq("workspace_id", workspaceId)
         .eq("id", id)
         .maybeSingle(),
-      "load the Instagram account"
+      "load the account"
     )
 
     return row ? toRecord(row) : null
@@ -83,6 +85,7 @@ export class SupabaseAccountRepository implements AccountRepository {
   ): Promise<AccountRecord> {
     // A provider id is unique across workspaces. Never reassign an existing
     // account during sync, even if the provider reports it in another profile.
+    // Its platform never changes, so only a new row is given one.
     const values = {
       username: snapshot.username,
       display_name: snapshot.displayName,
@@ -95,11 +98,12 @@ export class SupabaseAccountRepository implements AccountRepository {
         {
           workspace_id: workspaceId,
           zernio_account_id: snapshot.providerAccountId,
+          platform: snapshot.platform,
           ...values,
         },
         { onConflict: "zernio_account_id", ignoreDuplicates: true }
       ),
-      "register the Instagram account"
+      "register the account"
     )
     const row = optional(
       await this.db.privileged
@@ -109,11 +113,11 @@ export class SupabaseAccountRepository implements AccountRepository {
         .eq("zernio_account_id", snapshot.providerAccountId)
         .select()
         .maybeSingle(),
-      "save the Instagram account"
+      "save the account"
     )
     if (!row)
       throw new ConflictError(
-        "This Instagram account is already connected to another workspace."
+        "This account is already connected to another workspace."
       )
     return toRecord(row)
   }
@@ -129,7 +133,7 @@ export class SupabaseAccountRepository implements AccountRepository {
         .update({ status: "disconnected", disconnect_reason: reason })
         .eq("workspace_id", workspaceId)
         .eq("id", id),
-      "mark the Instagram account as disconnected"
+      "mark the account as disconnected"
     )
   }
 
@@ -143,7 +147,7 @@ export class SupabaseAccountRepository implements AccountRepository {
         .update({ status: "disconnected", disconnect_reason: reason })
         .eq("zernio_account_id", providerAccountId)
         .select("id"),
-      "mark the Instagram account as disconnected"
+      "mark the account as disconnected"
     )
 
     return rows.length > 0
@@ -156,7 +160,7 @@ export class SupabaseAccountRepository implements AccountRepository {
         .delete()
         .eq("workspace_id", workspaceId)
         .eq("id", id),
-      "delete the Instagram account"
+      "delete the account"
     )
   }
 }

@@ -2,17 +2,27 @@
 
 import { useEffect, type FormEvent } from "react"
 import { create } from "zustand"
-import { RefreshCw } from "lucide-react"
+import { Plus, RefreshCw } from "lucide-react"
 import {
   WORKSPACE_NAME_MAX_LENGTH,
   PLANS,
+  PLATFORMS,
+  PLATFORM_RULES,
+  accountLabel,
   type ChoosePlanInput,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
-import { Button } from "@workspace/ui/components/button"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { Input } from "@workspace/ui/components/input"
-import { Instagram } from "@/components/instagram-icon"
-import { Avatar, ConfirmButton, Page } from "@/components/interface"
+import { ConfirmButton, Page } from "@/components/interface"
+import { ChannelAvatar, PlatformIcon } from "@/components/platform-icon"
 import { Billing } from "@/features/billing/billing"
 import { useAuthStore } from "@/stores/auth-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
@@ -151,38 +161,48 @@ function Channels() {
   const connected = store.accounts.filter(
     (account) => account.status === "connected"
   ).length
-  const limit = subscription ? PLANS[subscription.plan].instagramAccounts : 0
+  const limit = subscription ? PLANS[subscription.plan].channels : 0
+  const available = Boolean(store.integration?.instagramConfigured)
   return (
     <section className="grid gap-3">
       <div className="flex min-h-14 items-center gap-2.5">
-        <Instagram size={18} />
-        <h2 className="mr-auto text-sm font-medium">Instagram</h2>
+        <h2 className="mr-auto text-sm font-medium">Channels</h2>
         {store.accounts.length > 0 && (
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Refresh accounts"
+            aria-label="Refresh channels"
             disabled={store.busy}
             onClick={() => void store.sync()}
           >
             <RefreshCw />
           </Button>
         )}
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={
-            store.busy ||
-            !store.integration?.instagramConfigured ||
-            connected >= limit
-          }
-          onClick={() => void store.connect()}
-        >
-          Connect account
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={store.busy || !available || connected >= limit}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            <Plus />
+            Connect channel
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuGroup>
+              {PLATFORMS.map((platform) => (
+                <DropdownMenuItem
+                  key={platform}
+                  onClick={() => void store.connect(platform)}
+                >
+                  <PlatformIcon platform={platform} />
+                  {PLATFORM_RULES[platform].name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <p className="text-sm text-muted-foreground">
-        {connected} of {limit} accounts connected.{" "}
+        {connected} of {limit} channels connected.{" "}
         <button
           type="button"
           className="underline underline-offset-4"
@@ -191,23 +211,29 @@ function Channels() {
           Manage plan
         </button>
       </p>
-      {!store.integration?.instagramConfigured && (
+      {!available && (
         <p className="text-sm text-muted-foreground">
-          Instagram connections are not available yet.
+          Channel connections are not available yet.
         </p>
       )}
       {store.accounts.length > 0 && (
         <div className="divide-y">
           {store.accounts.map((account) => (
             <div key={account.id} className="flex items-center gap-3 py-3">
-              <Avatar src={account.profilePictureUrl} name={account.username} />
+              <ChannelAvatar account={account} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
-                  @{account.username}
+                  {accountLabel(account)}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {account.status === "connected"
-                    ? account.displayName
+                    ? [
+                        PLATFORM_RULES[account.platform].name,
+                        account.displayName !== accountLabel(account) &&
+                          account.displayName,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
                     : account.disconnectReason}
                 </p>
               </div>
@@ -231,8 +257,12 @@ function Channels() {
                 Reconnect
               </Button>
               <ConfirmButton
-                title={`Disconnect @${account.username}?`}
-                description="Its automations and scheduled posts are deleted too."
+                title={`Disconnect ${accountLabel(account)}?`}
+                description={
+                  account.platform === "instagram"
+                    ? "Its automations and scheduled posts are deleted too."
+                    : "Its scheduled posts are deleted too."
+                }
                 confirmLabel="Disconnect"
                 busy={store.busy}
                 onConfirm={() => store.removeAccount(account.id)}

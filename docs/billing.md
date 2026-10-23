@@ -1,16 +1,17 @@
 # Pricing and billing
 
-Every plan includes MCP and REST API access, the dashboard, core comment-to-DM automation, inbox, click tracking, and unlimited automations, contacts and DMs within Instagram's limits and fair use. Growth adds product carousels; Business adds follow-up nudges. There is no free plan or trial in the billing catalog; free periods are given with discount codes (see [free periods](#free-periods)).
+Every plan includes MCP and REST API access, the dashboard, scheduling and cross-posting to Instagram, Facebook, LinkedIn, X, Threads and YouTube, analytics for each channel, core comment-to-DM automation, inbox, click tracking, and unlimited automations, contacts and DMs within each platform's limits and fair use. Plans follow Postiz's channel pricing: every connected account counts as one channel, whatever its platform ([channels](channels.md)). Growth adds product carousels; Business adds follow-up nudges. There is no free plan or trial in the billing catalog; free periods are given with discount codes (see [free periods](#free-periods)).
 
 A workspace needs an active plan to use the product. Without one, a signed-in owner sees only the paywall, where they choose a plan, and the workspace's API keys are refused over REST and MCP. See [the paywall](#the-paywall).
 
-| Plan     | Accounts | Monthly | Yearly | Added features                                              |
-| -------- | -------- | ------- | ------ | ----------------------------------------------------------- |
-| Pro      | 1        | $9      | $108   | Core automation tools                                       |
-| Growth   | 2        | $19     | $228   | Everything in Pro, plus up to 10 product cards per carousel |
-| Business | 5        | $49     | $588   | Everything in Growth, plus automatic follow-up nudges       |
+| Plan     | Channels | Monthly | Yearly        | Added features                                              |
+| -------- | -------- | ------- | ------------- | ----------------------------------------------------------- |
+| Pro      | 5        | $29     | $276 ($23/mo) | Core scheduling, analytics and automation tools             |
+| Growth   | 10       | $39     | $372 ($31/mo) | Everything in Pro, plus up to 10 product cards per carousel |
+| Business | 30       | $49     | $468 ($39/mo) | Everything in Growth, plus automatic follow-up nudges       |
+| Ultimate | 100      | $99     | $948 ($79/mo) | Everything in Business, for agencies and many brands        |
 
-All countries, including India, pay in US dollars. Prices include tax. Yearly billing costs twelve months, paid upfront. The plan definitions in `packages/api/src/contract/billing.ts` are shared with the UI; the backend validates Dodo's catalog against them before checkout.
+All countries, including India, pay in US dollars. Prices include tax. Yearly billing is about 20% less than twelve monthly payments, paid upfront. The plan definitions in `packages/api/src/contract/billing.ts` are shared with the UI; the backend validates Dodo's catalog against them before checkout.
 
 ## Carousel and follow-up rollout
 
@@ -28,7 +29,7 @@ Waiting for a busy workspace reschedules the reminder without consuming a delive
 ## Dodo setup
 
 1. Set `DODO_PAYMENTS_ENVIRONMENT=test_mode` and `DODO_PAYMENTS_API_KEY` in the root `.env`.
-2. Run `pnpm billing:setup`. It creates or updates six recurring SaaS products, tagged by plan and interval. Each product has a USD base price, tax-inclusive pricing, no trial, a card required even at $0, and no automatic country discounts. Reruns reuse the tagged products and archive all country and currency overrides. Duplicate product tags are refused. Disable Charm Pricing under Dodo's Settings → Business so checkout uses the exact advertised amounts. This is a business-wide setting that also affects other products in that business; the setup script does not change it.
+2. Run `pnpm billing:setup`. It creates or updates eight recurring SaaS products, one per plan and interval, tagged by plan and interval. Each product has a USD base price, tax-inclusive pricing, no trial, a card required even at $0, and no automatic country discounts. Reruns reuse the tagged products and archive all country and currency overrides. Duplicate product tags are refused. Disable Charm Pricing under Dodo's Settings → Business so checkout uses the exact advertised amounts. This is a business-wide setting that also affects other products in that business; the setup script does not change it.
 3. Run `pnpm local:tunnel`. It registers a Dodo test-mode endpoint, stores its signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`, and recreates the Docker API with it. The tunnel exposes only `/api/webhooks/zernio` and `/api/webhooks/dodo`.
 4. Run `pnpm dev` and sign in. The paywall lists the plans; choose one to open hosted checkout. Use Dodo's [test payment methods](https://docs.dodopayments.com/features/payment-methods/india#testing).
 
