@@ -61,6 +61,8 @@ type ComposerState = {
   /** Changes whenever a draft is opened or left; late requests are ignored. */
   revision: number
   id: string | null
+  /** The calendar day a new post was started on; it stays on that day. */
+  day: string | null
   /** The post as stored, when editing one. */
   post: ScheduledPost | null
   draft: Draft
@@ -196,6 +198,7 @@ function inWorkspace(workspaceId: string | undefined): boolean {
 export const useComposerStore = create<ComposerState>((set, get) => ({
   revision: 0,
   id: null,
+  day: null,
   post: null,
   draft: emptyDraft(""),
   uploads: [],
@@ -216,6 +219,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     set({
       revision,
       id,
+      day: id ? null : day,
       post: null,
       draft: emptyDraft(suggestedTime(day)),
       uploads: [],
@@ -294,10 +298,14 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     if (draft.accountIds.includes(id)) {
       const { [id]: _caption, ...captions } = draft.captions
       const { [id]: _youtube, ...youtube } = draft.youtube
+      const accountIds = draft.accountIds.filter((item) => item !== id)
       get().patch({
-        accountIds: draft.accountIds.filter((item) => item !== id),
+        accountIds,
         captions,
         youtube,
+        // A Trial Reel is Instagram's; without it, uploads aren't limited
+        // to one video and the setting has nowhere to be switched off.
+        ...(!hasInstagram({ ...draft, accountIds }) && { trialReel: null }),
       })
       return
     }

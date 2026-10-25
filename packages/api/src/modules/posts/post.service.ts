@@ -20,6 +20,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  ProviderError,
   PublishingNotAllowedError,
   ValidationError,
 } from "../../shared/errors"
@@ -224,7 +225,20 @@ export class PostService {
             )
           )
       } catch (error) {
-        for (const post of posts) await this.discard(workspace, post)
+        // Cancel every copy, even when one cancellation fails: a copy left
+        // behind would still publish. One that can't be cancelled stays in
+        // the calendar, where the owner can delete it.
+        const results = await Promise.allSettled(
+          posts.map((post) => this.discard(workspace, post))
+        )
+        const failures = results.flatMap((result) =>
+          result.status === "rejected" ? [result.reason] : []
+        )
+        if (failures.length > 0)
+          throw new ProviderError(
+            `Couldn't schedule every copy, and ${failures.length === 1 ? "1 copy" : `${failures.length} copies`} already scheduled couldn't be cancelled. Delete ${failures.length === 1 ? "it" : "them"} from the calendar.`,
+            new AggregateError([error, ...failures])
+          )
         throw error
       }
       for (const post of posts)

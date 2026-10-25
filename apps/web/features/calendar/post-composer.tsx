@@ -250,7 +250,7 @@ export function PostComposer({
             <div
               role="tablist"
               aria-label="Channels"
-              className="flex gap-0.5 rounded-lg bg-muted p-0.5"
+              className="flex max-w-full min-w-0 gap-0.5 overflow-x-auto rounded-lg bg-muted p-0.5"
               onKeyDown={(event) => {
                 if (
                   !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
@@ -301,7 +301,7 @@ export function PostComposer({
                     aria-label={`${name}, ${accountLabel(item)}${failed ? ", needs changes" : ""}`}
                     onClick={() => selectChannel(item.id)}
                     className={cn(
-                      "relative flex h-7 min-w-9 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      "relative flex h-7 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
                       selected &&
                         "bg-card text-foreground shadow-xs dark:bg-accent"
                     )}

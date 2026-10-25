@@ -202,6 +202,18 @@ describe("cross-posting from the composer", () => {
     expect(api.scheduledPosts.create).toHaveBeenCalledOnce()
   })
 
+  it("drops a Trial Reel when the last Instagram account leaves the post", async () => {
+    await draft()
+    useComposerStore.getState().patch({
+      trialReel: { graduationStrategy: "manual" },
+    })
+    await useComposerStore.getState().toggleAccount(x.id)
+    expect(useComposerStore.getState().draft.trialReel).not.toBeNull()
+    await useComposerStore.getState().toggleAccount(account.id)
+    expect(useComposerStore.getState().draft.accountIds).toEqual([x.id])
+    expect(useComposerStore.getState().draft.trialReel).toBeNull()
+  })
+
   it("keeps stories on Instagram and drops an account's own caption when it is removed", async () => {
     await draft()
     await useComposerStore.getState().toggleAccount(x.id)
@@ -259,6 +271,8 @@ describe("channels and times from the schedule dialog", () => {
     expect(useComposerStore.getState().draft.scheduledAt).toBe(
       "2026-10-22T16:00"
     )
+    // The dialog keeps the post on that day; without one, the date can move.
+    expect(useComposerStore.getState().day).toBe("2026-10-22")
     vi.setSystemTime(new Date(2026, 9, 22, 23, 32))
     await useComposerStore.getState().initialize(null, "2026-10-22")
     expect(useComposerStore.getState().draft.scheduledAt).toBe(
@@ -268,6 +282,8 @@ describe("channels and times from the schedule dialog", () => {
     expect(useComposerStore.getState().draft.scheduledAt).toBe(
       "2026-10-24T10:00"
     )
+    await useComposerStore.getState().initialize(null, null)
+    expect(useComposerStore.getState().day).toBeNull()
     vi.useRealTimers()
   })
 })

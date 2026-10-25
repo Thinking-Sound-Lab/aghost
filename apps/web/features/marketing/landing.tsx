@@ -5,6 +5,7 @@ import {
   PLAN_IDS,
   PLANS,
   PLATFORM_RULES,
+  billingPath,
   type Platform,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
@@ -376,6 +377,20 @@ const jobGroups = [
   },
 ]
 
+// The chosen plan's price and button show; written out in full for Tailwind.
+const planGrid = [
+  "group-has-[input[value=pro]:checked]/plans:grid",
+  "group-has-[input[value=growth]:checked]/plans:grid",
+  "group-has-[input[value=business]:checked]/plans:grid",
+  "group-has-[input[value=ultimate]:checked]/plans:grid",
+]
+const planShown = [
+  "group-has-[input[value=pro]:checked]/plans:inline-flex",
+  "group-has-[input[value=growth]:checked]/plans:inline-flex",
+  "group-has-[input[value=business]:checked]/plans:inline-flex",
+  "group-has-[input[value=ultimate]:checked]/plans:inline-flex",
+]
+
 /** Four plans, picked with radio buttons so the card needs no script. */
 function PlanCard() {
   return (
@@ -410,18 +425,7 @@ function PlanCard() {
         {PLAN_IDS.map((id, index) => {
           const plan = PLANS[id]
           return (
-            <div
-              key={id}
-              className={cn(
-                "hidden gap-1",
-                [
-                  "group-has-[input[value=pro]:checked]/plans:grid",
-                  "group-has-[input[value=growth]:checked]/plans:grid",
-                  "group-has-[input[value=business]:checked]/plans:grid",
-                  "group-has-[input[value=ultimate]:checked]/plans:grid",
-                ][index]
-              )}
-            >
+            <div key={id} className={cn("hidden gap-1", planGrid[index])}>
               <p className="flex items-baseline gap-2">
                 <span className="text-6xl leading-none font-medium tracking-[-0.05em]">
                   {price(plan.prices.USD.monthly, "USD")}
@@ -450,7 +454,16 @@ function PlanCard() {
           </li>
         ))}
       </ul>
-      <GetStarted className="w-full" />
+      {PLAN_IDS.map((id, index) => (
+        // Each plan's button carries its choice through sign-in to checkout.
+        <GetStarted
+          key={id}
+          href={billingPath({ plan: id, interval: "monthly" })}
+          className={cn("hidden w-full", planShown[index])}
+        >
+          Start with {PLANS[id].name}
+        </GetStarted>
+      ))}
     </div>
   )
 }

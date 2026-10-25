@@ -34,13 +34,16 @@ export const startingPrice = price(PLANS.pro.prices.USD.monthly, "USD")
 
 export function GetStarted({
   className,
+  href = "/login",
   children = "Get started",
 }: {
   className?: string
+  /** Where sign-up leads, such as billing with a plan already chosen. */
+  href?: string
   children?: ReactNode
 }) {
   return (
-    <Link href="/login" className={cn(primaryButton, className)}>
+    <Link href={href} className={cn(primaryButton, className)}>
       {children}
       <ArrowRight aria-hidden="true" className="size-4" />
     </Link>

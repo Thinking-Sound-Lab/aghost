@@ -20,7 +20,11 @@ import {
 import { NativeSelect } from "@workspace/ui/components/native-select"
 import { Switch } from "@workspace/ui/components/switch"
 import { ChannelAvatar, PlatformIcon } from "@/components/platform-icon"
-import { earliestPost, zoneLabel } from "@/features/calendar/schedule-time"
+import {
+  earliestPost,
+  localInput,
+  zoneLabel,
+} from "@/features/calendar/schedule-time"
 import { useComposerStore } from "@/stores/composer-store"
 import { canConnect, useWorkspaceStore } from "@/stores/workspace-store"
 
@@ -98,10 +102,28 @@ export function ScheduleDialog({
                 {when.getDate()}
               </span>
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {dayFormat.format(when)}
-              </p>
+            <div className="grid min-w-0 flex-1 justify-items-start gap-0.5">
+              {composer.day ? (
+                <p className="truncate text-sm font-medium">
+                  {dayFormat.format(when)}
+                </p>
+              ) : (
+                // Without a calendar day to keep, the date can change too.
+                <input
+                  type="date"
+                  aria-label="Date"
+                  disabled={busy}
+                  min={localInput(new Date()).slice(0, 10)}
+                  value={draft.scheduledAt.slice(0, 10)}
+                  onChange={(event) => {
+                    if (event.target.value)
+                      composer.patch({
+                        scheduledAt: `${event.target.value}${draft.scheduledAt.slice(10)}`,
+                      })
+                  }}
+                  className="h-8 rounded-md bg-secondary px-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                />
+              )}
               <p className="text-xs text-muted-foreground">
                 {tooSoon ? "Too soon to publish" : fromNow(when)}
               </p>
@@ -116,7 +138,7 @@ export function ScheduleDialog({
             <p role="alert" className="-mt-1 text-xs text-destructive">
               {fields.scheduledFor ??
                 (!hasTimeLeft(draft.scheduledAt)
-                  ? "There's no time left to publish on this day. Choose another day in the calendar."
+                  ? `There's no time left to publish on this day. Choose another day${composer.day ? " in the calendar" : ""}.`
                   : `Choose a time at least ${POST_LIMITS.minLeadMinutes} minutes from now.`)}
             </p>
           )}
