@@ -8,19 +8,33 @@ import { cn } from "@workspace/ui/lib/utils"
 export function StepNav({ steps }: { steps: { id: string; label: string }[] }) {
   const [current, setCurrent] = useState(steps[0]?.id)
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const seen = entries.find((entry) => entry.isIntersecting)
-        if (seen) setCurrent(seen.target.id)
-      },
-      // A step counts once it crosses the middle of the window.
-      { rootMargin: "-45% 0px -50% 0px" }
-    )
-    for (const step of steps) {
-      const element = document.getElementById(step.id)
-      if (element) observer.observe(element)
+    let observer: IntersectionObserver | null = null
+    // A step counts once it crosses the middle of the window. The margins
+    // are pixels, worked out from the window's height, because browsers
+    // differ on what a percentage margin is measured against.
+    const watch = () => {
+      observer?.disconnect()
+      const height = window.innerHeight
+      observer = new IntersectionObserver(
+        (entries) => {
+          const seen = entries.find((entry) => entry.isIntersecting)
+          if (seen) setCurrent(seen.target.id)
+        },
+        {
+          rootMargin: `-${Math.round(height * 0.45)}px 0px -${Math.round(height * 0.5)}px 0px`,
+        }
+      )
+      for (const step of steps) {
+        const element = document.getElementById(step.id)
+        if (element) observer.observe(element)
+      }
     }
-    return () => observer.disconnect()
+    watch()
+    window.addEventListener("resize", watch)
+    return () => {
+      window.removeEventListener("resize", watch)
+      observer?.disconnect()
+    }
   }, [steps])
   return (
     <nav aria-label="Steps" className="grid content-start">
