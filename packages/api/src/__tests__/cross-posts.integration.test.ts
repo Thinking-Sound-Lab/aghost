@@ -460,7 +460,7 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
     ).toEqual({ title: "Original title", madeForKids: false })
   })
 
-  it("keeps automations, the inbox and agent scheduling on Instagram", async () => {
+  it("keeps automations and the inbox on Instagram, and lets agents post everywhere", async () => {
     const automationOnLinkedIn = await session("/automations", "POST", {
       ...automation(),
       instagramAccountId: accounts.linkedin.id,
@@ -471,11 +471,11 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
       (await session(`/accounts/${accounts.linkedin.id}/posts`)).statusCode
     ).toBe(404)
 
-    const created = await session("/api-keys", "POST", {
+    const apiKey = await session("/api-keys", "POST", {
       name: "Scheduler",
       scopes: ["accounts:read", "posts:read", "posts:write"],
     })
-    const { token } = created.json<CreatedApiKey>()
+    const { token } = apiKey.json<CreatedApiKey>()
     const scheduled = await app.inject({
       method: "POST",
       url: "/api/v1/scheduled-posts",
@@ -493,6 +493,64 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
     })
     expect(scheduled.statusCode).toBe(422)
     expect(scheduled.json().error.fields).toHaveProperty("instagramAccountId")
+
+    // cross_post schedules on any platform, under each one's rules.
+    const agentPost = (body: unknown) =>
+      app.inject({
+        method: "POST",
+        url: "/api/v1/scheduled-posts/batch",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        payload: JSON.stringify({
+          kind: "post",
+          caption: "From an agent",
+          media: photos,
+          scheduledFor: inHours(24),
+          ...(body as object),
+        }),
+      })
+    const before = created().length
+    const crossPosted = await agentPost({
+      targets: [
+        { accountId: accounts.linkedin.id },
+        { accountId: accounts.twitter.id, caption: "From an agent, on X" },
+      ],
+    })
+    expect(crossPosted.statusCode).toBe(201)
+    expect(
+      crossPosted
+        .json<ScheduledPost[]>()
+        .map((post) => [post.platform, post.caption])
+    ).toEqual([
+      ["linkedin", "From an agent"],
+      ["twitter", "From an agent, on X"],
+    ])
+    expect(created()).toHaveLength(before + 2)
+    const tooLong = await agentPost({
+      caption: "x".repeat(300),
+      targets: [{ accountId: accounts.twitter.id }],
+    })
+    expect(tooLong.statusCode).toBe(422)
+    expect(tooLong.json().error.fields).toHaveProperty("targets.0.caption")
+    // Answering comments needs the automations permission too.
+    const withAutomation = await agentPost({
+      automation: automation(),
+      targets: [{ accountId: accounts.instagram.id }],
+    })
+    expect(withAutomation.statusCode).toBe(403)
+    expect(created()).toHaveLength(before + 2)
+    const document = await app.inject({
+      method: "GET",
+      url: "/api/v1/openapi.json",
+      headers: { authorization: `Bearer ${token}` },
+    })
+    expect(document.json().paths["/scheduled-posts/batch"].post).toMatchObject({
+      operationId: "cross_post",
+      "x-required-scope": "posts:write",
+    })
+
     const listed = await app.inject({
       method: "GET",
       url: "/api/v1/accounts",

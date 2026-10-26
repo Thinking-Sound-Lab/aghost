@@ -49,7 +49,7 @@ LinkedIn reports saves for personal profiles only and clicks for organization pa
 
 ## Agents
 
-REST and MCP list every account with its `platform`. Scheduled posts carry `accountId` and `platform`; `instagramAccountId` repeats `accountId` for older clients. Agents can read, update and delete posts and read analytics on every platform. `schedule_post` still publishes on Instagram accounts only and refuses others with a validation error. Agents can't post to other platforms yet.
+REST and MCP list every account with its `platform`. Scheduled posts carry `accountId` and `platform`; `instagramAccountId` repeats `accountId` for older clients. Agents schedule on every platform with `cross_post` (`POST /api/v1/scheduled-posts/batch`), which takes the composer's body and runs the same checks, and can read, update and delete posts and read analytics on every platform. `schedule_post` publishes on a single Instagram account and refuses others with a validation error.
 
 ## Rollout
 

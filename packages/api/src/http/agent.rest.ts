@@ -145,6 +145,12 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
     status: 201,
     requestInput: body,
   }),
+  route("cross_post", {
+    method: "POST",
+    path: "/scheduled-posts/batch",
+    status: 201,
+    requestInput: body,
+  }),
   route("update_scheduled_post", {
     method: "PATCH",
     path: "/scheduled-posts/:postId",

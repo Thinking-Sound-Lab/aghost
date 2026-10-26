@@ -1,6 +1,7 @@
 import { z } from "zod"
 import type { ApiKeyScope } from "../../contract/api-key"
 import type { ApiErrorCode } from "../../contract/errors"
+import { PLATFORMS, PLATFORM_RULES } from "../../contract/platform"
 import {
   ACTIVITY_PAGE_MAX_LIMIT,
   createAutomationSchema,
@@ -12,6 +13,7 @@ import { insightInputSchema } from "../../contract/insights"
 import {
   POST_LIMITS,
   createMediaUploadSchema,
+  crossPostSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
   updateScheduledPostSchema,
@@ -97,6 +99,11 @@ const offsetSchema = z
   .min(0)
   .max(Number.MAX_SAFE_INTEGER)
   .default(0)
+
+const captionLimits = PLATFORMS.map(
+  (platform) =>
+    `${PLATFORM_RULES[platform].name} ${PLATFORM_RULES[platform].captionMaxLength.toLocaleString("en")}`
+).join(", ")
 
 export const AGENT_OPERATIONS = [
   operation({
@@ -273,14 +280,14 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_media_upload",
     description:
-      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post. Media already at a public https URL needs no upload. If the file is on the user's device, or you can't reach uploadUrl, for example because your sandbox's network blocks it, use create_upload_link instead.",
+      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post or cross_post. Media already at a public https URL needs no upload. If the file is on the user's device, or you can't reach uploadUrl, for example because your sandbox's network blocks it, use create_upload_link instead.",
     scope: "posts:write",
     schema: createMediaUploadSchema,
     run: ({ services }, input) => services.posts.createUpload(input),
   }),
   operation({
     name: "create_upload_link",
-    description: `Get a page where the user uploads photos and videos for a post from their browser, for files you can't upload yourself. Give the user the url and ask them to tell you when they have uploaded; the page takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post.`,
+    description: `Get a page where the user uploads photos and videos for a post from their browser, for files you can't upload yourself. Give the user the url and ask them to tell you when they have uploaded; the page takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post or cross_post.`,
     scope: "posts:write",
     schema: noInput,
     run: ({ workspace, services }) => services.uploadLinks.create(workspace),
@@ -288,7 +295,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_upload_link",
     description:
-      "Get an upload link's status: waiting, uploaded or expired. Once uploaded, media lists the user's files in their order, ready to pass to schedule_post.",
+      "Get an upload link's status: waiting, uploaded or expired. Once uploaded, media lists the user's files in their order, ready to pass to schedule_post or cross_post.",
     scope: "posts:read",
     schema: z.object({ uploadLinkId: z.uuid() }),
     run: ({ workspace, services }, { uploadLinkId }) =>
@@ -296,7 +303,7 @@ export const AGENT_OPERATIONS = [
   }),
   operation({
     name: "schedule_post",
-    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. instagramAccountId must be an Instagram account; posts on other platforms are scheduled from the dashboard for now. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
+    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. instagramAccountId must be an Instagram account; use cross_post for Facebook, LinkedIn, X, Threads and YouTube, or for several accounts at once. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
     scope: "posts:write",
     schema: schedulePostSchema,
     run: async ({ workspace, services, apiKey }, input) => {
@@ -304,6 +311,19 @@ export const AGENT_OPERATIONS = [
         throw new ForbiddenError("automations:write")
       return presentScheduledPost(
         await services.posts.schedule(workspace, input)
+      )
+    },
+  }),
+  operation({
+    name: "cross_post",
+    description: `Schedule one post on one or more accounts on any platform, for at least ${POST_LIMITS.minLeadMinutes} minutes from now; each account gets its own scheduled post that publishes for real at that time. targets lists account ids from list_accounts. A target's caption replaces the shared caption on that account, such as a shorter one for X; null keeps the shared one. Caption limits: ${captionLimits}. YouTube needs one video and youtube: {title, madeForKids} on its target; Instagram needs a photo or video; Facebook, LinkedIn and X take several photos or one video, X up to ${PLATFORM_RULES.twitter.maxMedia} photos. Stories are Instagram only. trialReel and automation apply to the Instagram copies, and the others publish as plain posts. Every copy is checked before any is scheduled, and all are scheduled or none; errors name the target, such as targets.0.caption. Pass automation to answer comments on the Instagram copies (requires automations:write).`,
+    scope: "posts:write",
+    schema: crossPostSchema,
+    run: async ({ workspace, services, apiKey }, input) => {
+      if (input.automation && !apiKey.scopes.includes("automations:write"))
+        throw new ForbiddenError("automations:write")
+      return (await services.posts.crossPost(workspace, input)).map(
+        presentScheduledPost
       )
     },
   }),

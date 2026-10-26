@@ -148,7 +148,7 @@ export class PostService {
       if (account.platform !== "instagram")
         throw new ValidationError({
           instagramAccountId:
-            "Choose an Instagram account. Posts on other platforms are scheduled from the dashboard.",
+            "Choose an Instagram account. Posts on other platforms are scheduled with cross_post.",
         })
       const content = contentOf({ ...input, youtube: null })
       assertFits(account, content, input.automation !== null, "")
