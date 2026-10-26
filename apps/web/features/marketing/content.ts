@@ -53,12 +53,12 @@ export const agentClients = ["Claude Code", "Codex", "Cursor"]
 
 /** What a workspace API key lets an agent do, over MCP or the REST API. */
 export const agentAbilities = [
-  "Schedule Instagram posts and stories; edit or cancel posts on every platform",
+  "Schedule posts to all six platforms, with a caption per channel",
+  "Edit or cancel any scheduled post",
   "Read analytics and posting times for every channel",
-  "Create, edit, pause and delete automations",
+  "Create, pause and edit Instagram DM automations",
   "Read automation stats and the log of every DM",
-  "Look up accounts, posts and contacts",
-  "Read and reply to the inbox",
+  "Read and reply to the Instagram inbox",
 ]
 
 export const steps = [
@@ -100,7 +100,7 @@ export const features = [
   {
     label: "Agentic",
     title: "Run it from your AI agent",
-    text: "Claude Code, Codex or Cursor schedule Instagram posts, run automations and read analytics over MCP or REST.",
+    text: "Claude Code, Codex or Cursor schedule posts to every platform, run automations and read analytics over MCP or REST.",
   },
   {
     label: "Comment automation",
@@ -175,7 +175,7 @@ export const faqs = [
   {
     question: "Can my AI agent post to every platform?",
     answer:
-      "Agents schedule Instagram posts and can edit, cancel and read analytics on every platform. New posts to other platforms are scheduled in the dashboard for now.",
+      "Yes. Agents schedule posts to all six platforms, with a caption per channel, and read analytics on each.",
   },
   {
     question: "What can't an agent do?",

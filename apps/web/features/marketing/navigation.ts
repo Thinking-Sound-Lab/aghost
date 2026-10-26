@@ -57,7 +57,7 @@ export const publicPages = [
     href: "/agents",
     label: "AI agents",
     description:
-      "Instagram MCP and REST API setup for Claude Code, Codex, Cursor, and other agents",
+      "Social media MCP and REST API setup for Claude Code, Codex, Cursor, and other agents",
   },
   {
     href: "/about",

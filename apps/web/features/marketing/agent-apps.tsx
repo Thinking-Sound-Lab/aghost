@@ -144,21 +144,25 @@ export function ClaudeCodeApp() {
         </div>
         <p className="flex bg-white/[0.07] text-[#c9c9c9]">
           <span className="w-[2ch] shrink-0">&gt;</span>
-          Create a paused GUIDE automation for my latest reel
+          Post my launch reel to Instagram, LinkedIn, X and YouTube on Friday at
+          10 AM
         </p>
         <ClaudeTool
-          name="list_account_posts"
-          args='accountId: "…"'
-          result="Found 12 posts. Latest: “Morning routine” (reel)"
+          name="list_accounts"
+          args=""
+          result="6 channels: Instagram, Facebook, LinkedIn, X, Threads, YouTube"
         />
         <ClaudeTool
-          name="create_automation"
-          args='name: "Send the guide", status: "paused"'
-          result="Created “Send the guide” · paused"
+          name="cross_post"
+          args='targets: 4, scheduledFor: "Fri 10:00"'
+          result="Scheduled 4 posts · Instagram, LinkedIn, X, YouTube"
         />
         <p className="flex">
           <span className="w-[2ch] shrink-0">⏺</span>
-          <span>“Send the guide” is ready and paused for your review.</span>
+          <span>
+            Your launch goes out Friday at 10 AM on 4 channels, with a shorter
+            caption for X.
+          </span>
         </p>
         <div>
           <span className="block border-t border-[#5c5c5c]" />
@@ -180,20 +184,20 @@ function CodexCall({ name }: { name: string }) {
   )
 }
 
-/** The Codex app: its sidebar, a question about stats, and the answer. */
+/** The Codex app: its sidebar, a question about a launch, and the answer. */
 export function CodexApp() {
   const stats = [
-    ["Comments", "512"],
-    ["DMs sent", "498"],
-    ["Link clicks", "214"],
-    ["Failed", "2"],
+    ["Instagram", "12.4K"],
+    ["YouTube", "8.1K"],
+    ["LinkedIn", "3.2K"],
+    ["X", "2.7K"],
   ]
   return (
     <div
       aria-hidden
       className="@container flex flex-col overflow-hidden rounded-xl bg-white font-sans text-[11.5px] text-black shadow-2xl ring-1 shadow-black/30 ring-black/10"
     >
-      <TitleBar title="GUIDE automation stats" />
+      <TitleBar title="Launch results" />
       <div className="grid min-h-72 grid-cols-[minmax(0,1fr)] @min-[28rem]:grid-cols-[1.75rem_8.5rem_minmax(0,1fr)]">
         <div className="hidden content-start justify-items-center gap-3 bg-[#f4f4f3] pt-3 text-black/45 @min-[28rem]:grid [&_svg]:size-3.5">
           <House className="text-black" />
@@ -210,23 +214,23 @@ export function CodexApp() {
           </p>
           <p className="mt-1 px-1.5 font-medium text-black/45">Pinned</p>
           <p className="flex items-center gap-1.5 truncate px-1.5 py-0.5">
-            <Pin className="size-3 shrink-0" /> Guide automation
+            <Pin className="size-3 shrink-0" /> Launch calendar
           </p>
           <p className="mt-1 px-1.5 font-medium text-black/45">Recents</p>
           <p className="truncate rounded-md bg-black/[0.07] px-1.5 py-1">
-            GUIDE automation stats
+            Launch results
           </p>
           <p className="truncate px-1.5 py-0.5">Reply to new DMs</p>
         </div>
         <div className="flex min-w-0 flex-col gap-2.5 p-3.5">
           <p className="ml-auto max-w-[85%] rounded-2xl bg-[#f0f0ef] px-3 py-2">
-            How did my GUIDE automation do this week?
+            How did Friday’s launch do on each channel?
           </p>
           <div className="grid gap-1">
-            <CodexCall name="list_automations" />
-            <CodexCall name="get_automation_stats" />
+            <CodexCall name="list_scheduled_posts" />
+            <CodexCall name="list_content_insights" />
           </div>
-          <p>Here’s “Send the guide” for the last 7 days:</p>
+          <p>Views and impressions in the first 7 days:</p>
           <div className="grid grid-cols-2 gap-1.5 @min-[20rem]:grid-cols-4">
             {stats.map(([label, value]) => (
               <div key={label} className="rounded-lg bg-[#f6f6f5] px-2 py-1.5">

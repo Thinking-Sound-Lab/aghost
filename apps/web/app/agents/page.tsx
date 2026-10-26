@@ -20,7 +20,7 @@ import {
 import { openGraph, site } from "@/lib/site"
 
 const description =
-  "Connect Claude Code, Codex, Cursor or any MCP client to schedule Instagram posts, run DM automations and read analytics."
+  "Connect Claude Code, Codex, Cursor or any MCP client to schedule posts to six platforms, run Instagram DM automations and read analytics."
 export const metadata: Metadata = {
   title: "Social media MCP server and REST API for AI agents",
   description,
@@ -52,25 +52,25 @@ const clientTones = ["sky", "gold", "dusk"] as const
 
 const exampleRequests = [
   {
+    title: "Post a launch everywhere",
+    prompt:
+      "Schedule my launch video for Friday at 6 PM on Instagram, LinkedIn, X and YouTube. Write a shorter caption for X and a title for YouTube. Show me each version before scheduling.",
+    check:
+      "Review each channel’s caption, media and time in your agent’s summary. Every copy then appears in the calendar.",
+  },
+  {
     title: "Schedule a reel with its DM",
     prompt:
-      "Prepare my reel for Friday at 6 PM in Asia/Kolkata. Attach an automation that DMs my guide to anyone who comments GUIDE. Show me the media, caption, publishing time, time zone, and DM before scheduling it.",
+      "Schedule my reel for Friday at 6 PM and DM my guide to anyone who comments GUIDE. Show me the caption, time and DM first.",
     check:
-      "Review the Instagram account, media, caption, publishing time, and attached automation in your agent’s summary before approving scheduling. After scheduling, check the result in the calendar.",
+      "Review the reel, time and automation in your agent’s summary, then in the calendar.",
   },
   {
-    title: "Prepare a comment-to-DM campaign",
+    title: "Compare your channels",
     prompt:
-      "Prepare a paused automation for my latest reel. Match the whole word GUIDE and send the download URL I provide in a DM button. Show me the selected post, message, and link before switching it on.",
+      "Which channel did best this month? Compare views and engagement on Instagram, LinkedIn and YouTube, and suggest a posting time for each.",
     check:
-      "Check the selected reel, keyword, message, button URL, and paused status in the dashboard. Activate the automation when it is ready.",
-  },
-  {
-    title: "Check campaign results",
-    prompt:
-      "Show comments, DMs sent, and link clicks for my guide automation. Summarize any failed messages or messages waiting for a tap. Leave the campaign as it is.",
-    check:
-      "Compare the summary with the automation’s stats and individual DM activity. Results appear after people interact with the campaign.",
+      "Compare with Analytics in aghost. A blank metric means the platform doesn’t report it.",
   },
 ] as const
 
@@ -88,8 +88,7 @@ export default function Page() {
         <div className={prose}>
           <h2>What your agent can do</h2>
           <p>
-            Your agent works in your workspace. New posts to platforms other
-            than Instagram are scheduled in the dashboard for now.
+            Your agent works in your workspace, on every channel you connect.
           </p>
           <ul className="grid gap-3 text-ink">
             {agentAbilities.map((ability) => (

@@ -20,7 +20,7 @@ const body = `# ${site.name}
 
 ${productSummary}
 
-aghost schedules posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. Comment automations need an Instagram Business or Creator account. Every feature needs an active plan, and MCP and REST API access are included on every plan. Agents can schedule new posts on Instagram only; the dashboard schedules to every platform.
+aghost schedules posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. Comment automations need an Instagram Business or Creator account. Every feature needs an active plan, and MCP and REST API access are included on every plan. Agents schedule to every platform too, over MCP or REST.
 
 ## Product information
 

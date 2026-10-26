@@ -6,7 +6,6 @@ import {
   ClaudeCodeApp,
   CodexApp,
   CursorApp,
-  McpConfigApp,
 } from "@/features/marketing/agent-apps"
 import { Brand } from "@/features/marketing/header"
 import {
@@ -14,9 +13,13 @@ import {
   buttonsScene,
   tapScene,
 } from "@/features/marketing/illustrations"
+import {
+  ComposerCard,
+  PreviewCard,
+  ScheduleCard,
+} from "@/features/marketing/product-cards"
 import { MarketingCanvas, Painting, textLink } from "@/features/marketing/shell"
 import { api } from "@/lib/api"
-import { site } from "@/lib/site"
 
 /** One column of the wall: its items twice over, so the loop has no seam. */
 function WallColumn({
@@ -44,8 +47,11 @@ function WallColumn({
   )
 }
 
-/** Agents at work, in two columns scrolling opposite ways, faded at both ends. */
-function AgentWall() {
+/**
+ * Posts going everywhere and agents at work, in two columns scrolling
+ * opposite ways, faded at both ends.
+ */
+function ProductWall() {
   return (
     <div
       aria-hidden="true"
@@ -54,15 +60,17 @@ function AgentWall() {
       <WallColumn
         items={[
           <ClaudeCodeApp key="claude" />,
+          <ComposerCard key="composer" />,
           <Screen key="tap" className="bg-[#1a1a1a]">
             {tapScene}
           </Screen>,
-          <McpConfigApp key="mcp" endpoint={`${site.url}/api/mcp`} />,
+          <ScheduleCard key="schedule" />,
         ]}
       />
       <WallColumn
         reverse
         items={[
+          <PreviewCard key="preview" />,
           <CodexApp key="codex" />,
           <Screen key="buttons" className="bg-[#1a1a1a]">
             {buttonsScene}
@@ -131,16 +139,16 @@ export function SignIn({
           className="hidden min-h-0 flex-col pt-20 text-ink lg:flex"
         >
           <section
-            aria-labelledby="sign-in-agent-heading"
+            aria-labelledby="sign-in-wall-heading"
             className="flex min-h-0 flex-1 flex-col"
           >
             <h2
-              id="sign-in-agent-heading"
+              id="sign-in-wall-heading"
               className="mx-auto mb-10 max-w-3xl px-6 text-center text-4xl font-medium tracking-[-0.045em] text-balance xl:text-5xl"
             >
               Post everywhere. Answer every comment.
             </h2>
-            <AgentWall />
+            <ProductWall />
           </section>
         </Painting>
       </main>
