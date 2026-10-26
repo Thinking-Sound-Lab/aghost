@@ -25,6 +25,7 @@ import { api } from "@/lib/api"
 import { responseForSave } from "@/lib/automation-draft"
 import { fileProblem, uploadFiles } from "@/lib/media"
 import { useCalendarStore } from "./calendar-store"
+import { accountsIn, currentSet } from "./social-set-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
 type Draft = {
@@ -258,9 +259,11 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
         return
       }
       set({ status: "ready" })
-      const account = useWorkspaceStore
-        .getState()
-        .accounts.find((item) => item.status === "connected")
+      // A new post starts on the first channel of the set being shown.
+      const account = accountsIn(
+        useWorkspaceStore.getState().accounts,
+        currentSet()
+      ).find((item) => item.status === "connected")
       if (account) await get().toggleAccount(account.id)
     } catch (error) {
       if (get().revision === revision)
@@ -409,8 +412,10 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     get().patch({ media })
   },
   connect: async (platform) => {
+    const socialSet = currentSet()
+    if (!socialSet) return
     set({ connecting: platform })
-    await useWorkspaceStore.getState().connectInNewTab(platform)
+    await useWorkspaceStore.getState().connectInNewTab(platform, socialSet.id)
     if (useWorkspaceStore.getState().error) set({ connecting: null })
   },
   channelsChanged: async () => {

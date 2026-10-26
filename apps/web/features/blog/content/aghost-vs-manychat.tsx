@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { PLANS } from "@workspace/api/contract"
+import { PLANS, socialSetCount } from "@workspace/api/contract"
 import { ComparisonTable, Source, sources, aghostPrice } from "./shared"
 import type { ArticleContent } from "./types"
 
@@ -164,17 +164,17 @@ export const aghostVsManychat: ArticleContent = {
               [
                 "Pro",
                 aghostPrice(),
-                `${PLANS.pro.channels} channels; cross-posting, comment-to-DM, inbox, MCP, and REST`,
+                `${socialSetCount(PLANS.pro.socialSets)} (one account per platform); cross-posting, comment-to-DM, inbox, MCP, and REST`,
               ],
               [
                 "Growth",
                 aghostPrice("growth"),
-                `${PLANS.growth.channels} channels; Pro features plus product carousels`,
+                `${socialSetCount(PLANS.growth.socialSets)}; Pro features plus product carousels`,
               ],
               [
                 "Business",
                 aghostPrice("business"),
-                `${PLANS.business.channels} channels; Growth features plus follow-up nudges`,
+                `${socialSetCount(PLANS.business.socialSets)}; Growth features plus follow-up nudges`,
               ],
             ]}
           />

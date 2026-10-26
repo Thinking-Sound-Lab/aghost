@@ -13,13 +13,15 @@ import {
 } from "@/components/interface"
 import { timeAgo } from "@/lib/format"
 import { useContactsStore } from "@/stores/contacts-store"
+import { useActiveSet } from "@/stores/social-set-store"
 
 export function Contacts() {
   const store = useContactsStore()
-  const load = store.load
+  const show = store.show
+  const socialSetId = useActiveSet()?.id
   useEffect(() => {
-    void load()
-  }, [load])
+    if (socialSetId) void show(socialSetId)
+  }, [socialSetId, show])
   function search(event: FormEvent) {
     event.preventDefault()
     void store.load()

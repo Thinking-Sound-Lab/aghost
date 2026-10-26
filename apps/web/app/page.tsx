@@ -46,7 +46,7 @@ const structuredData = {
         "@type": "AggregateOffer",
         priceCurrency: "USD",
         lowPrice: PLANS.pro.prices.USD.monthly / 100,
-        highPrice: PLANS.ultimate.prices.USD.monthly / 100,
+        highPrice: PLANS.business.prices.USD.monthly / 100,
         offerCount: PLAN_IDS.length,
       },
       publisher: organization,

@@ -274,6 +274,7 @@ export type Database = {
           id: string
           platform: string
           profile_picture_url: string | null
+          social_set_id: string
           status: string
           updated_at: string
           username: string
@@ -288,6 +289,7 @@ export type Database = {
           id?: string
           platform?: string
           profile_picture_url?: string | null
+          social_set_id: string
           status: string
           updated_at?: string
           username: string
@@ -301,6 +303,7 @@ export type Database = {
           id?: string
           platform?: string
           profile_picture_url?: string | null
+          social_set_id?: string
           status?: string
           updated_at?: string
           username?: string
@@ -308,6 +311,13 @@ export type Database = {
           zernio_account_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "instagram_accounts_social_set_fkey"
+            columns: ["social_set_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "social_sets"
+            referencedColumns: ["id", "workspace_id"]
+          },
           {
             foreignKeyName: "instagram_accounts_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -479,6 +489,42 @@ export type Database = {
           },
           {
             foreignKeyName: "scheduled_posts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_sets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          workspace_id: string
+          zernio_profile_id: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          workspace_id: string
+          zernio_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+          zernio_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_sets_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"

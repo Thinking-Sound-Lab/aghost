@@ -623,16 +623,44 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
     expect(mixed.statusCode).toBe(502)
   })
 
-  it("counts every platform toward the plan's channels", async () => {
+  it("keeps one account per platform in each social set, and sets per plan", async () => {
     const workspaceId = await workspaceIdOf(config, userId)
     await grantPlan(config, workspaceId, "pro")
-    const response = await session("/accounts/connect", "POST", {
+    const taken = await session("/accounts/connect", "POST", {
       platform: "linkedin",
     })
-    expect(response.statusCode).toBe(403)
-    expect(response.json().error.message).toBe(
-      "Pro includes 5 channels. Upgrade to connect another."
+    expect(taken.statusCode).toBe(409)
+    expect(taken.json().error.message).toBe(
+      "Social set 1 already has a LinkedIn account. Use another social set, or disconnect that account first."
     )
+    const refused = await session("/social-sets", "POST", { name: "Brand" })
+    expect(refused.statusCode).toBe(403)
+    expect(refused.json().error.message).toBe(
+      "Pro includes 1 social set. Upgrade to add another."
+    )
+
     await grantPlan(config, workspaceId, "growth")
+    const created = await session("/social-sets", "POST", { name: "Brand" })
+    expect(created.statusCode).toBe(201)
+    const set = created.json<{ id: string; name: string }>()
+    expect(set.name).toBe("Brand")
+    const connected = await session("/accounts/connect", "POST", {
+      platform: "linkedin",
+      socialSetId: set.id,
+    })
+    expect(connected.statusCode).toBe(200)
+    // The new set connects through its own profile.
+    const request = latest((item) => item.path.startsWith("/v1/connect/"))!
+    expect(request.query.get("profileId")).not.toBe(
+      latest((item) => item.path === "/v1/accounts")?.query.get("profileId")
+    )
+    // A set with no channels can go; the first one can't.
+    expect((await session(`/social-sets/${set.id}`, "DELETE")).statusCode).toBe(
+      204
+    )
+    const [first] = (await session("/social-sets")).json<{ id: string }[]>()
+    expect(
+      (await session(`/social-sets/${first!.id}`, "DELETE")).statusCode
+    ).toBe(409)
   })
 })

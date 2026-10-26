@@ -4,6 +4,7 @@ import {
   BILLING_INTERVALS,
   PLAN_IDS,
   PLANS,
+  socialSetCount,
   type BillingCurrency,
   type BillingInterval,
   type Plan,
@@ -58,20 +59,17 @@ export function BillingIntervalToggle({
 const descriptions: Record<PlanId, string> = {
   pro: "Turn interested comments into conversations.",
   growth: "Turn your DMs into a product showcase.",
-  business: "Bring interested people back to your offer.",
-  ultimate: "Run many brands from one workspace.",
+  business: "Run up to ten brands, and bring people back to your offer.",
 }
 
 const purposes: Record<PlanId, string> = {
   pro: "Start the conversation",
   growth: "Showcase your products",
-  business: "Keep the conversation going",
-  ultimate: "Manage many brands",
+  business: "Grow every brand",
 }
 
 function benefits(plan: Plan): string[] {
-  const accounts = `${plan.channels} channels`
-  if (plan.id === "ultimate") return ["Everything in Business", accounts]
+  const accounts = `${socialSetCount(plan.socialSets)}: one account on each platform`
   if (plan.features.followUpNudge)
     return [
       "Everything in Growth",
@@ -119,7 +117,7 @@ export function PlanCards({
   className?: string
 }) {
   return (
-    <div className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-4", className)}>
+    <div className={cn("grid gap-4 lg:grid-cols-3", className)}>
       {PLAN_IDS.map((id) => {
         const plan = PLANS[id]
         return (

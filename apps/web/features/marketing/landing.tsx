@@ -428,7 +428,7 @@ const audienceDetails: string[][] = [
     "Followers-only links",
   ],
   ["One launch calendar", "Product carousels in DMs", "Clicks per campaign"],
-  ["Up to 100 channels", "Captions per channel", "Analytics per client"],
+  ["Up to 10 social sets", "Captions per channel", "Analytics per client"],
   ["MCP and REST", "OpenAPI document", "Scoped API keys"],
 ]
 

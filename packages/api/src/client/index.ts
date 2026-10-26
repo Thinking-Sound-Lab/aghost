@@ -16,6 +16,8 @@ import {
   type Account,
   type InstagramPost,
   type IntegrationStatus,
+  type InsightOverview,
+  type InsightPeriod,
   type InsightQuery,
   type InsightReport,
   type InsightPostQuery,
@@ -26,6 +28,8 @@ import {
   type MediaUpload,
   type Message,
   type Platform,
+  type SocialSet,
+  type SocialSetInput,
   type PostMedia,
   type PublishingAccess,
   type ScheduledPost,
@@ -164,9 +168,11 @@ export function createApiClient(
     },
     accounts: {
       list: () => request<Account[]>("/accounts"),
-      connect: (platform: Platform) =>
+      /** Starts connecting an account on the platform to the social set. */
+      connect: (platform: Platform, socialSetId: string) =>
         request<ConnectAccountResult>("/accounts/connect", "POST", {
           platform,
+          socialSetId,
         }),
       sync: () => request<Account[]>("/accounts/sync", "POST", {}),
       reconnect: (id: string) =>
@@ -183,6 +189,19 @@ export function createApiClient(
         request<InstagramPost[]>(`/accounts/${encodeURIComponent(id)}/posts`),
       remove: (id: string) =>
         request<void>(`/accounts/${encodeURIComponent(id)}`, "DELETE"),
+    },
+    socialSets: {
+      list: () => request<SocialSet[]>("/social-sets"),
+      create: (input: SocialSetInput) =>
+        request<SocialSet>("/social-sets", "POST", input),
+      rename: (id: string, input: SocialSetInput) =>
+        request<SocialSet>(
+          `/social-sets/${encodeURIComponent(id)}`,
+          "PATCH",
+          input
+        ),
+      remove: (id: string) =>
+        request<void>(`/social-sets/${encodeURIComponent(id)}`, "DELETE"),
     },
     automations: {
       list: () => request<Automation[]>("/automations"),
@@ -218,6 +237,14 @@ export function createApiClient(
             days: String(query.days),
             page: String(query.page),
             sort: query.sort,
+          })}`
+        ),
+      /** Every connected channel for the period and the one before it. */
+      overview: (socialSetId: string, days: InsightPeriod) =>
+        request<InsightOverview>(
+          `/insights/overview?${new URLSearchParams({
+            socialSetId,
+            days: String(days),
           })}`
         ),
       postingTimes: (accountId: string) =>
@@ -318,9 +345,13 @@ export function createApiClient(
         ),
     },
     contacts: {
-      list: (search: string, offset = 0) =>
+      list: (socialSetId: string, search: string, offset = 0) =>
         request<ContactPage>(
-          `/contacts?${new URLSearchParams({ search, offset: String(offset) })}`
+          `/contacts?${new URLSearchParams({
+            socialSetId,
+            search,
+            offset: String(offset),
+          })}`
         ),
     },
   }

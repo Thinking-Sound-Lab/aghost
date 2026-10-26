@@ -1,11 +1,13 @@
 import type { Automation } from "../contract/automation"
 import type { Account } from "../contract/account"
 import type { ScheduledPost } from "../contract/post"
+import type { SocialSet } from "../contract/social-set"
 import type { SessionUser } from "../contract/auth"
 import type { User } from "@supabase/supabase-js"
 import type { AutomationRecord } from "../modules/automations/automation"
 import type { AccountRecord } from "../modules/accounts/account"
 import type { ScheduledPostRecord } from "../modules/posts/post"
+import type { SocialSetRecord } from "../modules/social-sets/social-set"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
 
 export function presentWorkspace(record: WorkspaceRecord) {
@@ -33,6 +35,7 @@ export function presentAccount(record: AccountRecord): Account {
     profilePictureUrl,
     status,
     disconnectReason,
+    socialSetId,
     createdAt,
   } = record
   return {
@@ -43,8 +46,13 @@ export function presentAccount(record: AccountRecord): Account {
     profilePictureUrl,
     status,
     disconnectReason,
+    socialSetId,
     createdAt,
   }
+}
+
+export function presentSocialSet(record: SocialSetRecord): SocialSet {
+  return { id: record.id, name: record.name, createdAt: record.createdAt }
 }
 
 export function presentAutomation(record: AutomationRecord): Automation {

@@ -1,6 +1,7 @@
 import type {
   AnalyticsListResponse,
   AnalyticsSinglePostResponse,
+  GetDailyMetricsResponse,
   PostAnalytics,
 } from "@zernio/node"
 import { ZernioApiError } from "@zernio/node"
@@ -27,6 +28,8 @@ import {
 import type {
   InsightAccount,
   InsightsProvider,
+  PlatformTotals,
+  ProfileOverview,
 } from "../../modules/insights/insights.provider"
 import { NotFoundError, ProviderError } from "../../shared/errors"
 import { causeOf, hasStatus, request, type ZernioAccess } from "./zernio-client"
@@ -237,6 +240,74 @@ export class ZernioInsightsProvider implements InsightsProvider {
   }
 
   /**
+   * The whole profile in three requests, however many accounts it has:
+   * followers per account, and post totals per platform for the period and
+   * the one before it.
+   */
+  getOverview(
+    profileId: string,
+    range: InsightRange,
+    previous: InsightRange
+  ): Promise<ProfileOverview | InsightsUnavailable> {
+    return available(async () => {
+      const client = this.zernio()
+      const daily = (dates: InsightRange) =>
+        request("load channel performance", () =>
+          client.analytics.getDailyMetrics({
+            throwOnError: true,
+            query: { profileId, ...dates },
+          })
+        )
+      const [dashboard, current, before] = await Promise.all([
+        request("load followers", () =>
+          client.analytics.getAnalyticsDashboard({
+            throwOnError: true,
+            query: {
+              profileId,
+              platform: "all",
+              ...range,
+              topPosts: 0,
+              recentPosts: 0,
+            },
+          })
+        ),
+        daily(range),
+        daily(previous),
+      ])
+      if (
+        [current, before].some(
+          (result) =>
+            "hasAnalyticsAccess" in result &&
+            result.hasAnalyticsAccess === false
+        )
+      )
+        return { status: "not_enabled" }
+      return {
+        status: "ready",
+        followers: (dashboard.followers?.byAccount ?? []).flatMap((item) =>
+          item.accountId
+            ? [
+                {
+                  accountId: item.accountId,
+                  current: number(item.current),
+                  // Followers can be lost, so a change may be negative.
+                  gained:
+                    typeof item.gained === "number" &&
+                    Number.isFinite(item.gained)
+                      ? item.gained
+                      : null,
+                },
+              ]
+            : []
+        ),
+        current: platformTotals(current),
+        previous: platformTotals(before),
+        updatedAt: dashboard.dataAsOf ?? null,
+      }
+    })
+  }
+
+  /**
    * A platform without account insights is summed from its posts: their
    * lifetime metrics, by the day each was published.
    */
@@ -353,6 +424,22 @@ export class ZernioInsightsProvider implements InsightsProvider {
       )
     return health.permissions.canFetchAnalytics
   }
+}
+
+function platformTotals(result: GetDailyMetricsResponse): PlatformTotals[] {
+  return (result.platformBreakdown ?? []).flatMap((item) =>
+    item.platform
+      ? [
+          {
+            platform: item.platform,
+            posts: number(item.postCount) ?? 0,
+            metrics: Object.fromEntries(
+              CHANNEL_METRICS.map((metric) => [metric, number(item[metric])])
+            ) as PlatformTotals["metrics"],
+          },
+        ]
+      : []
+  )
 }
 
 async function available<T>(

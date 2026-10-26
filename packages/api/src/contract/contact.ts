@@ -23,6 +23,9 @@ export type ContactPage = {
 
 export const contactPageQuerySchema = z.object({
   search: z.string().trim().max(100).default(""),
+  // Contacts belong to a social set. Clients from before sets name none and
+  // get the first set's.
+  socialSetId: z.uuid().optional(),
   offset: z
     .string()
     .regex(/^\d+$/, "Expected a whole number")

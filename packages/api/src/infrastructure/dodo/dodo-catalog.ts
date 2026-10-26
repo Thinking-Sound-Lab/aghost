@@ -4,10 +4,10 @@ import {
   BILLING_INTERVALS,
   PLAN_IDS,
   PLANS,
+  socialSetCount,
   type BillingInterval,
   type PlanId,
 } from "../../contract/billing"
-import { channelCount } from "../../modules/billing/plan-entitlements"
 import { InternalError } from "../../shared/errors"
 import { request, type DodoClient } from "./dodo-client"
 
@@ -61,10 +61,10 @@ export class DodoCatalog {
 
 /** What the product for a plan and interval must look like. */
 export function productSpec(plan: PlanId, interval: BillingInterval) {
-  const { name, channels, prices } = PLANS[plan]
+  const { name, socialSets, prices } = PLANS[plan]
   return {
     name: `aghost ${name} (${interval === "monthly" ? "Monthly" : "Yearly"})`,
-    description: `${channelCount(channels)} on Instagram, Facebook, LinkedIn, X, Threads and YouTube, with unlimited posts, automations, DMs and contacts.`,
+    description: `${socialSetCount(socialSets)}, each with one account on Instagram, Facebook, LinkedIn, X, Threads and YouTube. Unlimited posts, automations, DMs and contacts.`,
     tax_category: "saas" as const,
     // Clear country and currency overrides so only the USD base price remains.
     pricing_mode: null,

@@ -1,4 +1,9 @@
-import { isEntitled, PLANS, type Plan } from "../../contract/billing"
+import {
+  isEntitled,
+  PLANS,
+  socialSetCount,
+  type Plan,
+} from "../../contract/billing"
 import { PlanLimitError, PlanRequiredError } from "../../shared/errors"
 import type { WorkspaceRecord } from "../workspaces/workspace"
 import type { BillingRepository } from "./billing.repository"
@@ -14,20 +19,16 @@ export function supportsAutomation(
   )
 }
 
-/** Counts the accounts a plan's limit applies to, on every platform. */
-export interface ConnectedAccounts {
-  countConnected(workspaceId: string): Promise<number>
-}
-
-export function channelCount(count: number): string {
-  return `${count} channel${count === 1 ? "" : "s"}`
+/** Counts the social sets a plan's limit applies to. */
+export interface SocialSetCounts {
+  countSocialSets(workspaceId: string): Promise<number>
 }
 
 /** Decides what a workspace may do on its current plan. */
 export class PlanEntitlements {
   constructor(
     private readonly billing: BillingRepository,
-    private readonly accounts: ConnectedAccounts
+    private readonly sets: SocialSetCounts
   ) {}
 
   /** The paywall: without a plan, a workspace can only reach billing. */
@@ -35,26 +36,24 @@ export class PlanEntitlements {
     await this.currentPlan(workspace, "use this workspace")
   }
 
-  async assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void> {
-    const plan = await this.currentPlan(workspace, "connect a channel")
-    const connected = await this.accounts.countConnected(workspace.id)
+  async assertCanAddSocialSet(workspace: WorkspaceRecord): Promise<void> {
+    const plan = await this.currentPlan(workspace, "add a social set")
+    const sets = await this.sets.countSocialSets(workspace.id)
 
-    if (connected >= plan.channels) {
+    if (sets >= plan.socialSets) {
       throw new PlanLimitError(
-        `${plan.name} includes ${channelCount(plan.channels)}. Upgrade to connect another.`
+        `${plan.name} includes ${socialSetCount(plan.socialSets)}. Upgrade to add another.`
       )
     }
   }
 
-  async assertCanRunAutomations(workspace: WorkspaceRecord): Promise<void> {
-    const plan = await this.currentPlan(workspace, "turn automations on")
-    const connected = await this.accounts.countConnected(workspace.id)
+  /** A set holds one account per platform; the plan decides how many sets. */
+  async assertCanConnectAccount(workspace: WorkspaceRecord): Promise<void> {
+    await this.assertWithinSets(workspace, "connect a channel")
+  }
 
-    if (connected > plan.channels) {
-      throw new PlanLimitError(
-        `${plan.name} includes ${channelCount(plan.channels)} and ${connected} are connected. Disconnect one or upgrade to turn automations on.`
-      )
-    }
+  async assertCanRunAutomations(workspace: WorkspaceRecord): Promise<void> {
+    await this.assertWithinSets(workspace, "turn automations on")
   }
 
   async assertCanUseAutomationFeatures(
@@ -64,12 +63,27 @@ export class PlanEntitlements {
     const plan = await this.currentPlan(workspace, "configure automations")
     if (config.productCarousel && !plan.features.productCarousel)
       throw new PlanLimitError(
-        "Product carousels are included on Growth, Business and Ultimate. Upgrade to use them."
+        "Product carousels are included on Growth and Business. Upgrade to use them."
       )
     if (config.followUp && !plan.features.followUpNudge)
       throw new PlanLimitError(
-        "Follow-up nudges are included on Business and Ultimate. Upgrade to use them."
+        "Follow-up nudges are included on Business. Upgrade to use them."
       )
+  }
+
+  /** After a downgrade, a workspace with more sets than its plan must delete some. */
+  private async assertWithinSets(
+    workspace: WorkspaceRecord,
+    action: string
+  ): Promise<void> {
+    const plan = await this.currentPlan(workspace, action)
+    const sets = await this.sets.countSocialSets(workspace.id)
+
+    if (sets > plan.socialSets) {
+      throw new PlanLimitError(
+        `${plan.name} includes ${socialSetCount(plan.socialSets)} and this workspace has ${sets}. Delete one or upgrade to ${action}.`
+      )
+    }
   }
 
   private async currentPlan(

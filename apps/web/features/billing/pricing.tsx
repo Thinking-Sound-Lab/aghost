@@ -18,7 +18,7 @@ export function Pricing() {
       <PageIntro
         category="Pricing"
         title="Simple, flat pricing"
-        description="Pay per channel. Every plan includes six platforms, Instagram DM automation, analytics and API access. No caps on DMs."
+        description="Pay per social set: one account on each of six platforms. Every plan includes Instagram DM automation, analytics and API access. No caps on DMs."
       />
       <div className="mx-auto grid max-w-7xl gap-8 px-5 sm:px-8 lg:px-12">
         <BillingIntervalToggle

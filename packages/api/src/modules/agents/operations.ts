@@ -23,6 +23,7 @@ import {
   presentAccount,
   presentAutomation,
   presentScheduledPost,
+  presentSocialSet,
   presentWorkspace,
 } from "../../http/presenters"
 import { validate } from "../../http/validation"
@@ -114,9 +115,18 @@ export const AGENT_OPERATIONS = [
     run: ({ workspace }) => presentWorkspace(workspace),
   }),
   operation({
+    name: "list_social_sets",
+    description:
+      "List the workspace's social sets. A set groups one account on each platform, such as one brand; each account's socialSetId names its set.",
+    scope: "accounts:read",
+    schema: noInput,
+    run: async ({ workspace, services }) =>
+      (await services.socialSets.list(workspace)).map(presentSocialSet),
+  }),
+  operation({
     name: "list_accounts",
     description:
-      "List the workspace's connected accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube, with each one's platform and connection status.",
+      "List the workspace's connected accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube, with each one's platform, connection status and socialSetId. A social set holds one account per platform; cross-post within one set unless the user asks otherwise.",
     scope: "accounts:read",
     schema: noInput,
     run: async ({ workspace, services }) =>
@@ -205,7 +215,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_automation",
     description:
-      "Create an Instagram comment-to-DM automation. Growth, Business and Ultimate allow productCarousel (1–10 cards, replaces the main text bubble; dmButtons must be empty). Business and Ultimate allow followUp (one reminder, 30–1200 minutes, optional link button; skipped after replies, clicks, or expiry of messaging consent). Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
+      "Create an Instagram comment-to-DM automation. Growth and Business allow productCarousel (1–10 cards, replaces the main text bubble; dmButtons must be empty). Business allows followUp (one reminder, 30–1200 minutes, optional link button; skipped after replies, clicks, or expiry of messaging consent). Active automations can send real DMs and public replies. Choose paused to review it first; an empty keywords array matches every comment. A scheduled_post trigger answers comments on a post from list_scheduled_posts once it is published.",
     scope: "automations:write",
     schema: createAutomationSchema,
     run: async ({ workspace, services }, input) =>
@@ -360,10 +370,11 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_contacts",
     description:
-      "Search contacts in this workspace. Returns up to 50 contacts with total and hasMore for pagination.",
+      "Search the contacts of one social set, or the first set when socialSetId is omitted; list_social_sets returns the ids. Returns up to 50 contacts with total and hasMore for pagination.",
     scope: "contacts:read",
     schema: z.object({
       search: z.string().trim().max(100).default(""),
+      socialSetId: z.uuid().optional(),
       offset: offsetSchema,
     }),
     run: ({ workspace, services }, query) =>

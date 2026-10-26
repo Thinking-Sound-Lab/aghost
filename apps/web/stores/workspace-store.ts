@@ -6,6 +6,7 @@ import type {
   Account,
   IntegrationStatus,
   Platform,
+  SocialSet,
   Workspace,
   BillingState,
 } from "@workspace/api/contract"
@@ -21,16 +22,36 @@ export function hasPlan(billing: BillingState | null): boolean {
   return Boolean(subscription && isEntitled(subscription.status))
 }
 
-/** Whether another account can be connected: the plan has room for it. */
+/** The social sets the workspace's plan includes. */
+export function setLimit(billing: BillingState | null): number {
+  const subscription = billing?.subscription
+  return subscription && isEntitled(subscription.status)
+    ? PLANS[subscription.plan].socialSets
+    : 0
+}
+
+/**
+ * Whether the set can take an account on the platform: the plan covers the
+ * workspace's sets and the set has none there yet.
+ */
 export function canConnect(
-  state: Pick<WorkspaceState, "accounts" | "billing" | "integration">
+  state: Pick<
+    WorkspaceState,
+    "accounts" | "billing" | "integration" | "socialSets"
+  >,
+  socialSetId: string,
+  platform: Platform
 ): boolean {
-  const subscription = state.billing?.subscription
-  const limit = subscription ? PLANS[subscription.plan].channels : 0
-  const connected = state.accounts.filter(
-    (account) => account.status === "connected"
-  ).length
-  return Boolean(state.integration?.instagramConfigured) && connected < limit
+  return (
+    Boolean(state.integration?.instagramConfigured) &&
+    state.socialSets.length <= setLimit(state.billing) &&
+    !state.accounts.some(
+      (account) =>
+        account.socialSetId === socialSetId &&
+        account.platform === platform &&
+        account.status === "connected"
+    )
+  )
 }
 
 export function errorMessage(error: unknown): string {
@@ -46,6 +67,8 @@ export function errorMessage(error: unknown): string {
 
 type WorkspaceState = {
   workspace: Workspace | null
+  /** Groups of one account per platform; the first is the oldest. */
+  socialSets: SocialSet[]
   accounts: Account[]
   automations: Automation[]
   stats: AutomationStatsById | null
@@ -61,12 +84,17 @@ type WorkspaceState = {
   load: () => Promise<void>
   loadStats: () => Promise<void>
   applySaved: (automation: Automation) => void
-  connect: (platform: Platform) => Promise<void>
+  /** Connects an account on the platform to the social set. */
+  connect: (platform: Platform, socialSetId: string) => Promise<void>
   /**
    * Authorizes a new account in another tab, so the page stays as it is.
    * That tab closes itself once the account is saved.
    */
-  connectInNewTab: (platform: Platform) => Promise<void>
+  connectInNewTab: (platform: Platform, socialSetId: string) => Promise<void>
+  /** Adds a social set, returning it, or null when it couldn't be added. */
+  createSet: (name: string) => Promise<SocialSet | null>
+  renameSet: (id: string, name: string) => Promise<void>
+  removeSet: (id: string) => Promise<void>
   /** Authorizes an account again, to grant the permissions it lacks. */
   reconnect: (id: string) => Promise<void>
   sync: () => Promise<void>
@@ -80,6 +108,7 @@ type WorkspaceState = {
 }
 const initial = {
   workspace: null,
+  socialSets: [],
   accounts: [],
   automations: [],
   stats: null,
@@ -111,8 +140,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         set({ ...initial, integration, billing, status: "ready" })
         return
       }
-      const [workspace, accounts, automations] = await Promise.all([
+      const [workspace, socialSets, accounts, automations] = await Promise.all([
         api.workspace.get(),
+        api.socialSets.list(),
         api.accounts.list(),
         api.automations.list(),
       ])
@@ -121,6 +151,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       })
       set({
         workspace,
+        socialSets,
         accounts,
         automations,
         integration,
@@ -156,17 +187,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     // Updates the counts in place; the page keeps rendering meanwhile.
     void get().loadStats()
   },
-  connect: async (platform) => {
+  connect: async (platform, socialSetId) => {
     if (get().busy) return
     set({ busy: true, error: null })
     try {
-      const { authUrl } = await api.accounts.connect(platform)
+      const { authUrl } = await api.accounts.connect(platform, socialSetId)
       window.location.assign(authUrl)
     } catch (error) {
       set({ error: errorMessage(error), busy: false })
     }
   },
-  connectInNewTab: async (platform) => {
+  connectInNewTab: async (platform, socialSetId) => {
     if (get().busy) return
     // Opened during the click, before the request, so it is not blocked.
     const tab = window.open("", "_blank")
@@ -177,7 +208,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     tab.opener = null
     set({ busy: true, error: null })
     try {
-      const { authUrl } = await api.accounts.connect(platform)
+      const { authUrl } = await api.accounts.connect(platform, socialSetId)
       tab.location.href = authUrl
     } catch (error) {
       tab.close()
@@ -256,6 +287,45 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         ),
       })
       await get().loadStats()
+    } catch (error) {
+      set({ error: errorMessage(error) })
+    } finally {
+      set({ busy: false })
+    }
+  },
+  createSet: async (name) => {
+    set({ busy: true, error: null })
+    try {
+      const created = await api.socialSets.create({ name })
+      set({ socialSets: [...get().socialSets, created] })
+      return created
+    } catch (error) {
+      set({ error: errorMessage(error) })
+      return null
+    } finally {
+      set({ busy: false })
+    }
+  },
+  renameSet: async (id, name) => {
+    set({ busy: true, error: null })
+    try {
+      const renamed = await api.socialSets.rename(id, { name })
+      set({
+        socialSets: get().socialSets.map((item) =>
+          item.id === id ? renamed : item
+        ),
+      })
+    } catch (error) {
+      set({ error: errorMessage(error) })
+    } finally {
+      set({ busy: false })
+    }
+  },
+  removeSet: async (id) => {
+    set({ busy: true, error: null })
+    try {
+      await api.socialSets.remove(id)
+      set({ socialSets: get().socialSets.filter((item) => item.id !== id) })
     } catch (error) {
       set({ error: errorMessage(error) })
     } finally {

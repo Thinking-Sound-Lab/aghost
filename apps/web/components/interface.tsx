@@ -34,7 +34,7 @@ export function Page({
 }) {
   return (
     <div className="relative min-h-0 flex-1 overflow-auto">
-      <div className="mx-auto grid w-full max-w-5xl content-start gap-8 px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-[minmax(0,1fr)] content-start gap-8 px-4 py-6 sm:px-6 md:px-10 md:py-10">
         <header className="flex min-h-9 items-center gap-2">
           {back && (
             <Link

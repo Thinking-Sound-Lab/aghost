@@ -18,6 +18,8 @@ import {
 } from "@/components/interface"
 import { timeAgo } from "@/lib/format"
 import { useInboxStore } from "@/stores/inbox-store"
+import { accountsIn, useActiveSet } from "@/stores/social-set-store"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 
 export function Inbox() {
   const inbox = useInboxStore()
@@ -25,8 +27,16 @@ export function Inbox() {
   useEffect(() => {
     void load()
   }, [load])
+  const accounts = accountsIn(
+    useWorkspaceStore((state) => state.accounts),
+    useActiveSet()
+  )
+  // Conversations of the set being shown, on its Instagram accounts.
+  const inSet = inbox.conversations.filter((item) =>
+    accounts.some((account) => account.id === item.instagramAccountId)
+  )
   const query = inbox.query.trim().toLowerCase()
-  const conversations = inbox.conversations.filter((item) =>
+  const conversations = inSet.filter((item) =>
     (item.participant.name ?? "").toLowerCase().includes(query)
   )
   return (
@@ -53,7 +63,7 @@ export function Inbox() {
           <div className="ph-no-capture grid min-h-0 flex-1 content-start gap-0.5 overflow-auto p-3">
             {conversations.length === 0 && inbox.status === "ready" && (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {inbox.conversations.length ? "No matches" : "No messages yet"}
+                {inSet.length ? "No matches" : "No messages yet"}
               </p>
             )}
             {conversations.map((item) => (

@@ -15,6 +15,7 @@ import { EmptyState, ErrorBanner, Page } from "@/components/interface"
 import { PlatformIcon } from "@/components/platform-icon"
 import { MediaThumb } from "@/features/calendar/post-media"
 import { daysOf, useCalendarStore } from "@/stores/calendar-store"
+import { accountsIn, useActiveSet } from "@/stores/social-set-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
 export const STATUS: Record<
@@ -51,7 +52,11 @@ function dayKey(date: Date): string {
 
 export function Calendar() {
   const store = useCalendarStore()
-  const accounts = useWorkspaceStore((state) => state.accounts)
+  const socialSet = useActiveSet()
+  const accounts = accountsIn(
+    useWorkspaceStore((state) => state.accounts),
+    socialSet
+  )
   const { status, load } = store
   useEffect(() => {
     // Returning to the page shows what was published meanwhile.
@@ -74,7 +79,9 @@ export function Calendar() {
 
   const days = daysOf(store.month)
   const byDay = new Map<string, ScheduledPost[]>()
-  for (const post of store.posts) {
+  // The calendar shows the set being shown; each post is one account's copy.
+  const shown = new Set(accounts.map((account) => account.id))
+  for (const post of store.posts.filter((item) => shown.has(item.accountId))) {
     const key = dayKey(new Date(post.scheduledFor))
     byDay.set(key, [...(byDay.get(key) ?? []), post])
   }

@@ -20,16 +20,23 @@ export class InboxService {
   ) {}
 
   async listConversations(workspace: WorkspaceRecord): Promise<Conversation[]> {
-    // Without a provider profile the workspace has never connected an account,
-    // so it has no conversations.
-    if (!workspace.providerProfileId) {
-      return []
-    }
-
-    const [conversations, accounts] = await Promise.all([
-      this.provider.listConversations(workspace.providerProfileId),
-      this.accounts.listByWorkspace(workspace.id),
-    ])
+    const accounts = await this.accounts.listByWorkspace(workspace.id)
+    // Each social set's profile holds its own conversations.
+    const profiles = new Set(
+      accounts.flatMap((account) =>
+        account.platform === "instagram" && account.providerProfileId
+          ? [account.providerProfileId]
+          : []
+      )
+    )
+    const conversations = (
+      await Promise.all(
+        [...profiles].map((profile) => this.provider.listConversations(profile))
+      )
+    )
+      .flat()
+      // Newest first across sets; a thread without a time goes last.
+      .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
 
     const accountIdByProviderId = new Map(
       accounts

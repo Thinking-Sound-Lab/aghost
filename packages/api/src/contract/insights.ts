@@ -45,6 +45,11 @@ export const insightQuerySchema = insightInputSchema.extend({
     .default(1),
 })
 
+/** The overview covers one social set, the first when none is named. */
+export const insightOverviewQuerySchema = insightQuerySchema
+  .pick({ days: true })
+  .extend({ socialSetId: z.uuid().optional() })
+
 export const insightPostQuerySchema = insightQuerySchema.pick({
   accountId: true,
   days: true,
@@ -54,10 +59,7 @@ export const insightTimingQuerySchema = insightQuerySchema.pick({
   accountId: true,
 })
 
-/** A minimum sample, not a claim of statistical confidence. */
-export const INSIGHT_TIMING_MIN_POSTS = 3
-
-export type InsightTimingSlot = {
+type InsightTimingSlot = {
   /** Monday = 0, Sunday = 6. The source buckets are in UTC. */
   dayOfWeek: number
   hour: number
@@ -79,6 +81,7 @@ export type InsightTimingReport =
     })
 
 export type InsightQuery = z.infer<typeof insightQuerySchema>
+export type InsightOverviewQuery = z.infer<typeof insightOverviewQuerySchema>
 export type InsightPostQuery = z.infer<typeof insightPostQuerySchema>
 export type InsightRange = { fromDate: string; toDate: string }
 
@@ -171,3 +174,42 @@ export type InsightPostReport =
 
 /** One page of the content table, without the account summary. */
 export type InsightContentReport = InsightsUnavailable | ContentPage
+
+/**
+ * One platform's posts published in a period, with their lifetime metrics.
+ * Metrics the platform doesn't report stay null.
+ */
+export type InsightOverviewChannel = {
+  platform: Platform
+  /** The workspace's connected accounts on this platform. */
+  accountIds: string[]
+  /** Null when no account on the platform has a follower count yet. */
+  followers: number | null
+  followersGained: number | null
+  posts: number
+  /** Likes, comments, shares and saves, as far as the platform reports them. */
+  engagements: number | null
+  metrics: Record<ChannelMetric, number | null>
+}
+
+/** Posts, views and engagement (likes, comments, shares and saves). */
+export type InsightOverviewTotals = {
+  posts: number
+  views: number | null
+  engagements: number | null
+}
+
+/** Every connected channel at once, for the period and the one before it. */
+export type InsightOverview =
+  | InsightsUnavailable
+  | {
+      status: "ready"
+      range: InsightRange
+      previousRange: InsightRange
+      followers: number | null
+      followersGained: number | null
+      totals: InsightOverviewTotals
+      previousTotals: InsightOverviewTotals
+      channels: InsightOverviewChannel[]
+      updatedAt: string | null
+    }

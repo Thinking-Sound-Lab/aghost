@@ -46,6 +46,7 @@ import {
 import { Brand } from "@/components/brand"
 import { Avatar, ErrorBanner, Loading } from "@/components/interface"
 import { Paywall } from "@/features/billing/paywall"
+import { SocialSetSwitcher } from "./social-set-switcher"
 import { useAuthStore } from "@/stores/auth-store"
 import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
@@ -89,9 +90,12 @@ function SidebarContent({
         <Brand href="/home" onClick={onNavigate} />
         {closeButton}
       </div>
+      <div className="mt-6 md:mt-8">
+        <SocialSetSwitcher onNavigate={onNavigate} />
+      </div>
       <nav
         aria-label="Workspace"
-        className="mt-6 grid gap-1 overflow-y-auto md:mt-8 md:gap-px"
+        className="mt-4 grid gap-1 overflow-y-auto md:gap-px"
       >
         {navigation.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`)

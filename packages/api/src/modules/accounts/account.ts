@@ -12,6 +12,9 @@ export type AccountRecord = {
   profilePictureUrl: string | null
   status: AccountStatus
   disconnectReason: string | null
+  socialSetId: string
+  /** Its social set's provider profile, which holds the account. */
+  providerProfileId: string | null
   createdAt: string
 }
 
@@ -43,7 +46,19 @@ export const DISCONNECT_REASONS = {
   removed: "This account is no longer connected.",
   planLimit:
     "Your plan has no room for another channel. Upgrade to reconnect it.",
+  // The database writes both plan reasons; the provider then lets go of the
+  // account, since aghost won't use it.
+  setTaken:
+    "This social set already has an account on this platform. Connect it to another set.",
 } as const
+
+/** The database turned the connection away, so the provider shouldn't keep it. */
+export function isRejected(reason: string | null): boolean {
+  return (
+    reason === DISCONNECT_REASONS.planLimit ||
+    reason === DISCONNECT_REASONS.setTaken
+  )
+}
 
 export type AccountState = Pick<AccountRecord, "status" | "disconnectReason">
 

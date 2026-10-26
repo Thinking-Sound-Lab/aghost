@@ -1,6 +1,7 @@
 import {
   isEntitled,
   PLANS,
+  socialSetCount,
   type BillingState,
   type ChoosePlanInput,
   type PlanChangeResult,
@@ -23,7 +24,7 @@ import {
 } from "./billing-analytics"
 import type { BillingProvider } from "./billing.provider"
 import type { BillingRepository } from "./billing.repository"
-import { channelCount, type ConnectedAccounts } from "./plan-entitlements"
+import type { SocialSetCounts } from "./plan-entitlements"
 
 /** Stops the automations of a workspace whose plan has ended. */
 export interface WorkspaceAutomations {
@@ -52,7 +53,7 @@ export class BillingService {
   constructor(
     private readonly billing: BillingRepository,
     private readonly provider: BillingProvider,
-    private readonly accounts: ConnectedAccounts,
+    private readonly sets: SocialSetCounts,
     private readonly automations: WorkspaceAutomations,
     private readonly posts: WorkspacePosts,
     private readonly pages: BillingPages,
@@ -61,9 +62,9 @@ export class BillingService {
   ) {}
 
   async getState(workspace: WorkspaceRecord): Promise<BillingState> {
-    const [record, connectedAccounts] = await Promise.all([
+    const [record, socialSets] = await Promise.all([
       this.billing.findByWorkspace(workspace.id),
-      this.accounts.countConnected(workspace.id),
+      this.sets.countSocialSets(workspace.id),
     ])
     const snapshot = record?.subscription ?? null
     // Keeps the plan on the owner and workspace current, including for
@@ -82,7 +83,7 @@ export class BillingService {
         currentPeriodEnd: snapshot.currentPeriodEnd,
         cancelAtPeriodEnd: snapshot.cancelAtPeriodEnd,
       },
-      connectedAccounts,
+      socialSets,
     }
   }
 
@@ -219,11 +220,11 @@ export class BillingService {
     }
 
     const plan = PLANS[choice.plan]
-    const connected = await this.accounts.countConnected(workspace.id)
+    const sets = await this.sets.countSocialSets(workspace.id)
 
-    if (connected > plan.channels) {
+    if (sets > plan.socialSets) {
       throw new PlanLimitError(
-        `${plan.name} includes ${channelCount(plan.channels)} and ${connected} are connected. Disconnect accounts first.`
+        `${plan.name} includes ${socialSetCount(plan.socialSets)} and this workspace has ${sets}. Delete social sets first.`
       )
     }
 
@@ -381,8 +382,8 @@ export class BillingService {
         throw new AggregateError(failures, "Could not stop workspace activity")
       return
     }
-    const connected = await this.accounts.countConnected(workspace.id)
-    if (connected > PLANS[subscription.plan].channels)
+    const sets = await this.sets.countSocialSets(workspace.id)
+    if (sets > PLANS[subscription.plan].socialSets)
       await this.automations.pauseAll(workspace)
     else
       await this.automations.pauseUnsupported(

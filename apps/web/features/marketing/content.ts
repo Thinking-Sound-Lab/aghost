@@ -1,4 +1,9 @@
-import { AUTOMATION_LIMITS, PLAN_IDS, PLANS } from "@workspace/api/contract"
+import {
+  AUTOMATION_LIMITS,
+  PLAN_IDS,
+  PLANS,
+  socialSetCount,
+} from "@workspace/api/contract"
 import { price } from "@/features/billing/plan-cards"
 
 // One copy of the marketing text: the landing page, its structured data, and
@@ -35,7 +40,7 @@ export const audiences = [
   },
   {
     title: "Agencies",
-    text: "Up to 100 channels in one workspace, with analytics for each.",
+    text: "Up to 10 social sets, one per client, with analytics for each.",
   },
   {
     title: "Developers",
@@ -45,7 +50,7 @@ export const audiences = [
 
 const planPrices = PLAN_IDS.map((id) => {
   const plan = PLANS[id]
-  return `${plan.name} ${price(plan.prices.USD.monthly, "USD")}/month for ${plan.channels} channels`
+  return `${plan.name} ${price(plan.prices.USD.monthly, "USD")}/month for ${socialSetCount(plan.socialSets)}`
 })
 
 /** The agents the setup skill names. Any MCP client over HTTP works. */
@@ -64,7 +69,7 @@ export const agentAbilities = [
 export const steps = [
   {
     title: "Connect your channels",
-    text: "Sign in to each platform once. Every account is one channel.",
+    text: "Sign in to each platform once. One account each makes a social set.",
   },
   {
     title: "Write once, preview everywhere",
@@ -76,7 +81,7 @@ export const steps = [
   },
   {
     title: "See what worked",
-    text: "Reach, clicks and best posting times for every channel.",
+    text: "Reach, clicks and engagement for every channel.",
   },
 ]
 
@@ -156,7 +161,7 @@ export const faqs = [
   },
   {
     question: "Which platforms can I post to?",
-    answer: `${platformNames}. Each connected account is one channel on your plan.`,
+    answer: `${platformNames}. A social set holds one account on each, such as one brand; plans include 1, 2 or 10 sets.`,
   },
   {
     question: "Can I write a different caption for each platform?",
@@ -166,6 +171,11 @@ export const faqs = [
   {
     question: "How much does aghost cost?",
     answer: `${planPrices.join(", ")}. Every plan includes all six platforms, analytics, MCP and REST, and unlimited DMs and contacts. Prices in USD, taxes included.`,
+  },
+  {
+    question: "What is a social set?",
+    answer:
+      "One account on each platform, such as one brand's Instagram, LinkedIn and YouTube. Switch between sets to run several brands or clients from one workspace.",
   },
   {
     question: "Which AI agents work with aghost?",

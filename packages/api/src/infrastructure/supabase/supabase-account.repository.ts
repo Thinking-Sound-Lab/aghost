@@ -10,9 +10,15 @@ import type {
 import type { AccountRepository } from "../../modules/accounts/account.repository"
 import type { DataClients } from "./data-clients"
 import { completed, optional, required } from "./query"
-import { ConflictError, InternalError } from "../../shared/errors"
+import { ConflictError } from "../../shared/errors"
 
-type AccountRow = Database["public"]["Tables"]["instagram_accounts"]["Row"]
+type AccountRow = Database["public"]["Tables"]["instagram_accounts"]["Row"] & {
+  social_sets: { zernio_profile_id: string | null }
+}
+
+// The set's profile comes with each account; its composite key names the join.
+const ACCOUNT =
+  "*, social_sets!instagram_accounts_social_set_fkey(zernio_profile_id)"
 
 const statusSchema = z.enum(ACCOUNT_STATUSES)
 
@@ -27,6 +33,8 @@ function toRecord(row: AccountRow): AccountRecord {
     profilePictureUrl: row.profile_picture_url,
     status: statusSchema.parse(row.status),
     disconnectReason: row.disconnect_reason,
+    socialSetId: row.social_set_id,
+    providerProfileId: row.social_sets.zernio_profile_id,
     createdAt: row.created_at,
   }
 }
@@ -38,28 +46,13 @@ export class SupabaseAccountRepository implements AccountRepository {
     const rows = required(
       await this.db.scoped
         .from("instagram_accounts")
-        .select()
+        .select(ACCOUNT)
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: true }),
       "list the connected accounts"
     )
 
     return rows.map(toRecord)
-  }
-
-  async countConnected(workspaceId: string): Promise<number> {
-    const { count, error } = await this.db.scoped
-      .from("instagram_accounts")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .eq("status", "connected")
-    completed({ error }, "count the connected accounts")
-    if (count === null) {
-      throw new InternalError(
-        "The database did not count the connected accounts."
-      )
-    }
-    return count
   }
 
   async findById(
@@ -69,7 +62,7 @@ export class SupabaseAccountRepository implements AccountRepository {
     const row = optional(
       await this.db.scoped
         .from("instagram_accounts")
-        .select()
+        .select(ACCOUNT)
         .eq("workspace_id", workspaceId)
         .eq("id", id)
         .maybeSingle(),
@@ -81,6 +74,7 @@ export class SupabaseAccountRepository implements AccountRepository {
 
   async save(
     workspaceId: string,
+    socialSetId: string,
     snapshot: AccountSnapshot
   ): Promise<AccountRecord> {
     // A provider id is unique across workspaces. Never reassign an existing
@@ -97,6 +91,8 @@ export class SupabaseAccountRepository implements AccountRepository {
       await this.db.privileged.from("instagram_accounts").upsert(
         {
           workspace_id: workspaceId,
+          // A stored account stays in its set.
+          social_set_id: socialSetId,
           zernio_account_id: snapshot.providerAccountId,
           platform: snapshot.platform,
           ...values,
@@ -111,7 +107,7 @@ export class SupabaseAccountRepository implements AccountRepository {
         .update(values)
         .eq("workspace_id", workspaceId)
         .eq("zernio_account_id", snapshot.providerAccountId)
-        .select()
+        .select(ACCOUNT)
         .maybeSingle(),
       "save the account"
     )

@@ -68,6 +68,8 @@ type Events = {
   user_signed_up: { method: "google" }
   user_signed_in: { method: "google" }
   workspace_renamed: None
+  social_set_created: None
+  social_set_deleted: None
   api_key_created: { api_key_id: string; scope_count: number; expires: boolean }
   api_key_revoked: { api_key_id: string }
   /** One REST operation or MCP tool call by an agent. */

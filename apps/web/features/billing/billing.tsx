@@ -5,6 +5,7 @@ import { RefreshCw } from "lucide-react"
 import {
   isEntitled,
   PLANS,
+  socialSetCount,
   type SubscriptionStatus,
 } from "@workspace/api/contract"
 import { Button } from "@workspace/ui/components/button"
@@ -81,8 +82,9 @@ export function Billing() {
                       </p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      {store.state.connectedAccounts} of {currentPlan?.channels}{" "}
-                      channels connected
+                      {store.state.socialSets} of{" "}
+                      {socialSetCount(PLANS[subscription.plan].socialSets)} in
+                      use
                     </p>
                   </>
                 ) : (
@@ -162,7 +164,7 @@ export function Billing() {
                   subscription.interval === store.interval
                 // Only a plan change: nothing can be disconnected at the paywall.
                 const tooSmall =
-                  active && store.state!.connectedAccounts > plan.channels
+                  active && store.state!.socialSets > plan.socialSets
                 if (current)
                   return (
                     <Button className="w-full" variant="secondary" disabled>
@@ -172,7 +174,7 @@ export function Billing() {
                 if (tooSmall)
                   return (
                     <p className="text-sm text-muted-foreground">
-                      Disconnect accounts to choose {plan.name}.
+                      Delete social sets to choose {plan.name}.
                     </p>
                   )
                 if (active)

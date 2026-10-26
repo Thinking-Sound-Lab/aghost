@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const PLAN_IDS = ["pro", "growth", "business", "ultimate"] as const
+export const PLAN_IDS = ["pro", "growth", "business"] as const
 export const BILLING_INTERVALS = ["monthly", "yearly"] as const
 export const BILLING_CURRENCIES = ["USD"] as const
 
@@ -13,22 +13,22 @@ type PlanPrices = Record<BillingCurrency, Record<BillingInterval, number>>
 export type Plan = {
   id: PlanId
   name: string
-  /** Connected accounts on any platform, counted together. */
-  channels: number
+  /** Groups of one account on each platform, such as one per brand. */
+  socialSets: number
   features: { productCarousel: boolean; followUpNudge: boolean }
   /** Tax-inclusive, in US cents. */
   prices: PlanPrices
 }
 
 /**
- * Every plan is a flat US dollar price, in every country, following Postiz's
- * channel pricing. Yearly billing is about 20% less, paid upfront.
+ * Every plan is a flat US dollar price, in every country, sold by social set:
+ * one account on each platform. Yearly billing is about 20% less, paid upfront.
  */
 export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: "pro",
     name: "Pro",
-    channels: 5,
+    socialSets: 1,
     features: { productCarousel: false, followUpNudge: false },
     prices: {
       USD: { monthly: 2_900, yearly: 27_600 },
@@ -37,7 +37,7 @@ export const PLANS: Record<PlanId, Plan> = {
   growth: {
     id: "growth",
     name: "Growth",
-    channels: 10,
+    socialSets: 2,
     features: { productCarousel: true, followUpNudge: false },
     prices: {
       USD: { monthly: 3_900, yearly: 37_200 },
@@ -46,21 +46,17 @@ export const PLANS: Record<PlanId, Plan> = {
   business: {
     id: "business",
     name: "Business",
-    channels: 30,
+    socialSets: 10,
     features: { productCarousel: true, followUpNudge: true },
     prices: {
       USD: { monthly: 4_900, yearly: 46_800 },
     },
   },
-  ultimate: {
-    id: "ultimate",
-    name: "Ultimate",
-    channels: 100,
-    features: { productCarousel: true, followUpNudge: true },
-    prices: {
-      USD: { monthly: 9_900, yearly: 94_800 },
-    },
-  },
+}
+
+/** "1 social set", "10 social sets". */
+export function socialSetCount(count: number): string {
+  return `${count} social set${count === 1 ? "" : "s"}`
 }
 
 export const SUBSCRIPTION_STATUSES = [
@@ -104,8 +100,8 @@ export type BillingState = {
   currency: BillingCurrency
   /** The workspace's most recent subscription, which may have ended. */
   subscription: Subscription | null
-  /** Accounts connected now on every platform, counted against the plan. */
-  connectedAccounts: number
+  /** The workspace's social sets, counted against the plan. */
+  socialSets: number
 }
 
 export const choosePlanSchema = z.object({

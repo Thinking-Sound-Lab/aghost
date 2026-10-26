@@ -238,9 +238,9 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
     accountId = accounts.json<{ id: string }[]>()[0]!.id
     profileId = (
       await admin
-        .from("workspaces")
+        .from("social_sets")
         .select("zernio_profile_id")
-        .eq("id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .single()
     ).data!.zernio_profile_id!
   })
@@ -672,14 +672,6 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
       followUp: { ...followUp, message: "A new reminder" },
     })
     expect(changed.statusCode, changed.body).toBe(403)
-  })
-
-  it("queues reminders on Ultimate as it does on Business", async () => {
-    await grantPlan(config, workspaceId, "ultimate")
-    const automation = await create({ followUp })
-    const event = await enqueue(automation)
-    expect(event.response.json()).toMatchObject({ receipt: "processed" })
-    expect(await jobs(automation)).toHaveLength(1)
   })
 
   it("claims due jobs exclusively across replicas and recovers an expired lease", async () => {

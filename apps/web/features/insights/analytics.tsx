@@ -26,6 +26,7 @@ import { ChannelAvatar } from "@/components/platform-icon"
 import { count, timeAgo } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useInsightsStore } from "@/stores/insights-store"
+import { accountsIn, useActiveSet } from "@/stores/social-set-store"
 import { contactHref } from "@/features/marketing/contact"
 import {
   ContentPerformance,
@@ -35,7 +36,6 @@ import {
   percentage,
 } from "./content-performance"
 import { DitherChart } from "./dither-chart"
-import { PostingTimes } from "./posting-times"
 
 function AccessNotice({
   status,
@@ -236,9 +236,8 @@ export function Analytics() {
   const workspace = useWorkspaceStore()
   const store = useInsightsStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const account =
-    workspace.accounts.find((item) => item.id === selectedId) ??
-    workspace.accounts[0]
+  const accounts = accountsIn(workspace.accounts, useActiveSet())
+  const account = accounts.find((item) => item.id === selectedId) ?? accounts[0]
   const workspaceId = workspace.workspace?.id
   const accountId = account?.id
   const show = store.show
@@ -263,15 +262,13 @@ export function Analytics() {
           <Button
             variant="outline"
             size="sm"
-            disabled={loading || (current && store.timingLoading)}
+            disabled={loading}
             onClick={() => void store.refresh()}
           >
             <RefreshCw
               aria-hidden="true"
               className={
-                loading || (current && store.timingLoading)
-                  ? "animate-spin motion-reduce:animate-none"
-                  : ""
+                loading ? "animate-spin motion-reduce:animate-none" : ""
               }
             />
             Refresh
@@ -305,7 +302,7 @@ export function Analytics() {
                 value={account.id}
                 onChange={(event) => setSelectedId(event.target.value)}
               >
-                {workspace.accounts.map((item) => (
+                {accounts.map((item) => (
                   <option key={item.id} value={item.id}>
                     {accountLabel(item)} · {PLATFORM_RULES[item.platform].name}
                   </option>
@@ -386,22 +383,6 @@ export function Analytics() {
                   </section>
                 </>
               )}
-              <PostingTimes
-                utc={store.timingUtc}
-                onUtcChange={store.setTimingUtc}
-                report={store.timing}
-                loading={store.timingLoading}
-                error={store.timingError}
-                retry={() => void store.loadTiming()}
-                notice={
-                  store.timing && store.timing.status !== "ready" ? (
-                    <AccessNotice
-                      status={store.timing.status}
-                      account={account}
-                    />
-                  ) : null
-                }
-              />
               <ContentPerformance
                 loading={store.contentLoading}
                 error={store.contentError}

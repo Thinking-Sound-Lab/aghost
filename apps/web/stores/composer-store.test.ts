@@ -38,6 +38,7 @@ const account: Account = {
   profilePictureUrl: null,
   status: "connected",
   disconnectReason: null,
+  socialSetId: "set",
   createdAt: "2026-10-14T00:00:00Z",
 }
 const media: PostMedia = {
@@ -141,6 +142,9 @@ describe("cross-posting from the composer", () => {
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
     useWorkspaceStore.setState({
       workspace: { id: "workspace", name: "Workspace" },
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
       accounts: [account, x, youtube],
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
@@ -237,6 +241,9 @@ describe("channels and times from the schedule dialog", () => {
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
     useWorkspaceStore.setState({
       workspace: { id: "workspace", name: "Workspace" },
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
       accounts: [account],
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
@@ -296,6 +303,9 @@ describe("the scheduling composer across failures and navigation", () => {
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
     useWorkspaceStore.setState({
       workspace: { id: "workspace", name: "Workspace" },
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
       accounts: [account],
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })

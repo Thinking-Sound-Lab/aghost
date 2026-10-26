@@ -172,6 +172,34 @@ describe("Instagram analytics HTTP lifecycle", () => {
     expect(fixture.requests).toHaveLength(0)
   })
 
+  it("adds up the workspace's channels for the home overview", async () => {
+    expect((await get("/insights/overview", 99)).statusCode).toBe(401)
+    expect((await get("/insights/overview", 2)).statusCode).toBe(402)
+    expect((await get("/insights/overview?days=365")).statusCode).toBe(422)
+    // A workspace without channels has nothing to ask the provider for.
+    expect((await get("/insights/overview", 1)).json()).toMatchObject({
+      status: "ready",
+      channels: [],
+    })
+    expect(fixture.requests).toHaveLength(0)
+    const response = await get("/insights/overview?days=7")
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({
+      status: "ready",
+      followers: 1_200,
+      followersGained: 40,
+      totals: { posts: 2, views: 3_100, engagements: 173 },
+      channels: [
+        {
+          platform: "instagram",
+          accountIds: [account.id],
+          followers: 1_200,
+          posts: 2,
+        },
+      ],
+    })
+  })
+
   it("returns posting-time samples through the account-scoped endpoint and real SDK", async () => {
     const response = await get(
       `/insights/posting-times?accountId=${account.id}`

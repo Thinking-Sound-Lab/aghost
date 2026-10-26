@@ -7,6 +7,7 @@ import {
   POST_LIMITS,
   accountLabel,
   type Account,
+  type Platform,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
@@ -26,6 +27,7 @@ import {
   zoneLabel,
 } from "@/features/calendar/schedule-time"
 import { useComposerStore } from "@/stores/composer-store"
+import { useActiveSet } from "@/stores/social-set-store"
 import { canConnect, useWorkspaceStore } from "@/stores/workspace-store"
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -77,7 +79,9 @@ export function ScheduleDialog({
     : PLATFORMS.filter(
         (platform) => !accounts.some((item) => item.platform === platform)
       )
-  const room = canConnect(workspace)
+  const socialSet = useActiveSet()
+  const room = (platform: Platform) =>
+    socialSet !== null && canConnect(workspace, socialSet.id, platform)
   const count = draft.accountIds.length
 
   return (
@@ -198,9 +202,9 @@ export function ScheduleDialog({
                 type="button"
                 variant="ghost"
                 size="xs"
-                disabled={!room || workspace.busy}
+                disabled={!room(platform) || workspace.busy}
                 title={
-                  room
+                  room(platform)
                     ? `Connect ${PLATFORM_RULES[platform].name} in a new tab`
                     : "Your plan has no room for another channel"
                 }

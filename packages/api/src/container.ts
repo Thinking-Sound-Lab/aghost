@@ -14,6 +14,7 @@ import {
 import { DodoWebhookGateway } from "./infrastructure/dodo/dodo-webhook.gateway"
 import { PostHogAnalytics } from "./infrastructure/posthog/posthog-analytics"
 import type { DataClients } from "./infrastructure/supabase/data-clients"
+import { SupabaseSocialSetRepository } from "./infrastructure/supabase/supabase-social-set.repository"
 import { SupabaseAccountRepository } from "./infrastructure/supabase/supabase-account.repository"
 import { SupabaseApiKeyRepository } from "./infrastructure/supabase/supabase-api-key.repository"
 import { SupabaseOAuthRepository } from "./infrastructure/supabase/supabase-oauth.repository"
@@ -67,6 +68,7 @@ import { SupabaseFollowUpRepository } from "./infrastructure/supabase/supabase-f
 import { ZernioFollowUpProvider } from "./infrastructure/zernio/zernio-follow-up.provider"
 import { FollowUpService } from "./modules/automations/follow-up.service"
 import { InsightsService } from "./modules/insights/insights.service"
+import { SocialSetService } from "./modules/social-sets/social-set.service"
 import type { InsightsProvider } from "./modules/insights/insights.provider"
 import { ZernioInsightsProvider } from "./infrastructure/zernio/zernio-insights.provider"
 
@@ -85,6 +87,7 @@ export type Services = {
   inbox: InboxService
   contacts: ContactService
   insights: InsightsService
+  socialSets: SocialSetService
   billing: BillingService
   plans: PlanEntitlements
   /** Records events with the source of the request these services serve. */
@@ -121,12 +124,20 @@ function createServices(
   const accountRepository = new SupabaseAccountRepository(db)
   const postRepository = new SupabasePostRepository(db)
   const billingRepository = new SupabaseBillingRepository(db)
+  const socialSetRepository = new SupabaseSocialSetRepository(db)
   const operations = new SupabaseWorkspaceOperations(db.privileged)
-  const plans = new PlanEntitlements(billingRepository, accountRepository)
+  const plans = new PlanEntitlements(billingRepository, socialSetRepository)
 
   const workspaces = new WorkspaceService(
     new SupabaseWorkspaceRepository(db),
+    analytics
+  )
+  const socialSets = new SocialSetService(
+    socialSetRepository,
+    accountRepository,
     providers.profiles,
+    plans,
+    operations,
     analytics
   )
   const automations = new AutomationService(
@@ -152,7 +163,7 @@ function createServices(
   const accounts = new AccountService(
     accountRepository,
     providers.accounts,
-    workspaces,
+    socialSets,
     automations,
     posts,
     pages.connectRedirectUrl,
@@ -163,7 +174,7 @@ function createServices(
   const billing = new BillingService(
     billingRepository,
     providers.billing,
-    accountRepository,
+    socialSetRepository,
     automations,
     posts,
     pages.billing,
@@ -177,8 +188,12 @@ function createServices(
     analytics
   )
   const inbox = new InboxService(providers.inbox, accountRepository, analytics)
-  const contacts = new ContactService(providers.contacts)
-  const insights = new InsightsService(providers.insights, accountRepository)
+  const contacts = new ContactService(providers.contacts, socialSets)
+  const insights = new InsightsService(
+    providers.insights,
+    accountRepository,
+    socialSets
+  )
   const apiKeys = new ApiKeyService(
     new SupabaseApiKeyRepository(db.privileged),
     analytics
@@ -194,6 +209,7 @@ function createServices(
     inbox,
     contacts,
     insights,
+    socialSets,
     billing,
     plans,
     analytics,

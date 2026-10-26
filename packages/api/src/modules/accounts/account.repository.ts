@@ -2,10 +2,16 @@ import type { AccountRecord, AccountSnapshot } from "./account"
 
 export interface AccountRepository {
   listByWorkspace(workspaceId: string): Promise<AccountRecord[]>
-  countConnected(workspaceId: string): Promise<number>
   findById(workspaceId: string, id: string): Promise<AccountRecord | null>
-  /** Stores the account under the workspace, replacing what was known about it. */
-  save(workspaceId: string, snapshot: AccountSnapshot): Promise<AccountRecord>
+  /**
+   * Stores the account under the workspace, replacing what was known about
+   * it. A new account joins the set; a stored one stays in its own.
+   */
+  save(
+    workspaceId: string,
+    socialSetId: string,
+    snapshot: AccountSnapshot
+  ): Promise<AccountRecord>
   markDisconnected(
     workspaceId: string,
     id: string,

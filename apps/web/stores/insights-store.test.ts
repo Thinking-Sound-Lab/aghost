@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type {
   InsightReport,
   InsightPostReport,
-  InsightTimingReport,
   InsightContentReport,
 } from "@workspace/api/contract"
 import { api } from "@/lib/api"
@@ -13,7 +12,6 @@ vi.mock("@/lib/api", () => ({
     insights: {
       get: vi.fn(),
       post: vi.fn(),
-      postingTimes: vi.fn(),
       content: vi.fn(),
     },
   },
@@ -63,9 +61,6 @@ describe("analytics request ownership", () => {
   beforeEach(() => {
     useInsightsStore.getState().clear()
     vi.resetAllMocks()
-    vi.mocked(api.insights.postingTimes).mockResolvedValue({
-      status: "not_enabled",
-    })
     vi.mocked(api.insights.content).mockResolvedValue(content)
   })
 
@@ -141,60 +136,13 @@ describe("analytics request ownership", () => {
     })
   })
 
-  it("discards an old account's timing response and doesn't reload timing for a period change", async () => {
-    vi.mocked(api.insights.get).mockResolvedValue({ status: "not_enabled" })
-    const first = deferred<InsightTimingReport>()
-    vi.mocked(api.insights.postingTimes).mockReturnValueOnce(first.promise)
-    const earlier = useInsightsStore.getState().show("workspace", "one")
-    await useInsightsStore.getState().show("workspace", "two")
-    first.resolve({ status: "reconnect_required" })
-    await earlier
-    expect(useInsightsStore.getState().timing).toEqual({
-      status: "not_enabled",
-    })
-    await useInsightsStore.getState().period(7)
-    expect(api.insights.postingTimes).toHaveBeenCalledTimes(2)
-    expect(api.insights.postingTimes).toHaveBeenLastCalledWith("two")
-  })
-
-  it("keeps timing failures independent and ignores results after leaving", async () => {
-    vi.mocked(api.insights.get).mockResolvedValue({ status: "not_enabled" })
-    vi.mocked(api.insights.postingTimes).mockRejectedValueOnce(
-      new Error("Timing is unavailable")
-    )
-    await useInsightsStore.getState().show("workspace", "account")
-    expect(useInsightsStore.getState()).toMatchObject({
-      status: "ready",
-      report: { status: "not_enabled" },
-      timing: null,
-      timingLoading: false,
-      timingError: "Timing is unavailable",
-    })
-    const pending = deferred<InsightTimingReport>()
-    vi.mocked(api.insights.postingTimes).mockReturnValueOnce(pending.promise)
-    const loading = useInsightsStore.getState().loadTiming()
-    useInsightsStore.getState().clear()
-    pending.resolve({ status: "not_enabled" })
-    await loading
-    expect(useInsightsStore.getState()).toMatchObject({
-      workspaceId: null,
-      timing: null,
-      timingLoading: false,
-      timingError: null,
-    })
-  })
-
-  it("keeps UTC selected through period reloads, content sorting, pagination, and refresh", async () => {
+  it("keeps the sort and page through period reloads, content sorting and pagination", async () => {
     vi.mocked(api.insights.get).mockResolvedValue(ready)
     await useInsightsStore.getState().show("workspace", "account")
-    useInsightsStore.getState().setTimingUtc(true)
     const pending = deferred<InsightReport>()
     vi.mocked(api.insights.get).mockReturnValueOnce(pending.promise)
     const reloading = useInsightsStore.getState().period(90)
-    expect(useInsightsStore.getState()).toMatchObject({
-      report: null,
-      timingUtc: true,
-    })
+    expect(useInsightsStore.getState()).toMatchObject({ report: null })
     pending.resolve(ready)
     await reloading
     await useInsightsStore.getState().order("reach")
@@ -204,7 +152,6 @@ describe("analytics request ownership", () => {
     })
     await useInsightsStore.getState().paginate(2)
     expect(useInsightsStore.getState()).toMatchObject({
-      timingUtc: true,
       sort: "reach",
       page: 2,
     })
@@ -220,8 +167,6 @@ describe("analytics request ownership", () => {
       throw new Error("Expected report")
     expect(report.summary).toBe(ready.summary)
     expect(report.dailyReach).toBe(ready.dailyReach)
-    await useInsightsStore.getState().refresh()
-    expect(useInsightsStore.getState().timingUtc).toBe(true)
   })
 
   it("preserves account metrics while loading content and discards earlier sorts", async () => {
@@ -244,7 +189,6 @@ describe("analytics request ownership", () => {
       report: { totalPosts: 50 },
     })
     expect(api.insights.get).toHaveBeenCalledTimes(1)
-    expect(api.insights.postingTimes).toHaveBeenCalledTimes(1)
   })
 
   it.each(["period", "account", "leave", "refresh"])(

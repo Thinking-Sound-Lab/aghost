@@ -1,6 +1,6 @@
 /**
  * The provider groups a customer's connected accounts under a profile. Each
- * workspace owns exactly one.
+ * social set owns exactly one.
  */
 export interface ProfileProvider {
   /**
@@ -8,4 +8,6 @@ export interface ProfileProvider {
    * profile with the same name is already there. Returns the profile id.
    */
   ensureProfile(name: string): Promise<string>
+  /** Removes an empty profile. Succeeds when it is already gone. */
+  deleteProfile(profileId: string): Promise<void>
 }

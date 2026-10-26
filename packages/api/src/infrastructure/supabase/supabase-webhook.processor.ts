@@ -11,7 +11,7 @@ import type {
 import { InternalError } from "../../shared/errors"
 import {
   accountChange,
-  DISCONNECT_REASONS,
+  isRejected,
   type AccountRecord,
   type AccountState,
 } from "../../modules/accounts/account"
@@ -68,15 +68,16 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
     )
       return null
     if (event.kind === "account_connected") {
-      const workspace = optional(
+      // Each social set has its own profile.
+      const set = optional(
         await this.db
-          .from("workspaces")
-          .select("id, owner_id")
+          .from("social_sets")
+          .select("workspace_id, workspaces(owner_id)")
           .eq("zernio_profile_id", event.account.providerProfileId)
           .maybeSingle(),
         "find the connected account's workspace"
       )
-      return workspace && { id: workspace.id, ownerId: workspace.owner_id }
+      return set && { id: set.workspace_id, ownerId: set.workspaces.owner_id }
     }
     const account = optional(
       await this.db
@@ -161,7 +162,7 @@ export class SupabaseWebhookProcessor implements WebhookProcessor {
     if (
       event.kind === "account_connected" &&
       after?.status === "disconnected" &&
-      after.disconnectReason === DISCONNECT_REASONS.planLimit
+      isRejected(after.disconnectReason)
     )
       await this.provider.disconnectAccount(event.account.providerAccountId)
     return outcome

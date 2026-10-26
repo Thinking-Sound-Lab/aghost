@@ -29,6 +29,7 @@ const account: Account = {
   profilePictureUrl: null,
   status: "connected",
   disconnectReason: null,
+  socialSetId: "set",
   createdAt: "2026-10-14T00:00:00Z",
 }
 const recent: InstagramPost = {

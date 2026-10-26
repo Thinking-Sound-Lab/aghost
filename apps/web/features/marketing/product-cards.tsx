@@ -261,7 +261,7 @@ export function ResultsCard({ className }: { className?: string }) {
 export function ChannelsCard({ className }: { className?: string }) {
   return (
     <Panel className={className}>
-      <Label>Channels · 6 of 10</Label>
+      <Label>Social set · 6 channels</Label>
       <ul className="mt-4 grid gap-3">
         {PLATFORM_ORDER.map((platform) => (
           <li key={platform} className="flex items-center gap-3 text-sm">

@@ -8,6 +8,7 @@ import Fastify, {
 } from "fastify"
 import { z } from "zod"
 import { connectAccountSchema } from "../contract/account"
+import { socialSetSchema } from "../contract/social-set"
 import { createApiKeySchema } from "../contract/api-key"
 import type { ApiConfig } from "../config"
 import {
@@ -19,6 +20,7 @@ import {
 import { contactPageQuerySchema } from "../contract/contact"
 import {
   insightQuerySchema,
+  insightOverviewQuerySchema,
   insightPostQuerySchema,
   insightTimingQuerySchema,
 } from "../contract/insights"
@@ -60,6 +62,7 @@ import { mcpRoutes } from "../mcp/routes"
 import { oauthDiscoveryRoutes, oauthRoutes } from "./oauth.routes"
 import {
   presentAccount,
+  presentSocialSet,
   presentAutomation,
   presentScheduledPost,
   presentWorkspace,
@@ -439,13 +442,52 @@ export function createApp({
         })
         routes.post("/accounts/connect", async (request) => {
           const { services, workspace } = request.identity
-          const { platform } = validate(connectAccountSchema, request.body)
+          const { platform, socialSetId } = validate(
+            connectAccountSchema,
+            request.body
+          )
           return {
             authUrl: await services.accounts.startConnection(
               workspace,
-              platform
+              platform,
+              socialSetId
             ),
           }
+        })
+        routes.get("/social-sets", async (request) => {
+          const { services, workspace } = request.identity
+          return (await services.socialSets.list(workspace)).map(
+            presentSocialSet
+          )
+        })
+        routes.post("/social-sets", async (request, reply) => {
+          const { services, workspace } = request.identity
+          const input = validate(socialSetSchema, request.body)
+          return reply
+            .code(201)
+            .send(
+              presentSocialSet(
+                await services.socialSets.create(workspace, input)
+              )
+            )
+        })
+        routes.patch<IdParams>("/social-sets/:id", async (request) => {
+          const { services, workspace } = request.identity
+          return presentSocialSet(
+            await services.socialSets.rename(
+              workspace,
+              validate(z.uuid(), request.params.id),
+              validate(socialSetSchema, request.body)
+            )
+          )
+        })
+        routes.delete<IdParams>("/social-sets/:id", async (request, reply) => {
+          const { services, workspace } = request.identity
+          await services.socialSets.delete(
+            workspace,
+            validate(z.uuid(), request.params.id)
+          )
+          return reply.code(204).send()
         })
         routes.post("/accounts/sync", async (request) => {
           const { services, workspace } = request.identity
@@ -488,6 +530,13 @@ export function createApp({
           const { services, workspace } = request.identity
           return (await services.automations.list(workspace)).map(
             presentAutomation
+          )
+        })
+        routes.get("/insights/overview", async (request) => {
+          const { services, workspace } = request.identity
+          return services.insights.getOverview(
+            workspace,
+            validate(insightOverviewQuerySchema, request.query)
           )
         })
         routes.get("/insights/content", async (request) => {

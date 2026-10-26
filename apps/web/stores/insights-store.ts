@@ -4,14 +4,12 @@ import type {
   InsightPostReport,
   InsightQuery,
   InsightReport,
-  InsightTimingReport,
 } from "@workspace/api/contract"
 import { api } from "@/lib/api"
 import { errorMessage } from "./workspace-store"
 
 let generation = 0
 let postGeneration = 0
-let timingGeneration = 0
 let contentGeneration = 0
 
 type InsightsState = {
@@ -29,15 +27,9 @@ type InsightsState = {
   postReport: InsightPostReport | null
   postError: string | null
   postLoading: boolean
-  timing: InsightTimingReport | null
-  timingLoading: boolean
-  timingError: string | null
-  timingUtc: boolean
-  setTimingUtc: (utc: boolean) => void
   show: (workspaceId: string, accountId: string) => Promise<void>
   load: () => Promise<void>
   loadContent: () => Promise<void>
-  loadTiming: () => Promise<void>
   refresh: () => Promise<void>
   period: (days: InsightPeriod) => Promise<void>
   order: (sort: InsightQuery["sort"]) => Promise<void>
@@ -62,15 +54,10 @@ const initial = {
   postReport: null,
   postError: null,
   postLoading: false,
-  timing: null,
-  timingLoading: false,
-  timingError: null,
-  timingUtc: false,
 }
 
 export const useInsightsStore = create<InsightsState>((set, get) => ({
   ...initial,
-  setTimingUtc: (timingUtc) => set({ timingUtc }),
   show: async (workspaceId, accountId) => {
     set({
       workspaceId,
@@ -78,26 +65,11 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
       page: 1,
       // Platforms report different metrics; views is one they all have.
       ...(accountId !== get().accountId && { sort: "views" as const }),
-      timing: null,
-      timingError: null,
     })
     await get().refresh()
   },
   refresh: async () => {
-    await Promise.all([get().load(), get().loadTiming()])
-  },
-  loadTiming: async () => {
-    const { workspaceId, accountId } = get()
-    if (!workspaceId || !accountId) return
-    const current = ++timingGeneration
-    set({ timing: null, timingLoading: true, timingError: null })
-    try {
-      const timing = await api.insights.postingTimes(accountId)
-      if (current === timingGeneration) set({ timing, timingLoading: false })
-    } catch (error) {
-      if (current === timingGeneration)
-        set({ timingError: errorMessage(error), timingLoading: false })
-    }
+    await get().load()
   },
   load: async () => {
     const { workspaceId, accountId, days, page, sort } = get()
@@ -202,7 +174,6 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
   clear: () => {
     ++generation
     ++postGeneration
-    ++timingGeneration
     ++contentGeneration
     set(initial)
   },

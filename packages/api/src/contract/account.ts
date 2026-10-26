@@ -17,6 +17,8 @@ export type Account = {
   status: AccountStatus
   /** Why the account stopped working. Null while it is connected. */
   disconnectReason: string | null
+  /** The social set it belongs to, which has one account on each platform. */
+  socialSetId: string
   createdAt: string
 }
 
@@ -39,6 +41,9 @@ export const connectAccountSchema = z.object({
   // Dashboards from before other platforms send no platform: they connect
   // Instagram, the only one they knew.
   platform: platformSchema.default("instagram"),
+  // Dashboards from before social sets send none: they connect to the
+  // workspace's first set, the only one they knew.
+  socialSetId: z.uuid().optional(),
 })
 
 export type ConnectAccountResult = {

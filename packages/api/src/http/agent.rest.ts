@@ -41,6 +41,11 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
     path: "/workspace",
     requestInput: empty,
   }),
+  route("list_social_sets", {
+    method: "GET",
+    path: "/social-sets",
+    requestInput: empty,
+  }),
   route("list_accounts", {
     method: "GET",
     path: "/accounts",

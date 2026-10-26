@@ -28,6 +28,7 @@ import {
   SearchInput,
 } from "@/components/interface"
 import { count } from "@/lib/format"
+import { automationsIn, useActiveSet } from "@/stores/social-set-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
 function summary(item: Automation): string {
@@ -46,9 +47,10 @@ export function AutomationList() {
   useEffect(() => {
     void loadStats()
   }, [loadStats])
+  const inSet = automationsIn(store.automations, store.accounts, useActiveSet())
   const query = store.query.trim().toLowerCase()
   // Matches the name or any trigger keyword.
-  const items = store.automations.filter((item) =>
+  const items = inSet.filter((item) =>
     [item.name, ...item.keywords].some((text) =>
       text.toLowerCase().includes(query)
     )
@@ -75,15 +77,22 @@ export function AutomationList() {
         message={store.statsError}
         retry={() => void store.loadStats()}
       />
-      <AutomationRows items={items} />
+      <AutomationRows items={items} total={inSet.length} />
     </Page>
   )
 }
 
-export function AutomationRows({ items }: { items: Automation[] }) {
+/** The rows, with `total` the automations there are before any search. */
+export function AutomationRows({
+  items,
+  total,
+}: {
+  items: Automation[]
+  total: number
+}) {
   const store = useWorkspaceStore()
   const router = useRouter()
-  if (store.automations.length === 0)
+  if (total === 0)
     return (
       <EmptyState icon={<Workflow />} title="No automations yet">
         <Link

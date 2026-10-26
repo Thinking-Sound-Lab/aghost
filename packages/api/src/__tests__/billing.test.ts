@@ -23,7 +23,6 @@ const workspace: WorkspaceRecord = {
   id: "workspace",
   ownerId: "owner",
   name: "Studio",
-  providerProfileId: "profile",
 }
 
 function subscription(
@@ -147,7 +146,7 @@ function service(
     billing: new BillingService(
       repository,
       billingProvider,
-      { countConnected: async () => connected },
+      { countSocialSets: async () => connected },
       { pauseAll, pauseUnsupported },
       { cancelAll },
       pages,
@@ -158,18 +157,17 @@ function service(
 }
 
 describe("plan catalog", () => {
-  it("uses Postiz's channel prices and counts", () => {
+  it("sells three plans by social set", () => {
     expect(
       PLAN_IDS.map((id) => [
         PLANS[id].prices.USD.monthly,
         PLANS[id].prices.USD.yearly,
-        PLANS[id].channels,
+        PLANS[id].socialSets,
       ])
     ).toEqual([
-      [2900, 27600, 5],
-      [3900, 37200, 10],
-      [4900, 46800, 30],
-      [9900, 94800, 100],
+      [2900, 27600, 1],
+      [3900, 37200, 2],
+      [4900, 46800, 10],
     ])
   })
   it("offers only USD prices", () => {
@@ -200,7 +198,7 @@ describe("plan entitlements", () => {
         providerCustomerId: "cus_1",
         subscription: snapshot,
       }),
-      { countConnected: async () => connected }
+      { countSocialSets: async () => connected }
     )
   }
 
@@ -238,18 +236,25 @@ describe("plan entitlements", () => {
     ).rejects.toMatchObject({ code: "plan_required" })
   })
 
-  it("stops at the plan's account limit", async () => {
+  it("counts social sets against the plan", async () => {
     await expect(
-      entitlements(subscription(), 5).assertCanConnectAccount(workspace)
+      entitlements(subscription(), 1).assertCanAddSocialSet(workspace)
     ).rejects.toMatchObject({
       code: "plan_limit_reached",
-      message: "Pro includes 5 channels. Upgrade to connect another.",
+      message: "Pro includes 1 social set. Upgrade to add another.",
     })
     await expect(
-      entitlements(subscription({ plan: "growth" }), 5).assertCanConnectAccount(
+      entitlements(subscription({ plan: "growth" }), 1).assertCanAddSocialSet(
         workspace
       )
     ).resolves.toBeUndefined()
+    await expect(
+      entitlements(subscription(), 1).assertCanConnectAccount(workspace)
+    ).resolves.toBeUndefined()
+    // After a downgrade, the extra sets must go before anything connects.
+    await expect(
+      entitlements(subscription(), 2).assertCanConnectAccount(workspace)
+    ).rejects.toMatchObject({ code: "plan_limit_reached" })
   })
 
   it("keeps the plan through the grace period and ends it on hold", async () => {
@@ -267,9 +272,9 @@ describe("plan entitlements", () => {
     ).rejects.toMatchObject({ code: "plan_required" })
   })
 
-  it("holds automations while more accounts are connected than the plan includes", async () => {
+  it("holds automations while the workspace has more social sets than the plan", async () => {
     await expect(
-      entitlements(subscription(), 6).assertCanRunAutomations(workspace)
+      entitlements(subscription(), 2).assertCanRunAutomations(workspace)
     ).rejects.toMatchObject({ code: "plan_limit_reached" })
   })
 })

@@ -309,6 +309,29 @@ export async function startZernioFixture() {
             { platform: queriedPlatform, postCount: 2, ...metrics },
           ],
         })
+      } else if (url.pathname === "/v1/analytics/dashboard") {
+        reply(200, {
+          dateRange: { fromDate, toDate: url.searchParams.get("toDate") },
+          totals: { views: 1, likes: 1 },
+          followers: {
+            current: 1_250,
+            gained: 37,
+            byAccount: [
+              { accountId, platform: "instagram", current: 1_200, gained: 40 },
+              {
+                accountId: "shrinking",
+                platform: "x",
+                current: 50,
+                gained: -3,
+              },
+              { platform: "linkedin", current: 9 },
+            ],
+          },
+          daily: [],
+          topPosts: [],
+          recentPosts: [],
+          dataAsOf: "2026-10-07T10:00:00.000Z",
+        })
       } else if (url.pathname === "/v1/analytics/best-time") {
         reply(
           200,

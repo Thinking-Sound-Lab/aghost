@@ -12,7 +12,6 @@ const workspace = {
   id: "workspace",
   ownerId: "owner",
   name: "Workspace",
-  providerProfileId: "remote-profile",
 }
 
 function stored(
@@ -215,6 +214,8 @@ describe("cross-posting when a copy fails", () => {
       profilePictureUrl: null,
       status: "connected" as const,
       disconnectReason: null,
+      socialSetId: "set",
+      providerProfileId: "profile",
       createdAt: "2026-10-14T00:00:00Z",
     }))
     const rows = new Map<string, ScheduledPostRecord>()

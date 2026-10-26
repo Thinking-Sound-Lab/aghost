@@ -1,26 +1,37 @@
-import { accountLabel } from "../../contract/platform"
 import type { InstagramPost } from "../../contract/account"
-import type { Platform } from "../../contract/platform"
+import {
+  accountLabel,
+  PLATFORM_RULES,
+  type Platform,
+} from "../../contract/platform"
 import {
   AccountDisconnectedError,
+  ConflictError,
   NotFoundError,
   PlanLimitError,
 } from "../../shared/errors"
 import { actorOf, type ProductAnalytics } from "../analytics/analytics"
+import type { SocialSetRecord } from "../social-sets/social-set"
 import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
 import {
   accountChange,
   DISCONNECT_REASONS,
+  isRejected,
   type AccountRecord,
   type AccountState,
 } from "./account"
 import type { AccountProvider } from "./account.provider"
 import type { AccountRepository } from "./account.repository"
 
-/** Gives a workspace its provider profile, creating it on first use. */
-export interface ProviderProfiles {
-  ensureProviderProfile(workspace: WorkspaceRecord): Promise<string>
+/** Finds a workspace's social sets and gives each its provider profile. */
+export interface AccountSocialSets {
+  list(workspace: WorkspaceRecord): Promise<SocialSetRecord[]>
+  resolve(
+    workspace: WorkspaceRecord,
+    id: string | undefined
+  ): Promise<SocialSetRecord>
+  ensureProviderProfile(set: SocialSetRecord): Promise<string>
 }
 
 /** Removes the automations that depend on an account. */
@@ -48,7 +59,7 @@ export class AccountService {
   constructor(
     private readonly accounts: AccountRepository,
     private readonly provider: AccountProvider,
-    private readonly profiles: ProviderProfiles,
+    private readonly sets: AccountSocialSets,
     private readonly automations: AccountAutomations,
     private readonly posts: AccountPosts,
     /** Where the provider sends the browser once the user has authorized. */
@@ -62,13 +73,17 @@ export class AccountService {
     return this.accounts.listByWorkspace(workspace.id)
   }
 
+  /** Starts connecting an account on the platform to the set, or the first set. */
   async startConnection(
     workspace: WorkspaceRecord,
-    platform: Platform
+    platform: Platform,
+    socialSetId?: string
   ): Promise<string> {
     return this.operations.run(workspace.id, async () => {
+      const set = await this.sets.resolve(workspace, socialSetId)
       try {
         await this.plan.assertCanConnectAccount(workspace)
+        await this.assertPlatformFree(workspace, set, platform, null)
       } catch (error) {
         if (error instanceof PlanLimitError)
           this.analytics.capture(actorOf(workspace), {
@@ -78,8 +93,7 @@ export class AccountService {
           })
         throw error
       }
-      const providerProfileId =
-        await this.profiles.ensureProviderProfile(workspace)
+      const providerProfileId = await this.sets.ensureProviderProfile(set)
 
       const url = await this.provider.getConnectUrl(
         platform,
@@ -106,12 +120,19 @@ export class AccountService {
   ): Promise<string> {
     return this.operations.run(workspace.id, async () => {
       const account = await this.get(workspace, accountId)
-      // A connected account keeps its place in the plan; a disconnected one
-      // needs room again.
-      if (account.status !== "connected")
+      const set = await this.sets.resolve(workspace, account.socialSetId)
+      // A connected account keeps its place; a disconnected one needs room
+      // again, in the plan and in its set.
+      if (account.status !== "connected") {
         await this.plan.assertCanConnectAccount(workspace)
-      const providerProfileId =
-        await this.profiles.ensureProviderProfile(workspace)
+        await this.assertPlatformFree(
+          workspace,
+          set,
+          account.platform,
+          account.id
+        )
+      }
+      const providerProfileId = await this.sets.ensureProviderProfile(set)
 
       const url = await this.provider.getConnectUrl(
         account.platform,
@@ -140,17 +161,30 @@ export class AccountService {
   private async syncOwned(
     workspace: WorkspaceRecord
   ): Promise<AccountRecord[]> {
-    if (!workspace.providerProfileId) {
-      return this.accounts.listByWorkspace(workspace.id)
-    }
-
-    const [reported, stored] = await Promise.all([
-      this.provider.listAccounts(workspace.providerProfileId),
+    const [sets, stored] = await Promise.all([
+      this.sets.list(workspace),
       this.accounts.listByWorkspace(workspace.id),
     ])
+    // A set gets its profile with its first connection, so one without a
+    // profile has no accounts to report.
+    const reported = (
+      await Promise.all(
+        sets.flatMap((set) =>
+          set.providerProfileId
+            ? [
+                this.provider
+                  .listAccounts(set.providerProfileId)
+                  .then((accounts) =>
+                    accounts.map((account) => ({ set, account }))
+                  ),
+              ]
+            : []
+        )
+      )
+    ).flat()
 
-    for (const account of reported) {
-      const saved = await this.accounts.save(workspace.id, {
+    for (const { set, account } of reported) {
+      const saved = await this.accounts.save(workspace.id, set.id, {
         providerAccountId: account.providerAccountId,
         platform: account.platform,
         username: account.username,
@@ -168,16 +202,13 @@ export class AccountService {
       // Keep provider reads, the database decision and rejected-account cleanup
       // under the same ownership as billing. An upgrade or downgrade cannot
       // pass an uncommitted connection or reconnect it during old cleanup.
-      if (
-        account.connected &&
-        saved.disconnectReason === DISCONNECT_REASONS.planLimit
-      ) {
+      if (account.connected && isRejected(saved.disconnectReason)) {
         await this.provider.disconnectAccount(account.providerAccountId)
       }
     }
 
     const reportedIds = new Set(
-      reported.map((account) => account.providerAccountId)
+      reported.map(({ account }) => account.providerAccountId)
     )
 
     for (const account of stored) {
@@ -233,6 +264,28 @@ export class AccountService {
         platform: account.platform,
       })
     })
+  }
+
+  /** A set holds one connected account on each platform. */
+  private async assertPlatformFree(
+    workspace: WorkspaceRecord,
+    set: SocialSetRecord,
+    platform: Platform,
+    accountId: string | null
+  ): Promise<void> {
+    const accounts = await this.accounts.listByWorkspace(workspace.id)
+    if (
+      accounts.some(
+        (account) =>
+          account.socialSetId === set.id &&
+          account.platform === platform &&
+          account.status === "connected" &&
+          account.id !== accountId
+      )
+    )
+      throw new ConflictError(
+        `${set.name} already has a ${PLATFORM_RULES[platform].name} account. Use another social set, or disconnect that account first.`
+      )
   }
 
   private recordChange(

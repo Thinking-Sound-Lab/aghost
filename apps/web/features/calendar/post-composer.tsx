@@ -73,6 +73,7 @@ import { PostPreview } from "@/features/calendar/post-preview"
 import { ScheduleDialog } from "@/features/calendar/schedule-dialog"
 import { onAccountsChanged } from "@/lib/account-events"
 import { captionFor, useComposerStore } from "@/stores/composer-store"
+import { useActiveSet } from "@/stores/social-set-store"
 import { canConnect, useWorkspaceStore } from "@/stores/workspace-store"
 
 const KINDS: { value: PostKind; label: string }[] = [
@@ -88,6 +89,7 @@ export function PostComposer({
 }) {
   const composer = useComposerStore()
   const workspace = useWorkspaceStore()
+  const socialSet = useActiveSet()
   const router = useRouter()
   const [leaving, startLeaving] = useTransition()
   const [channel, setChannel] = useState<string | null>(null)
@@ -124,8 +126,11 @@ export function PostComposer({
     )
 
   const { draft, fields, post } = composer
+  // The set being shown, plus whatever a saved post was published on.
   const accounts = workspace.accounts.filter(
-    (item) => item.status === "connected" || draft.accountIds.includes(item.id)
+    (item) =>
+      (item.socialSetId === socialSet?.id && item.status === "connected") ||
+      draft.accountIds.includes(item.id)
   )
   if (accounts.length === 0)
     return (
@@ -333,7 +338,11 @@ export function PostComposer({
               accounts={accounts}
               selected={draft.accountIds}
               disabled={busy}
-              canConnect={canConnect(workspace) && !workspace.busy}
+              canConnect={(platform) =>
+                socialSet !== null &&
+                !workspace.busy &&
+                canConnect(workspace, socialSet.id, platform)
+              }
               onToggle={(accountId) => void composer.toggleAccount(accountId)}
               onConnect={(platform) => void composer.connect(platform)}
             />
@@ -813,7 +822,7 @@ function ChannelMenu({
   accounts: Account[]
   selected: string[]
   disabled: boolean
-  canConnect: boolean
+  canConnect: (platform: Platform) => boolean
   onToggle: (id: string) => void
   onConnect: (platform: Platform) => void
 }) {
@@ -860,14 +869,14 @@ function ChannelMenu({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger disabled={!canConnect}>
+          <DropdownMenuSubTrigger disabled={!PLATFORMS.some(canConnect)}>
             <Plus />
             Connect a channel
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-44">
             <DropdownMenuGroup>
               <DropdownMenuLabel>Opens in a new tab</DropdownMenuLabel>
-              {PLATFORMS.map((platform) => (
+              {PLATFORMS.filter(canConnect).map((platform) => (
                 <DropdownMenuItem
                   key={platform}
                   onClick={() => onConnect(platform)}
