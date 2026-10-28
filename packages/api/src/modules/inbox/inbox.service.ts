@@ -1,3 +1,4 @@
+import { accountLabel } from "../../contract/platform"
 import type { Conversation, Message } from "../../contract/inbox"
 import { AccountDisconnectedError, NotFoundError } from "../../shared/errors"
 import type { AccountRecord } from "../accounts/account"
@@ -19,19 +20,28 @@ export class InboxService {
   ) {}
 
   async listConversations(workspace: WorkspaceRecord): Promise<Conversation[]> {
-    // Without a provider profile the workspace has never connected an account,
-    // so it has no conversations.
-    if (!workspace.providerProfileId) {
-      return []
-    }
-
-    const [conversations, accounts] = await Promise.all([
-      this.provider.listConversations(workspace.providerProfileId),
-      this.accounts.listByWorkspace(workspace.id),
-    ])
+    const accounts = await this.accounts.listByWorkspace(workspace.id)
+    // Each social set's profile holds its own conversations.
+    const profiles = new Set(
+      accounts.flatMap((account) =>
+        account.platform === "instagram" && account.providerProfileId
+          ? [account.providerProfileId]
+          : []
+      )
+    )
+    const conversations = (
+      await Promise.all(
+        [...profiles].map((profile) => this.provider.listConversations(profile))
+      )
+    )
+      .flat()
+      // Newest first across sets; a thread without a time goes last.
+      .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
 
     const accountIdByProviderId = new Map(
-      accounts.map((account) => [account.providerAccountId, account.id])
+      accounts
+        .filter((account) => account.platform === "instagram")
+        .map((account) => [account.providerAccountId, account.id])
     )
 
     // Only the workspace's own accounts are shown, even if the profile holds
@@ -70,7 +80,7 @@ export class InboxService {
     )
 
     if (account.status !== "connected") {
-      throw new AccountDisconnectedError(account.username)
+      throw new AccountDisconnectedError(accountLabel(account))
     }
 
     await this.provider.sendMessage(
@@ -96,7 +106,8 @@ export class InboxService {
   ): Promise<AccountRecord> {
     const account = await this.accounts.findById(workspace.id, accountId)
 
-    if (!account) {
+    // The inbox holds Instagram DMs only.
+    if (!account || account.platform !== "instagram") {
       throw new NotFoundError("Instagram account")
     }
 

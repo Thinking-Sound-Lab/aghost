@@ -238,9 +238,9 @@ describe("automation feature HTTP, SDK, database and worker integration", () => 
     accountId = accounts.json<{ id: string }[]>()[0]!.id
     profileId = (
       await admin
-        .from("workspaces")
+        .from("social_sets")
         .select("zernio_profile_id")
-        .eq("id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .single()
     ).data!.zernio_profile_id!
   })

@@ -12,7 +12,6 @@ const workspace = {
   id: "workspace",
   ownerId: "owner",
   name: "Workspace",
-  providerProfileId: "remote-profile",
 }
 
 function stored(
@@ -24,11 +23,13 @@ function stored(
     id,
     workspaceId: workspace.id,
     accountId: "account",
+    platform: "instagram",
     providerPostId: `remote-${id}`,
     kind: "post",
     caption: null,
     media: [{ url: "https://media.example/a.jpg", type: "image" }],
     trialReel: null,
+    youtube: null,
     scheduledFor: new Date(Date.now() + hoursAway * 3_600_000).toISOString(),
     status,
     platformPostId: null,
@@ -198,5 +199,111 @@ describe("scheduled posts outside the owner's requests", () => {
       "waiting"
     )
     expect(rows.size).toBe(0)
+  })
+})
+
+describe("cross-posting when a copy fails", () => {
+  it("cancels every scheduled copy, even after one cancellation fails", async () => {
+    const accounts = ["twitter", "threads", "linkedin"].map((platform) => ({
+      id: `account-${platform}`,
+      workspaceId: workspace.id,
+      providerAccountId: `remote-${platform}`,
+      platform: platform as "twitter" | "threads" | "linkedin",
+      username: "studio",
+      displayName: "Studio",
+      profilePictureUrl: null,
+      status: "connected" as const,
+      disconnectReason: null,
+      socialSetId: "set",
+      providerProfileId: "profile",
+      sharedPlatformBeforeSets: false,
+      createdAt: "2026-10-14T00:00:00Z",
+    }))
+    const rows = new Map<string, ScheduledPostRecord>()
+    const repository: ScheduledPostRepository = {
+      listByRange: async () => [...rows.values()],
+      listByAccount: async () => [...rows.values()],
+      listScheduled: async () => [...rows.values()],
+      findById: async (_workspaceId, id) => rows.get(id) ?? null,
+      insert: async (input) => {
+        const post = {
+          ...stored(`post-${rows.size + 1}`, "scheduled", 24),
+          ...input,
+        }
+        rows.set(post.id, post)
+        return post
+      },
+      updateContent: async () => {
+        throw new Error("Unexpected update")
+      },
+      updateState: async () => false,
+      delete: async (_workspaceId, id) => {
+        rows.delete(id)
+      },
+    }
+    let scheduled = 0
+    const remove = vi.fn<PublishingProvider["delete"]>(async (id) => {
+      if (id === "remote-1") throw new Error("Provider unavailable")
+    })
+    const provider: PublishingProvider = {
+      canPublish: async () => true,
+      createUpload: async () => {
+        throw new Error("Unexpected upload")
+      },
+      schedule: async () => {
+        scheduled += 1
+        if (scheduled === 3) throw new Error("LinkedIn refused the post")
+        return `remote-${scheduled}`
+      },
+      reschedule: async () => {},
+      getState: async () => {
+        throw new Error("Unexpected state read")
+      },
+      delete: remove,
+    }
+    const service = new PostService(
+      repository,
+      provider,
+      {
+        findById: async (_workspaceId, id) =>
+          accounts.find((account) => account.id === id) ?? null,
+      },
+      {
+        create: async () => {
+          throw new Error("Unexpected automation")
+        },
+        deleteAllForScheduledPost: async () => {},
+      },
+      { assertCanUseWorkspace: async () => {} },
+      { run: (_workspaceId, work) => work() },
+      recordingAnalytics().source("webhook")
+    )
+
+    await expect(
+      service.crossPost(workspace, {
+        kind: "post",
+        caption: "Launch day",
+        media: [],
+        trialReel: null,
+        scheduledFor: new Date(Date.now() + 86_400_000).toISOString(),
+        automation: null,
+        targets: accounts.map((account) => ({
+          accountId: account.id,
+          caption: null,
+          youtube: null,
+        })),
+      })
+    ).rejects.toMatchObject({
+      code: "provider_error",
+      message: expect.stringContaining("1 copy already scheduled"),
+    })
+    expect(remove.mock.calls.map(([id]) => id)).toEqual([
+      "remote-1",
+      "remote-2",
+    ])
+    // The copy that couldn't be cancelled stays visible; the other is gone.
+    expect([...rows.values()].map((post) => post.providerPostId)).toEqual([
+      "remote-1",
+    ])
   })
 })

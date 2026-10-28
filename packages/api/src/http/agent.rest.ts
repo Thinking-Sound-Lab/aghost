@@ -41,6 +41,11 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
     path: "/workspace",
     requestInput: empty,
   }),
+  route("list_social_sets", {
+    method: "GET",
+    path: "/social-sets",
+    requestInput: empty,
+  }),
   route("list_accounts", {
     method: "GET",
     path: "/accounts",
@@ -142,6 +147,12 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
   route("schedule_post", {
     method: "POST",
     path: "/scheduled-posts",
+    status: 201,
+    requestInput: body,
+  }),
+  route("cross_post", {
+    method: "POST",
+    path: "/scheduled-posts/batch",
     status: 201,
     requestInput: body,
   }),

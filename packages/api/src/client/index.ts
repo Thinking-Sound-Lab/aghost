@@ -4,7 +4,8 @@ import {
   type Automation,
   type AutomationActivityPage,
   type AutomationStatsById,
-  type ConnectInstagramResult,
+  type ConnectAccountResult,
+  type CrossPostInput,
   type CompleteUploadLinkInput,
   type ContactPage,
   type Conversation,
@@ -12,9 +13,11 @@ import {
   type ApiKey,
   type CreateApiKeyInput,
   type CreatedApiKey,
-  type InstagramAccount,
+  type Account,
   type InstagramPost,
   type IntegrationStatus,
+  type InsightOverview,
+  type InsightPeriod,
   type InsightQuery,
   type InsightReport,
   type InsightPostQuery,
@@ -24,11 +27,13 @@ import {
   type MediaContentType,
   type MediaUpload,
   type Message,
+  type Platform,
+  type SocialSet,
+  type SocialSetInput,
   type PostMedia,
   type PublishingAccess,
   type ScheduledPost,
   type ScheduledPostRange,
-  type SchedulePostInput,
   type UpdateScheduledPostInput,
   type UploadLink,
   type SendMessageInput,
@@ -162,12 +167,16 @@ export function createApiClient(
       portal: () => request<BillingRedirect>("/billing/portal", "POST", {}),
     },
     accounts: {
-      list: () => request<InstagramAccount[]>("/accounts"),
-      connect: () =>
-        request<ConnectInstagramResult>("/accounts/connect", "POST", {}),
-      sync: () => request<InstagramAccount[]>("/accounts/sync", "POST", {}),
+      list: () => request<Account[]>("/accounts"),
+      /** Starts connecting an account on the platform to the social set. */
+      connect: (platform: Platform, socialSetId: string) =>
+        request<ConnectAccountResult>("/accounts/connect", "POST", {
+          platform,
+          socialSetId,
+        }),
+      sync: () => request<Account[]>("/accounts/sync", "POST", {}),
       reconnect: (id: string) =>
-        request<ConnectInstagramResult>(
+        request<ConnectAccountResult>(
           `/accounts/${encodeURIComponent(id)}/reconnect`,
           "POST",
           {}
@@ -180,6 +189,19 @@ export function createApiClient(
         request<InstagramPost[]>(`/accounts/${encodeURIComponent(id)}/posts`),
       remove: (id: string) =>
         request<void>(`/accounts/${encodeURIComponent(id)}`, "DELETE"),
+    },
+    socialSets: {
+      list: () => request<SocialSet[]>("/social-sets"),
+      create: (input: SocialSetInput) =>
+        request<SocialSet>("/social-sets", "POST", input),
+      rename: (id: string, input: SocialSetInput) =>
+        request<SocialSet>(
+          `/social-sets/${encodeURIComponent(id)}`,
+          "PATCH",
+          input
+        ),
+      remove: (id: string) =>
+        request<void>(`/social-sets/${encodeURIComponent(id)}`, "DELETE"),
     },
     automations: {
       list: () => request<Automation[]>("/automations"),
@@ -217,6 +239,14 @@ export function createApiClient(
             sort: query.sort,
           })}`
         ),
+      /** Every connected channel for the period and the one before it. */
+      overview: (socialSetId: string, days: InsightPeriod) =>
+        request<InsightOverview>(
+          `/insights/overview?${new URLSearchParams({
+            socialSetId,
+            days: String(days),
+          })}`
+        ),
       postingTimes: (accountId: string) =>
         request<InsightTimingReport>(
           `/insights/posting-times?${new URLSearchParams({ accountId })}`
@@ -245,8 +275,9 @@ export function createApiClient(
         ),
       get: (id: string) =>
         request<ScheduledPost>(`/scheduled-posts/${encodeURIComponent(id)}`),
-      create: (input: SchedulePostInput) =>
-        request<ScheduledPost>("/scheduled-posts", "POST", input),
+      /** Schedules the post on each target account, all of them or none. */
+      create: (input: CrossPostInput) =>
+        request<ScheduledPost[]>("/scheduled-posts/batch", "POST", input),
       update: (id: string, input: UpdateScheduledPostInput) =>
         request<ScheduledPost>(
           `/scheduled-posts/${encodeURIComponent(id)}`,
@@ -314,9 +345,13 @@ export function createApiClient(
         ),
     },
     contacts: {
-      list: (search: string, offset = 0) =>
+      list: (socialSetId: string, search: string, offset = 0) =>
         request<ContactPage>(
-          `/contacts?${new URLSearchParams({ search, offset: String(offset) })}`
+          `/contacts?${new URLSearchParams({
+            socialSetId,
+            search,
+            offset: String(offset),
+          })}`
         ),
     },
   }

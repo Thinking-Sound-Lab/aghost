@@ -12,17 +12,19 @@ import { SupabaseAccountRepository } from "../infrastructure/supabase/supabase-a
 import { SupabaseAutomationRepository } from "../infrastructure/supabase/supabase-automation.repository"
 import { SupabaseBillingRepository } from "../infrastructure/supabase/supabase-billing.repository"
 import { SupabaseBillingReconciliation } from "../infrastructure/supabase/supabase-billing-reconciliation"
+import { SupabaseSocialSetRepository } from "../infrastructure/supabase/supabase-social-set.repository"
 import { SupabaseWorkspaceOperations } from "../infrastructure/supabase/supabase-workspace-operations"
 import { SupabaseWebhookProcessor } from "../infrastructure/supabase/supabase-webhook.processor"
 import { AccountService } from "../modules/accounts/account.service"
 import type { ProviderAccount } from "../modules/accounts/account"
-import type { InstagramProvider } from "../modules/accounts/instagram.provider"
+import type { AccountProvider } from "../modules/accounts/account.provider"
 import type { AutomationProvider } from "../modules/automations/automation.provider"
 import { AutomationService } from "../modules/automations/automation.service"
 import type { SubscriptionSnapshot } from "../modules/billing/billing"
 import type { BillingProvider } from "../modules/billing/billing.provider"
 import { BillingService } from "../modules/billing/billing.service"
 import { PlanEntitlements } from "../modules/billing/plan-entitlements"
+import { SocialSetService } from "../modules/social-sets/social-set.service"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
 import type { WorkspaceOperations } from "../modules/workspaces/workspace-operations"
 import type { InboundEvent } from "../modules/webhooks/inbound-event"
@@ -67,8 +69,16 @@ async function context() {
     id: inserted.data.id,
     ownerId,
     name: "Race test",
-    providerProfileId: `profile_${ownerId}`,
   }
+  // The workspace's profile went to its first social set.
+  const firstSet = await admin
+    .from("social_sets")
+    .select("id")
+    .eq("workspace_id", workspace.id)
+    .single()
+  if (firstSet.error) throw firstSet.error
+  const firstSetId = firstSet.data.id
+  const profile = `profile_${ownerId}`
   const repository = new SupabaseBillingRepository(db)
   const snapshot: SubscriptionSnapshot = {
     providerSubscriptionId: `sub_${workspace.id}`,
@@ -118,10 +128,11 @@ async function context() {
   }
   const automations = new SupabaseAutomationRepository(db)
   const accounts = new SupabaseAccountRepository(db)
+  const sets = new SupabaseSocialSetRepository(db)
   const recorded = recordingAnalytics()
   const analytics = recorded.source("webhook")
   const reported = new Map<string, ProviderAccount>()
-  const instagram: InstagramProvider = {
+  const instagram: AccountProvider = {
     getConnectUrl: async () => "https://instagram.example/connect",
     listAccounts: async () => structuredClone([...reported.values()]),
     listRecentPosts: async () => [],
@@ -133,7 +144,7 @@ async function context() {
     operations: WorkspaceOperations = new SupabaseWorkspaceOperations(admin)
   ) {
     // Separate instances model independent requests/replicas, sharing only PostgreSQL.
-    const plans = new PlanEntitlements(repository, accounts)
+    const plans = new PlanEntitlements(repository, sets)
     const automation = new AutomationService(
       automations,
       provider,
@@ -147,7 +158,7 @@ async function context() {
     const billing = new BillingService(
       repository,
       dodo,
-      accounts,
+      sets,
       automation,
       { cancelAll: async () => {} },
       {
@@ -161,7 +172,17 @@ async function context() {
     const account = new AccountService(
       accounts,
       instagram,
-      { ensureProviderProfile: async () => `profile_${ownerId}` },
+      new SocialSetService(
+        sets,
+        accounts,
+        {
+          ensureProfile: async () => profile,
+          deleteProfile: async () => {},
+        },
+        plans,
+        operations,
+        analytics
+      ),
       automation,
       { deleteAllForAccount: async () => {} },
       "https://app.example/accounts/callback",
@@ -184,6 +205,7 @@ async function context() {
       .from("instagram_accounts")
       .insert({
         workspace_id: workspace.id,
+        social_set_id: firstSetId,
         zernio_account_id: `account_${workspace.id}`,
         username: "race_creator",
         status: "connected",
@@ -193,6 +215,7 @@ async function context() {
     if (row.error) throw row.error
     reported.set(`account_${workspace.id}`, {
       providerAccountId: `account_${workspace.id}`,
+      platform: "instagram",
       username: "race_creator",
       displayName: null,
       profilePictureUrl: null,
@@ -213,6 +236,22 @@ async function context() {
     }
     return input
   }
+  /** A second social set, while the plan has room for it. */
+  async function addSet() {
+    const row = await admin
+      .from("social_sets")
+      .insert({ workspace_id: workspace.id, name: "Second" })
+    if (row.error) throw row.error
+  }
+  async function connectedCount() {
+    const { count, error } = await admin
+      .from("instagram_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspace.id)
+      .eq("status", "connected")
+    if (error) throw error
+    return count
+  }
   return {
     workspace,
     email,
@@ -227,6 +266,9 @@ async function context() {
     instagram,
     services,
     paidAccount,
+    addSet,
+    connectedCount,
+    profile,
     recorded,
   }
 }
@@ -472,9 +514,12 @@ describe("billing coordination in PostgreSQL", () => {
       const test = await context()
       test.snapshot.plan = "growth"
       const input = await test.paidAccount()
+      // Growth's second set is more than Pro includes.
+      await test.addSet()
       await test.services().automation.create(test.workspace, input)
       const extra: ProviderAccount = {
         providerAccountId: `extra_${test.workspace.id}`,
+        platform: "linkedin",
         username: "extra_creator",
         displayName: null,
         profilePictureUrl: null,
@@ -497,12 +542,12 @@ describe("billing coordination in PostgreSQL", () => {
       }
       if (source === "sync") {
         const save = test.accounts.save.bind(test.accounts)
-        test.accounts.save = async (workspaceId, snapshot) => {
+        test.accounts.save = async (workspaceId, socialSetId, snapshot) => {
           if (snapshot.providerAccountId === extra.providerAccountId) {
             entered.release()
             await finish.wait
           }
-          return save(workspaceId, snapshot)
+          return save(workspaceId, socialSetId, snapshot)
         }
       }
       const first = test.services(operations),
@@ -514,8 +559,7 @@ describe("billing coordination in PostgreSQL", () => {
         payload: {},
         account: {
           ...extra,
-          platform: "instagram",
-          providerProfileId: test.workspace.providerProfileId!,
+          providerProfileId: test.profile,
         },
       }
       const callback =
@@ -551,7 +595,8 @@ describe("billing coordination in PostgreSQL", () => {
         finish.release()
         await Promise.all([callback, downgrade])
       }
-      expect(await test.accounts.countConnected(test.workspace.id)).toBe(2)
+      // The connection finished under Growth, before the downgrade.
+      expect(await test.connectedCount()).toBe(2)
       expect(
         (await test.repository.findByWorkspace(test.workspace.id))?.subscription
           ?.plan
@@ -567,9 +612,15 @@ describe("billing coordination in PostgreSQL", () => {
     "finishes rejected-account %s cleanup before an upgrade and reconnection",
     async (source) => {
       const test = await context()
+      test.snapshot.plan = "growth"
       await test.paidAccount()
+      await test.addSet()
+      // Back on Pro, the workspace has a set more than its plan includes.
+      test.snapshot.plan = "pro"
+      await test.repository.saveSubscription(test.workspace.id, test.snapshot)
       const extra: ProviderAccount = {
         providerAccountId: `rejected_${test.workspace.id}`,
+        platform: "linkedin",
         username: "rejected_creator",
         displayName: null,
         profilePictureUrl: null,
@@ -593,8 +644,7 @@ describe("billing coordination in PostgreSQL", () => {
         payload: {},
         account: {
           ...extra,
-          platform: "instagram",
-          providerProfileId: test.workspace.providerProfileId!,
+          providerProfileId: test.profile,
         },
       }
       const callback =
@@ -626,7 +676,7 @@ describe("billing coordination in PostgreSQL", () => {
           (await test.repository.findByWorkspace(test.workspace.id))
             ?.subscription?.plan
         ).toBe("pro")
-        expect(await test.accounts.countConnected(test.workspace.id)).toBe(1)
+        expect(await test.connectedCount()).toBe(1)
       } finally {
         finish.release()
         await Promise.all([callback, upgrade])
@@ -637,7 +687,7 @@ describe("billing coordination in PostgreSQL", () => {
       await second.account.sync(test.workspace)
       if (source === "webhook")
         expect(await second.webhooks.process(event)).toBe("duplicate")
-      expect(await test.accounts.countConnected(test.workspace.id)).toBe(2)
+      expect(await test.connectedCount()).toBe(2)
       expect(test.reported.has(extra.providerAccountId)).toBe(true)
       expect(disconnect).toHaveBeenCalledExactlyOnceWith(
         extra.providerAccountId

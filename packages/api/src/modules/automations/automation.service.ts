@@ -1,3 +1,4 @@
+import { accountLabel } from "../../contract/platform"
 import { isDeepStrictEqual } from "node:util"
 import type { InstagramPost } from "../../contract/account"
 import type {
@@ -38,6 +39,7 @@ import { supportsAutomation } from "../billing/plan-entitlements"
 /** Looks up the accounts automations run on. */
 export interface AutomationAccounts {
   findById(workspaceId: string, id: string): Promise<AccountRecord | null>
+  listByWorkspace(workspaceId: string): Promise<AccountRecord[]>
 }
 
 /** Lists the posts an automation can be attached to. */
@@ -141,7 +143,7 @@ export class AutomationService {
 
     const providerAutomationId = await this.provider.create(
       {
-        providerProfileId: requireProviderProfile(workspace),
+        providerProfileId: requireProviderProfile(account),
         providerAccountId: account.providerAccountId,
       },
       config,
@@ -390,16 +392,24 @@ export class AutomationService {
   }
 
   async listStats(workspace: WorkspaceRecord): Promise<AutomationStatsById> {
-    // Without a provider profile the workspace has never connected an account,
-    // so it has no automations to report on.
-    if (!workspace.providerProfileId) {
-      return {}
-    }
-
-    const [automations, statsByProviderId] = await Promise.all([
+    // Each social set's profile reports its own automations. A set without
+    // one has never connected an account, so it has none.
+    const [automations, accounts] = await Promise.all([
       this.automations.listByWorkspace(workspace.id),
-      this.provider.listStats(workspace.providerProfileId),
+      this.accounts.listByWorkspace(workspace.id),
     ])
+    const profiles = new Set(
+      accounts.flatMap((account) =>
+        account.providerProfileId ? [account.providerProfileId] : []
+      )
+    )
+    const statsByProviderId = new Map(
+      (
+        await Promise.all(
+          [...profiles].map((profile) => this.provider.listStats(profile))
+        )
+      ).flatMap((stats) => [...stats])
+    )
 
     const statsById: AutomationStatsById = {}
 
@@ -459,7 +469,8 @@ export class AutomationService {
   ): Promise<AccountRecord> {
     const account = await this.accounts.findById(workspaceId, accountId)
 
-    if (!account) {
+    // Comment-to-DM runs on Instagram only.
+    if (!account || account.platform !== "instagram") {
       throw new NotFoundError("Instagram account")
     }
 
@@ -594,7 +605,7 @@ export class AutomationService {
 
 function assertConnected(account: AccountRecord): void {
   if (account.status !== "connected") {
-    throw new AccountDisconnectedError(account.username)
+    throw new AccountDisconnectedError(accountLabel(account))
   }
 }
 
@@ -606,14 +617,14 @@ function assertMessageFormat(config: AutomationConfig): void {
     })
 }
 
-function requireProviderProfile(workspace: WorkspaceRecord): string {
-  if (!workspace.providerProfileId) {
+function requireProviderProfile(account: AccountRecord): string {
+  if (!account.providerProfileId) {
     throw new InternalError(
-      `Workspace ${workspace.id} has a connected account but no provider profile.`
+      `Account ${account.id} is connected but its social set has no provider profile.`
     )
   }
 
-  return workspace.providerProfileId
+  return account.providerProfileId
 }
 
 /** What an automation does, without its messages. */

@@ -1,20 +1,8 @@
 import { create } from "zustand"
 import type { ScheduledPost } from "@workspace/api/contract"
 import { api } from "@/lib/api"
+import { daysOf } from "@/lib/month"
 import { errorMessage } from "./workspace-store"
-
-/** The days a month's grid shows: whole weeks, from Sunday. */
-export function daysOf(month: Date): Date[] {
-  const year = month.getFullYear()
-  const index = month.getMonth()
-  const lead = new Date(year, index, 1).getDay()
-  const length = new Date(year, index + 1, 0).getDate()
-  const weeks = Math.ceil((lead + length) / 7)
-  return Array.from(
-    { length: weeks * 7 },
-    (_, day) => new Date(year, index, 1 - lead + day)
-  )
-}
 
 /** From a month grid's first day to the start of the day after its last. */
 function rangeOf(month: Date): { from: Date; to: Date } {

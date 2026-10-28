@@ -4,6 +4,7 @@ import type {
   MatchMode,
   PostScope,
 } from "../../contract/automation"
+import type { Platform } from "../../contract/platform"
 import type { PostKind } from "../../contract/post"
 import type {
   BillingInterval,
@@ -40,6 +41,7 @@ type AutomationShape = {
 
 type PostShape = {
   post_id: string
+  platform: Platform
   kind: PostKind
   media_count: number
   video_count: number
@@ -66,6 +68,8 @@ type Events = {
   user_signed_up: { method: "google" }
   user_signed_in: { method: "google" }
   workspace_renamed: None
+  social_set_created: None
+  social_set_deleted: None
   api_key_created: { api_key_id: string; scope_count: number; expires: boolean }
   api_key_revoked: { api_key_id: string }
   /** One REST operation or MCP tool call by an agent. */
@@ -76,17 +80,26 @@ type Events = {
     error_code: ApiErrorCode | null
     duration_ms: number
   }
-  instagram_connect_started: None
+  // Account events kept their names from when every account was on
+  // Instagram; `platform` tells them apart.
+  instagram_connect_started: { platform: Platform }
   /** The owner went to authorize an account again, to grant new permissions. */
-  instagram_reconnect_started: { account_id: string }
-  instagram_account_connected: { account_id: string }
+  instagram_reconnect_started: { account_id: string; platform: Platform }
+  instagram_account_connected: { account_id: string; platform: Platform }
   /**
    * The plan had no room for an account the owner tried to connect. The id is
    * null when the connection was refused before any account was authorized.
    */
-  instagram_account_limit_reached: { account_id: string | null }
-  instagram_account_disconnected: { account_id: string; reason: string }
-  instagram_account_removed: { account_id: string }
+  instagram_account_limit_reached: {
+    account_id: string | null
+    platform: Platform
+  }
+  instagram_account_disconnected: {
+    account_id: string
+    platform: Platform
+    reason: string
+  }
+  instagram_account_removed: { account_id: string; platform: Platform }
   automation_created: AutomationShape
   automation_updated: AutomationShape
   automation_activated: { automation_id: string }

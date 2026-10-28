@@ -12,6 +12,7 @@ import { ApiClientError } from "@workspace/api/client"
 import { keywordsOf } from "@/features/automations/automation-fields"
 import { api } from "@/lib/api"
 import { responseForSave, type AutomationDraft } from "@/lib/automation-draft"
+import { accountsIn, currentSet } from "./social-set-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
 type EditorState = {
@@ -148,9 +149,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         await get().selectAccount(item.instagramAccountId)
       } else {
         set({ status: "ready" })
-        const account = useWorkspaceStore
-          .getState()
-          .accounts.find((item) => item.status === "connected")
+        // A new automation runs on the Instagram account of the set shown.
+        const account = accountsIn(
+          useWorkspaceStore.getState().accounts,
+          currentSet()
+        ).find(
+          (item) => item.platform === "instagram" && item.status === "connected"
+        )
         if (account) await get().selectAccount(account.id)
       }
     } catch (error) {

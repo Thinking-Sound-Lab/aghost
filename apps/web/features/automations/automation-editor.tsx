@@ -30,11 +30,13 @@ import {
   timeLabel,
 } from "@/features/calendar/post-media"
 import { LAST_STEP, useEditorStore } from "@/stores/editor-store"
+import { useActiveSet } from "@/stores/social-set-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 
 export function AutomationEditor({ id }: { id?: string }) {
   const editor = useEditorStore()
   const workspace = useWorkspaceStore()
+  const socialSet = useActiveSet()
   const router = useRouter()
   const initialize = editor.initialize
   useEffect(() => {
@@ -53,9 +55,13 @@ export function AutomationEditor({ id }: { id?: string }) {
       </Panel>
     )
 
+  // Comment-to-DM runs on Instagram accounts only: the set's, and, when
+  // editing, the one the saved automation already runs on.
   const accounts = workspace.accounts.filter(
     (item) =>
-      item.status === "connected" || item.id === editor.draft.instagramAccountId
+      item.platform === "instagram" &&
+      ((item.status === "connected" && item.socialSetId === socialSet?.id) ||
+        (id !== undefined && item.id === editor.draft.instagramAccountId))
   )
   if (accounts.length === 0)
     return (

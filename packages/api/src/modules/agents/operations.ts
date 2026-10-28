@@ -1,6 +1,7 @@
 import { z } from "zod"
 import type { ApiKeyScope } from "../../contract/api-key"
 import type { ApiErrorCode } from "../../contract/errors"
+import { PLATFORMS, PLATFORM_RULES } from "../../contract/platform"
 import {
   ACTIVITY_PAGE_MAX_LIMIT,
   createAutomationSchema,
@@ -12,6 +13,7 @@ import { insightInputSchema } from "../../contract/insights"
 import {
   POST_LIMITS,
   createMediaUploadSchema,
+  crossPostSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
   updateScheduledPostSchema,
@@ -21,6 +23,7 @@ import {
   presentAccount,
   presentAutomation,
   presentScheduledPost,
+  presentSocialSet,
   presentWorkspace,
 } from "../../http/presenters"
 import { validate } from "../../http/validation"
@@ -98,6 +101,11 @@ const offsetSchema = z
   .max(Number.MAX_SAFE_INTEGER)
   .default(0)
 
+const captionLimits = PLATFORMS.map(
+  (platform) =>
+    `${PLATFORM_RULES[platform].name} ${PLATFORM_RULES[platform].captionMaxLength.toLocaleString("en")}`
+).join(", ")
+
 export const AGENT_OPERATIONS = [
   operation({
     name: "get_workspace",
@@ -107,9 +115,18 @@ export const AGENT_OPERATIONS = [
     run: ({ workspace }) => presentWorkspace(workspace),
   }),
   operation({
+    name: "list_social_sets",
+    description:
+      "List the workspace's social sets. A set groups one account on each platform, such as one brand; each account's socialSetId names its set.",
+    scope: "accounts:read",
+    schema: noInput,
+    run: async ({ workspace, services }) =>
+      (await services.socialSets.list(workspace)).map(presentSocialSet),
+  }),
+  operation({
     name: "list_accounts",
     description:
-      "List the workspace's Instagram accounts and connection status.",
+      "List the workspace's connected accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube, with each one's platform, connection status and socialSetId. A social set holds one account per platform; cross-post within one set unless the user asks otherwise.",
     scope: "accounts:read",
     schema: noInput,
     run: async ({ workspace, services }) =>
@@ -118,7 +135,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_account_posts",
     description:
-      "List recent posts for an Instagram account. Use platformPostId when targeting a specific post.",
+      "List recent posts for an Instagram account, to pick one for a comment-to-DM automation. Use platformPostId when targeting a specific post.",
     scope: "accounts:read",
     schema: accountId,
     run: ({ workspace, services }, { accountId }) =>
@@ -127,7 +144,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_account_insights",
     description:
-      "Read the Analytics account report for 7, 30 or 90 UTC days including today (default 30), plus a page of published content. Summary totals cover the selected dates; reach is unique accounts and must not be summed across posts or days. Post metrics are lifetime totals for content published in the range. Null means unknown, not zero; recent account data may lag up to 48 hours. Returns reconnect_required or not_enabled when analytics access is unavailable.",
+      "Read the Analytics account report for 7, 30 or 90 UTC days including today (default 30), plus a page of published content, for an account on any platform. Instagram reports have summary account totals for the selected dates; reach is unique accounts and must not be summed across posts or days. Other platforms have totals: the lifetime metrics of posts published in the range, with daily values by publish date. Post metrics are lifetime totals for content published in the range. Null means unknown or not reported by that platform, not zero; recent account data may lag up to 48 hours. Returns reconnect_required or not_enabled when analytics access is unavailable.",
     scope: "accounts:read",
     schema: insightInputSchema,
     run: ({ workspace, services }, query) =>
@@ -136,7 +153,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_content_insights",
     description:
-      "Browse published Instagram content and lifetime performance metrics, including views, reach, engagement and Reel watch time in seconds. Filter publication dates to 7, 30 or 90 UTC days including today, sort by views, reach, saves, shares or date, and paginate with page (starting at 1) through pages. Use this for further pages without reloading account insights. Use each returned post's id for get_post_insights. Null metrics are unknown, not zero; unavailable access returns reconnect_required or not_enabled.",
+      "Browse an account's published content and lifetime performance metrics, including views, reach, impressions, engagement and Instagram Reel watch time in seconds; metrics a platform does not report are null. Filter publication dates to 7, 30 or 90 UTC days including today, sort by a metric the platform reports or by date, and paginate with page (starting at 1) through pages. Use this for further pages without reloading account insights. Use each returned post's id for get_post_insights. Null metrics are unknown, not zero; unavailable access returns reconnect_required or not_enabled.",
     scope: "accounts:read",
     schema: insightInputSchema,
     run: ({ workspace, services }, query) =>
@@ -264,7 +281,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_scheduled_post",
     description:
-      "Get a scheduled post's content, time, Trial Reel launch settings and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
+      "Get a scheduled post's platform, account, content, time, Trial Reel launch settings, YouTube title and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
     scope: "posts:read",
     schema: postId,
     run: async ({ workspace, services }, { postId }) =>
@@ -273,14 +290,14 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "create_media_upload",
     description:
-      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post. Media already at a public https URL needs no upload. If the file is on the user's device, or you can't reach uploadUrl, for example because your sandbox's network blocks it, use create_upload_link instead.",
+      "Get a one-hour URL to upload a photo or video for a post. PUT the file's bytes to uploadUrl with the same Content-Type header, then pass the returned media object in schedule_post or cross_post. Media already at a public https URL needs no upload. If the file is on the user's device, or you can't reach uploadUrl, for example because your sandbox's network blocks it, use create_upload_link instead.",
     scope: "posts:write",
     schema: createMediaUploadSchema,
     run: ({ services }, input) => services.posts.createUpload(input),
   }),
   operation({
     name: "create_upload_link",
-    description: `Get a page where the user uploads photos and videos for a post from their browser, for files you can't upload yourself. Give the user the url and ask them to tell you when they have uploaded; the page takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post.`,
+    description: `Get a page where the user uploads photos and videos for a post from their browser, for files you can't upload yourself. Give the user the url and ask them to tell you when they have uploaded; the page takes files for ${POST_LIMITS.uploadLinkHours} hours. Then read the link with get_upload_link and pass its media to schedule_post or cross_post.`,
     scope: "posts:write",
     schema: noInput,
     run: ({ workspace, services }) => services.uploadLinks.create(workspace),
@@ -288,7 +305,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_upload_link",
     description:
-      "Get an upload link's status: waiting, uploaded or expired. Once uploaded, media lists the user's files in their order, ready to pass to schedule_post.",
+      "Get an upload link's status: waiting, uploaded or expired. Once uploaded, media lists the user's files in their order, ready to pass to schedule_post or cross_post.",
     scope: "posts:read",
     schema: z.object({ uploadLinkId: z.uuid() }),
     run: ({ workspace, services }, { uploadLinkId }) =>
@@ -296,7 +313,7 @@ export const AGENT_OPERATIONS = [
   }),
   operation({
     name: "schedule_post",
-    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
+    description: `Schedule an Instagram post or story for at least ${POST_LIMITS.minLeadMinutes} minutes from now; it publishes for real at that time. instagramAccountId must be an Instagram account; use cross_post for Facebook, LinkedIn, X, Threads and YouTube, or for several accounts at once. A post with one video publishes as a reel, and 2-10 items as a carousel. To create a Trial Reel, use kind post, exactly one video, and trialReel: {graduationStrategy: manual or automatic}. manual lets the owner share with everyone later in Instagram; automatic lets Instagram share based on performance with non-followers. Omit trialReel or use null for a regular post. Pass automation to answer comments on the post once it is published (requires automations:write); null schedules the post alone.`,
     scope: "posts:write",
     schema: schedulePostSchema,
     run: async ({ workspace, services, apiKey }, input) => {
@@ -308,9 +325,22 @@ export const AGENT_OPERATIONS = [
     },
   }),
   operation({
+    name: "cross_post",
+    description: `Schedule one post on one or more accounts on any platform, for at least ${POST_LIMITS.minLeadMinutes} minutes from now; each account gets its own scheduled post that publishes for real at that time. targets lists account ids from list_accounts. A target's caption replaces the shared caption on that account, such as a shorter one for X; null keeps the shared one. Caption limits: ${captionLimits}. YouTube needs one video and youtube: {title, madeForKids} on its target; Instagram needs a photo or video; Facebook, LinkedIn and X take several photos or one video, X up to ${PLATFORM_RULES.twitter.maxMedia} photos. Stories are Instagram only. trialReel and automation apply to the Instagram copies, and the others publish as plain posts. Every copy is checked before any is scheduled, and all are scheduled or none; errors name the target, such as targets.0.caption. Pass automation to answer comments on the Instagram copies (requires automations:write).`,
+    scope: "posts:write",
+    schema: crossPostSchema,
+    run: async ({ workspace, services, apiKey }, input) => {
+      if (input.automation && !apiKey.scopes.includes("automations:write"))
+        throw new ForbiddenError("automations:write")
+      return (await services.posts.crossPost(workspace, input)).map(
+        presentScheduledPost
+      )
+    },
+  }),
+  operation({
     name: "update_scheduled_post",
     description:
-      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
+      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write on an Instagram post. The post's platform rules apply, such as 280 characters on X; set youtube to {title, madeForKids} on a YouTube video, or omit it to keep them. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
     scope: "posts:write",
     schema: postId.extend({ input: updateScheduledPostSchema }),
     destructive: true,
@@ -325,7 +355,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "delete_scheduled_post",
     description:
-      "Cancel a scheduled or failed post and delete the automations attached to it, which also requires automations:write. Published posts stay on Instagram and cannot be deleted here.",
+      "Cancel a scheduled or failed post and delete the automations attached to it, which also requires automations:write. Published posts stay on their platform and cannot be deleted here.",
     scope: "posts:write",
     destructive: true,
     schema: postId,
@@ -340,10 +370,11 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_contacts",
     description:
-      "Search contacts in this workspace. Returns up to 50 contacts with total and hasMore for pagination.",
+      "Search the contacts of one social set, or the first set when socialSetId is omitted; list_social_sets returns the ids. Returns up to 50 contacts with total and hasMore for pagination.",
     scope: "contacts:read",
     schema: z.object({
       search: z.string().trim().max(100).default(""),
+      socialSetId: z.uuid().optional(),
       offset: offsetSchema,
     }),
     run: ({ workspace, services }, query) =>

@@ -14,7 +14,9 @@ import { loadApiConfig } from "../config"
 import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
+import { PLANS } from "../contract/billing"
+import { PLATFORMS } from "../contract/platform"
 import { recordingAnalytics } from "./analytics-fixture"
 import {
   grantPlan,
@@ -88,7 +90,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
   let owner: ApiSession
   let other: ApiSession
   let ownerEmail: string
-  let account: InstagramAccount
+  let account: Account
   let workspaceId: string
   let otherWorkspaceId: string
   let profileId: string
@@ -190,14 +192,14 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(
       (await owner.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(200)
-    const workspace = await admin
-      .from("workspaces")
+    const set = await admin
+      .from("social_sets")
       .select("zernio_profile_id")
-      .eq("id", workspaceId)
+      .eq("workspace_id", workspaceId)
       .single()
-    if (!workspace.data?.zernio_profile_id)
+    if (!set.data?.zernio_profile_id)
       throw new Error("Fixture profile was not persisted")
-    profileId = workspace.data.zernio_profile_id
+    profileId = set.data.zernio_profile_id
     const synced = await owner.request("/accounts/sync", "POST", {})
     expect(synced.statusCode).toBe(200)
     account = (await synced.json())[0]
@@ -756,6 +758,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       (
         await user.from("instagram_accounts").insert({
           workspace_id: workspaceId,
+          social_set_id: workspaceId,
           zernio_account_id: "forged",
           username: "forged",
           status: "connected",
@@ -796,12 +799,12 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(await india.json()).toMatchObject({
       currency: "USD",
       subscription: { plan: "pro", currency: "USD" },
-      connectedAccounts: 0,
+      socialSets: 1,
     })
     expect(await (await owner.request("/billing")).json()).toMatchObject({
       currency: "USD",
       subscription: { plan: "growth", interval: "monthly", status: "active" },
-      connectedAccounts: 1,
+      socialSets: 1,
     })
   })
 
@@ -846,7 +849,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       workspaceId: workspace.id,
       currency: "USD",
       subscription: null,
-      connectedAccounts: 0,
+      socialSets: 1,
     })
     const checkout = await customer.request(
       "/billing/checkout",
@@ -921,30 +924,35 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     dodo.state.subscription = dodo.subscription({
       product_id: "pdt_growth_monthly",
     })
-    dodo.state.payments = [dodo.payment({ total_amount: 1900 })]
+    dodo.state.payments = [
+      dodo.payment({ total_amount: PLANS.growth.prices.USD.monthly }),
+    ]
     expect((await billingEvent("subscription.plan_changed")).statusCode).toBe(
       200
     )
     expect(
       (await customer.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(200)
+    // The first social set got its profile with that connection.
     const profile = (
       await admin
-        .from("workspaces")
+        .from("social_sets")
         .select("zernio_profile_id")
-        .eq("id", workspace.id)
+        .eq("workspace_id", workspace.id)
         .single()
     ).data!.zernio_profile_id!
 
+    // One account on every platform, and a second Instagram account, which
+    // the set has no room for.
     const connected = await Promise.all(
-      Array.from({ length: 3 }, (_, index) =>
+      Array.from({ length: PLATFORMS.length + 1 }, (_, index) =>
         deliver({
           id: newEventId(),
           event: "account.connected",
           account: {
             accountId: `billing-account-${runId}-${index}`,
             profileId: profile,
-            platform: "instagram",
+            platform: PLATFORMS[index % PLATFORMS.length],
             username: `billing_${index}`,
           },
         })
@@ -955,26 +963,31 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     )
     const accounts = (await (
       await customer.request("/accounts")
-    ).json()) as InstagramAccount[]
+    ).json()) as Account[]
     expect(
       accounts.filter((account) => account.status === "connected")
-    ).toHaveLength(2)
+    ).toHaveLength(PLATFORMS.length)
     expect(
       accounts.filter((account) => account.status === "disconnected")
-    ).toHaveLength(1)
+    ).toEqual([
+      expect.objectContaining({
+        platform: "instagram",
+        disconnectReason:
+          "This social set already has an account on this platform. Connect it to another set.",
+      }),
+    ])
     expect(
       (await customer.request("/accounts/connect", "POST", {})).statusCode
-    ).toBe(403)
-    // A refused connection is an upgrade signal, before any account exists.
+    ).toBe(409)
+    // Growth includes two social sets.
     expect(
-      recorded.events
-        .filter(
-          ({ actor, event }) =>
-            actor.userId === data.user!.id &&
-            event.name === "instagram_account_limit_reached"
-        )
-        .at(-1)?.event
-    ).toEqual({ name: "instagram_account_limit_reached", account_id: null })
+      (await customer.request("/social-sets", "POST", { name: "Brand two" }))
+        .statusCode
+    ).toBe(201)
+    expect(
+      (await customer.request("/social-sets", "POST", { name: "Brand three" }))
+        .statusCode
+    ).toBe(403)
     expect(
       (
         await customer.request("/billing/plan", "POST", {
@@ -986,7 +999,8 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     const automation = await customer.request("/automations", "POST", {
       ...automationInput(),
       instagramAccountId: accounts.find(
-        (account) => account.status === "connected"
+        (account) =>
+          account.status === "connected" && account.platform === "instagram"
       )!.id,
       trigger: { postScope: "any_post" },
     })

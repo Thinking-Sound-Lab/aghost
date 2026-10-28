@@ -14,6 +14,7 @@ import {
 import { DodoWebhookGateway } from "./infrastructure/dodo/dodo-webhook.gateway"
 import { PostHogAnalytics } from "./infrastructure/posthog/posthog-analytics"
 import type { DataClients } from "./infrastructure/supabase/data-clients"
+import { SupabaseSocialSetRepository } from "./infrastructure/supabase/supabase-social-set.repository"
 import { SupabaseAccountRepository } from "./infrastructure/supabase/supabase-account.repository"
 import { SupabaseApiKeyRepository } from "./infrastructure/supabase/supabase-api-key.repository"
 import { SupabaseOAuthRepository } from "./infrastructure/supabase/supabase-oauth.repository"
@@ -29,7 +30,7 @@ import { ZernioAutomationProvider } from "./infrastructure/zernio/zernio-automat
 import { createZernioClient } from "./infrastructure/zernio/zernio-client"
 import { ZernioContactProvider } from "./infrastructure/zernio/zernio-contact.provider"
 import { ZernioInboxProvider } from "./infrastructure/zernio/zernio-inbox.provider"
-import { ZernioInstagramProvider } from "./infrastructure/zernio/zernio-instagram.provider"
+import { ZernioAccountProvider } from "./infrastructure/zernio/zernio-account.provider"
 import { ZernioPublishingProvider } from "./infrastructure/zernio/zernio-post.provider"
 import { ZernioProfileProvider } from "./infrastructure/zernio/zernio-profile.provider"
 import { ZernioWebhookGateway } from "./infrastructure/zernio/zernio-webhook.gateway"
@@ -40,7 +41,7 @@ import {
   type ProductAnalytics,
 } from "./modules/analytics/analytics"
 import { ApiKeyService } from "./modules/api-keys/api-key.service"
-import type { InstagramProvider } from "./modules/accounts/instagram.provider"
+import type { AccountProvider } from "./modules/accounts/account.provider"
 import type { AutomationProvider } from "./modules/automations/automation.provider"
 import { AutomationService } from "./modules/automations/automation.service"
 import { BillingWebhookService } from "./modules/billing/billing-webhook"
@@ -67,10 +68,11 @@ import { SupabaseFollowUpRepository } from "./infrastructure/supabase/supabase-f
 import { ZernioFollowUpProvider } from "./infrastructure/zernio/zernio-follow-up.provider"
 import { FollowUpService } from "./modules/automations/follow-up.service"
 import { InsightsService } from "./modules/insights/insights.service"
+import { SocialSetService } from "./modules/social-sets/social-set.service"
 import type { InsightsProvider } from "./modules/insights/insights.provider"
 import { ZernioInsightsProvider } from "./infrastructure/zernio/zernio-insights.provider"
 
-// Path of the page in the web app that finishes the Instagram connection.
+// Path of the page in the web app that finishes connecting an account.
 const CONNECT_CALLBACK_PATH = "/accounts/callback"
 // Where checkout and the billing portal send the browser back to.
 const BILLING_PATH = "/settings#billing"
@@ -85,6 +87,7 @@ export type Services = {
   inbox: InboxService
   contacts: ContactService
   insights: InsightsService
+  socialSets: SocialSetService
   billing: BillingService
   plans: PlanEntitlements
   /** Records events with the source of the request these services serve. */
@@ -93,7 +96,7 @@ export type Services = {
 
 type Providers = {
   profiles: ProfileProvider
-  instagram: InstagramProvider
+  accounts: AccountProvider
   automations: AutomationProvider
   publishing: PublishingProvider
   inbox: InboxProvider
@@ -121,19 +124,27 @@ function createServices(
   const accountRepository = new SupabaseAccountRepository(db)
   const postRepository = new SupabasePostRepository(db)
   const billingRepository = new SupabaseBillingRepository(db)
+  const socialSetRepository = new SupabaseSocialSetRepository(db)
   const operations = new SupabaseWorkspaceOperations(db.privileged)
-  const plans = new PlanEntitlements(billingRepository, accountRepository)
+  const plans = new PlanEntitlements(billingRepository, socialSetRepository)
 
   const workspaces = new WorkspaceService(
     new SupabaseWorkspaceRepository(db),
+    analytics
+  )
+  const socialSets = new SocialSetService(
+    socialSetRepository,
+    accountRepository,
     providers.profiles,
+    plans,
+    operations,
     analytics
   )
   const automations = new AutomationService(
     new SupabaseAutomationRepository(db),
     providers.automations,
     accountRepository,
-    providers.instagram,
+    providers.accounts,
     postRepository,
     plans,
     operations,
@@ -151,8 +162,8 @@ function createServices(
   )
   const accounts = new AccountService(
     accountRepository,
-    providers.instagram,
-    workspaces,
+    providers.accounts,
+    socialSets,
     automations,
     posts,
     pages.connectRedirectUrl,
@@ -163,7 +174,7 @@ function createServices(
   const billing = new BillingService(
     billingRepository,
     providers.billing,
-    accountRepository,
+    socialSetRepository,
     automations,
     posts,
     pages.billing,
@@ -177,8 +188,12 @@ function createServices(
     analytics
   )
   const inbox = new InboxService(providers.inbox, accountRepository, analytics)
-  const contacts = new ContactService(providers.contacts)
-  const insights = new InsightsService(providers.insights, accountRepository)
+  const contacts = new ContactService(providers.contacts, socialSets)
+  const insights = new InsightsService(
+    providers.insights,
+    accountRepository,
+    socialSets
+  )
   const apiKeys = new ApiKeyService(
     new SupabaseApiKeyRepository(db.privileged),
     analytics
@@ -194,6 +209,7 @@ function createServices(
     inbox,
     contacts,
     insights,
+    socialSets,
     billing,
     plans,
     analytics,
@@ -210,7 +226,7 @@ function runtime(config: ApiConfig, options: RuntimeOptions = {}) {
   const zernio = () => createZernioClient(config.zernio)
   const providers: Providers = {
     profiles: new ZernioProfileProvider(zernio),
-    instagram: new ZernioInstagramProvider(zernio),
+    accounts: new ZernioAccountProvider(zernio),
     automations: new ZernioAutomationProvider(zernio),
     publishing: new ZernioPublishingProvider(zernio),
     inbox: new ZernioInboxProvider(zernio),
@@ -330,7 +346,7 @@ export function createApi(
     new ZernioWebhookGateway(config.zernio.webhookSecret),
     new SupabaseWebhookProcessor(
       admin,
-      providers.instagram,
+      providers.accounts,
       new SupabaseWorkspaceOperations(admin),
       analytics.from("webhook")
     )

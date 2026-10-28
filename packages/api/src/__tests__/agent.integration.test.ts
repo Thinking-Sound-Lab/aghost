@@ -19,7 +19,7 @@ import {
   type CreatedApiKey,
 } from "../contract/api-key"
 import type { Automation } from "../contract/automation"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
 import type { ApiApp } from "../http/app"
 import { hashApiKey } from "../modules/api-keys/api-key.service"
 import { recordingAnalytics } from "./analytics-fixture"
@@ -59,7 +59,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
   let app: ApiApp
   let fixture: Awaited<ReturnType<typeof startZernioFixture>>
   let address: string
-  let account: InstagramAccount
+  let account: Account
   let workspaceId: string
   let otherWorkspaceId: string
   let ownerCookie: string
@@ -263,7 +263,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     )
     const synced = await session("/accounts/sync", "POST", {})
     expect(synced.statusCode).toBe(200)
-    account = synced.json<InstagramAccount[]>()[0]!
+    account = synced.json<Account[]>()[0]!
   })
 
   afterAll(async () => {
@@ -349,9 +349,11 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
 
     const client = await mcp(created.token)
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(27)
+    expect(tools).toHaveLength(29)
     expect(tools.map((tool) => tool.name)).toContain("create_automation")
     expect(tools.map((tool) => tool.name)).toContain("schedule_post")
+    expect(tools.map((tool) => tool.name)).toContain("cross_post")
+    expect(tools.map((tool) => tool.name)).toContain("list_social_sets")
     expect(tools.map((tool) => tool.name)).toContain("send_message")
     const workspace = await client.callTool({
       name: "get_workspace",
@@ -678,7 +680,6 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
             accountId: fixture.accountId,
             page: "2",
             sortBy: "saves",
-            platform: "instagram",
           })
         }
       }
@@ -724,7 +725,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
           text: JSON.stringify({
             error: {
               code: "not_found",
-              message: "Instagram account was not found.",
+              message: "Account was not found.",
             },
           }),
         },
@@ -781,7 +782,7 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
     for (const path of [
       `/insights?accountId=${account.id}&days=365`,
       `/insights/content?accountId=${account.id}&page=0`,
-      `/insights/content?accountId=${account.id}&sort=likes`,
+      `/insights/content?accountId=${account.id}&sort=followers`,
       `/insights/posts/${"a".repeat(201)}?accountId=${account.id}`,
       "/insights/posting-times?accountId=invalid",
     ]) {

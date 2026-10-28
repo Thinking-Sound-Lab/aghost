@@ -1,11 +1,13 @@
 import type { Database } from "@workspace/supabase/types"
 import { z } from "zod"
 
+import { platformSchema } from "../../contract/platform"
 import {
   POST_KINDS,
   SCHEDULED_POST_STATUSES,
   postMediaSchema,
   trialReelSchema,
+  youtubeSchema,
   type ScheduledPostRange,
   type ScheduledPostStatus,
 } from "../../contract/post"
@@ -35,6 +37,7 @@ function toRecord(
     id: row.id,
     workspaceId: row.workspace_id,
     accountId: row.instagram_account_id,
+    platform: platformSchema.parse(row.platform),
     providerPostId: row.zernio_post_id,
     kind: kindSchema.parse(row.kind),
     caption: row.caption,
@@ -44,6 +47,13 @@ function toRecord(
           graduationStrategy: row.trial_graduation_strategy,
         })
       : null,
+    youtube:
+      row.youtube_title === null
+        ? null
+        : youtubeSchema.parse({
+            title: row.youtube_title,
+            madeForKids: row.youtube_made_for_kids,
+          }),
     scheduledFor: new Date(row.scheduled_for).toISOString(),
     status: statusSchema.parse(row.status),
     platformPostId: row.platform_post_id,
@@ -62,6 +72,8 @@ function toContentColumns(content: PostContent) {
     caption: content.caption,
     media: content.media,
     trial_graduation_strategy: content.trialReel?.graduationStrategy ?? null,
+    youtube_title: content.youtube?.title ?? null,
+    youtube_made_for_kids: content.youtube?.madeForKids ?? null,
     scheduled_for: content.scheduledFor,
   }
 }
@@ -146,6 +158,7 @@ export class SupabasePostRepository implements ScheduledPostRepository {
           ...toContentColumns(post),
           workspace_id: post.workspaceId,
           instagram_account_id: post.accountId,
+          platform: post.platform,
           zernio_post_id: post.providerPostId,
           status: "scheduled",
         })

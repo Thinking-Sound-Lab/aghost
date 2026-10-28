@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { PLAN_IDS, PLANS } from "@workspace/api/contract"
 import { faqs, features } from "@/features/marketing/content"
 import { contactEmail } from "@/features/marketing/contact"
 import { Landing } from "@/features/marketing/landing"
@@ -41,6 +42,13 @@ const structuredData = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       featureList: features.map((feature) => feature.title),
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "USD",
+        lowPrice: PLANS.pro.prices.USD.monthly / 100,
+        highPrice: PLANS.business.prices.USD.monthly / 100,
+        offerCount: PLAN_IDS.length,
+      },
       publisher: organization,
     },
     {
