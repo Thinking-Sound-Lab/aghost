@@ -1,6 +1,6 @@
 # Channels
 
-A workspace connects accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube through Zernio. Each connected account is a channel, and every channel counts toward the plan's limit, whatever its platform. Comment-to-DM automations, the inbox and contacts stay on Instagram.
+A workspace connects accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube through Zernio. Each connected account is a channel, and belongs to a [social set](#social-sets). Comment-to-DM automations, the inbox and contacts stay on Instagram.
 
 ## Connecting
 
@@ -31,9 +31,9 @@ X allows 25,000 characters on paid accounts, but aghost checks 280 for every X a
 
 ## Analytics
 
-The Analytics page reads any connected account. Instagram keeps its account report: account insights, daily reach, content and posting times ([Instagram analytics](instagram-analytics.md)).
+The Analytics page shows the chosen social set: an All tab with the set's totals and each channel side by side, then a tab per channel. Instagram keeps its account report: account insights, daily reach and content ([Instagram analytics](instagram-analytics.md)).
 
-Other platforms have no account insights here. Their totals come from `GET /v1/analytics/daily-metrics` for the account: the lifetime metrics of the posts published in the period, with the platform's main metric charted by publish date. The content table, post details and posting times use the same endpoints as Instagram, filtered to the account's platform.
+Other platforms have no account insights here. Their totals add up the account's posts from `GET /v1/analytics`, every page of them: the lifetime metrics of the posts published in the period, with the platform's main metric charted by publish date. Zernio's `daily-metrics` rollup trails its post sync by hours, so it isn't used. The content table and post details use the same endpoints as Instagram, filtered to the account's platform.
 
 Each platform reports only some metrics. The rest stay `null` and show as a dash, even when Zernio sends a zero:
 
@@ -49,11 +49,11 @@ LinkedIn reports saves for personal profiles only and clicks for organization pa
 
 ## Social sets
 
-A social set holds one account on each platform, such as one brand's Instagram, LinkedIn and YouTube. Plans include 1 (Pro), 2 (Growth) or 10 (Business) sets ([billing](billing.md)). Every workspace starts with one, and the dashboard shows one set at a time: the sidebar switches between them, and the calendar, composer, analytics, Home, automations, inbox and contacts follow the chosen set. Settings → Social sets connects, renames and deletes them; a set can be deleted once it has no channels, and the last one stays.
+A social set holds one account on each platform, such as one brand's Instagram, LinkedIn and YouTube. Plans include 1 (Pro), 2 (Growth) or 10 (Business) sets ([billing](billing.md)). Every workspace starts with one, and the dashboard shows one set at a time: the sidebar switches between them, and the calendar, composer, analytics, Home, automations and inbox follow the chosen set. Settings → Social sets connects, renames and deletes them; a set can be deleted once it has no channels, and the last one stays.
 
 Each set has its own Zernio profile, created with its first connection, since a profile holds one YouTube channel. `POST /api/accounts/connect` takes `socialSetId` (older dashboards send none and connect to the first set). The API refuses a second connected account on a platform in one set, and the database disconnects one that arrives through a webhook or sync, then lets Zernio go of it. A plan that covers fewer sets than the workspace has, after a downgrade, refuses new connections and pauses automations until sets are deleted or the plan is upgraded. Accounts stored before sets share the first set, even several on one platform; they keep working and reconnect as they are.
 
-Contacts are listed per set (`socialSetId`, the first set when omitted). The inbox and automation stats read every set's profile. The home overview (`GET /api/insights/overview?socialSetId=&days=`) covers one set in three Zernio requests.
+Contacts are listed per set (`socialSetId`, the first set when omitted). The inbox and automation stats read every set's profile. The home overview and the All tab (`GET /api/insights/overview?socialSetId=&days=`) cover one set: followers from Zernio's follower stats, whose change needs two daily counts, and the posts of the period and the one before, summed per platform. The numbers are as fresh as Zernio's last sync, shown as "Updated … ago"; reading posts has Zernio sync accounts it finds stale.
 
 ## Agents
 
@@ -61,11 +61,10 @@ REST and MCP list every account with its `platform`. Scheduled posts carry `acco
 
 ## Rollout
 
-1. Apply `20261020090000_social_channels.sql`. It adds a `platform` column to accounts (default `instagram`), a platform and YouTube settings to scheduled posts, ties automations to Instagram accounts, and lets the account webhook store every supported platform. The previous API keeps working on it.
-2. Deploy the API, then the dashboard. Dashboards from before this change connect Instagram, the only platform they know.
-3. Apply `20261026090000_social_sets.sql`. It gives every workspace a first set holding its Zernio profile and accounts, sells plans by set (1 / 2 / 10) and drops Ultimate, which was never sold. The previous API keeps working: accounts it stores join the first set.
-4. Deploy the API, then the dashboard.
-5. Run `pnpm billing:setup` in `live_mode` to update the Dodo products to the new prices and descriptions ([billing](billing.md)). Existing subscribers keep their price and get the plan's social sets.
-6. Add a payment method to the Zernio team before connecting X.
+1. Apply `20261020090000_social_channels.sql`. It adds a `platform` column to accounts (default `instagram`), a platform and YouTube settings to scheduled posts, ties automations to Instagram accounts, and lets the account webhook store every supported platform.
+2. Apply `20261026090000_social_sets.sql`. It gives every workspace a first set holding its Zernio profile and accounts, marks accounts that already shared a platform so they keep reconnecting, sells plans by set (1 / 2 / 10) and drops Ultimate, which was never sold. The previous API keeps working on both: accounts it stores join the first set.
+3. Deploy the API, then the dashboard. The new API reads `social_sets`, so both migrations come first. Dashboards from before this change connect Instagram to the first set.
+4. Run `pnpm billing:setup` in `live_mode` to update the Dodo products to the new prices and descriptions ([billing](billing.md)). Existing subscribers keep their price and get the plan's social sets.
+5. Add a payment method to the Zernio team before connecting X.
 
 The tests run every platform against a local Zernio fixture and PostgreSQL. They do not prove live publishing or metrics on each platform; check those with a real account on each.

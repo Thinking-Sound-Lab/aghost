@@ -52,6 +52,7 @@ const account: AccountRecord = {
   disconnectReason: null,
   socialSetId: "set",
   providerProfileId: "profile",
+  sharedPlatformBeforeSets: false,
   createdAt: "2026-01-01T00:00:00Z",
 }
 const query: InsightQuery = {
@@ -421,11 +422,12 @@ describe("Instagram insight SDK adapter", () => {
     expect(Object.fromEntries(list.query)).toMatchObject({
       profileId: "profile",
       accountId: fixture.accountId,
-      platform: "instagram",
       page: "2",
       limit: "20",
       sortBy: "saves",
     })
+    // Zernio answers a platform filter from older data; the account suffices.
+    expect(list.query.has("platform")).toBe(false)
     const series = fixture.requests.find(
       (request) => request.query.get("metricType") === "time_series"
     )!
@@ -467,7 +469,6 @@ describe("Instagram insight SDK adapter", () => {
     ).toMatchObject({
       profileId: "profile",
       accountId: fixture.accountId,
-      platform: "instagram",
       fromDate: range.fromDate,
       toDate: range.toDate,
       page: "2",
@@ -568,20 +569,21 @@ describe("Instagram insight SDK adapter", () => {
     }
   )
 
-  it("reads a whole profile's followers and post totals in three requests", async () => {
+  it("sums a whole profile's posts per platform, with followers per account", async () => {
     const previous = { fromDate: "2026-09-24", toDate: "2026-09-30" }
+    // The fixture lists one Instagram post with these lifetime metrics.
     const totals = {
       platform: "instagram",
-      posts: 2,
+      posts: 1,
       metrics: {
-        impressions: 4_000,
-        reach: 2_500,
-        views: 3_100,
-        likes: 120,
-        comments: 14,
-        shares: 9,
-        saves: 30,
-        clicks: 21,
+        impressions: 15_000,
+        reach: 8_000,
+        views: 12_500,
+        likes: 240,
+        comments: 32,
+        shares: 72,
+        saves: 96,
+        clicks: 18,
       },
     }
     expect(await provider.getOverview("profile", range, previous)).toEqual({
@@ -590,49 +592,57 @@ describe("Instagram insight SDK adapter", () => {
       followers: [
         { accountId: fixture.accountId, current: 1_200, gained: 40 },
         { accountId: "shrinking", current: 50, gained: -3 },
+        // One daily count is no history: the change is unknown, not zero.
+        { accountId: "new-account", current: 9, gained: null },
       ],
       current: [totals],
       previous: [totals],
-      updatedAt: "2026-10-07T10:00:00.000Z",
+      updatedAt: expect.any(String),
     })
     expect(
       fixture.requests.map((request) => [
         request.path,
         request.query.get("profileId"),
-        request.query.get("platform"),
         request.query.get("accountId"),
+        request.query.get("limit"),
         request.query.get("fromDate"),
         request.query.get("toDate"),
       ])
     ).toEqual(
       expect.arrayContaining([
         [
-          "/v1/analytics/dashboard",
-          "profile",
-          "all",
-          null,
-          range.fromDate,
-          range.toDate,
-        ],
-        [
-          "/v1/analytics/daily-metrics",
+          "/v1/accounts/follower-stats",
           "profile",
           null,
           null,
           range.fromDate,
           range.toDate,
         ],
+        ["/v1/analytics", "profile", null, "100", range.fromDate, range.toDate],
         [
-          "/v1/analytics/daily-metrics",
+          "/v1/analytics",
           "profile",
           null,
-          null,
+          "100",
           previous.fromDate,
           previous.toDate,
         ],
       ])
     )
     expect(fixture.requests).toHaveLength(3)
+  })
+
+  it("leaves metrics a pending post hasn't reported unknown", async () => {
+    fixture.state.analyticsPending = true
+    const result = await provider.getOverview("profile", range, range)
+    if (result.status !== "ready") throw new Error("Expected an overview")
+    expect(result.current).toEqual([
+      expect.objectContaining({
+        platform: "instagram",
+        posts: 1,
+        metrics: expect.objectContaining({ views: null, likes: null }),
+      }),
+    ])
   })
 
   it("reports a missing analytics add-on for the overview", async () => {

@@ -274,6 +274,7 @@ export type Database = {
           id: string
           platform: string
           profile_picture_url: string | null
+          shared_platform_before_sets: boolean
           social_set_id: string
           status: string
           updated_at: string
@@ -289,6 +290,7 @@ export type Database = {
           id?: string
           platform?: string
           profile_picture_url?: string | null
+          shared_platform_before_sets?: boolean
           social_set_id: string
           status: string
           updated_at?: string
@@ -303,6 +305,7 @@ export type Database = {
           id?: string
           platform?: string
           profile_picture_url?: string | null
+          shared_platform_before_sets?: boolean
           social_set_id?: string
           status?: string
           updated_at?: string

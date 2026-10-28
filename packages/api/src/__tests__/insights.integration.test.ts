@@ -153,7 +153,6 @@ describe("Instagram analytics HTTP lifecycle", () => {
       page: "2",
       sortBy: "saves",
       accountId: fixture.accountId,
-      platform: "instagram",
     })
   })
 
@@ -188,13 +187,14 @@ describe("Instagram analytics HTTP lifecycle", () => {
       status: "ready",
       followers: 1_200,
       followersGained: 40,
-      totals: { posts: 2, views: 3_100, engagements: 173 },
+      // The fixture's one post: likes, comments, shares and saves.
+      totals: { posts: 1, views: 12_500, engagements: 440 },
       channels: [
         {
           platform: "instagram",
           accountIds: [account.id],
           followers: 1_200,
-          posts: 2,
+          posts: 1,
         },
       ],
     })

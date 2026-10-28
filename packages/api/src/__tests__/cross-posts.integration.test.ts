@@ -574,20 +574,22 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
       throw new Error("Expected an X report")
     expect(body.platform).toBe("twitter")
     // X reports no reach or saves, whatever the provider's zeros say.
+    // Summed from the account's posts: the fixture lists one.
     expect(body.totals).toEqual({
-      impressions: 4_000,
+      impressions: 15_000,
       reach: null,
-      views: 3_100,
-      likes: 120,
-      comments: 14,
-      shares: 9,
+      views: 12_500,
+      likes: 240,
+      comments: 32,
+      shares: 72,
       saves: null,
-      clicks: 21,
+      clicks: 18,
     })
-    expect(body.postCount).toBe(2)
+    expect(body.postCount).toBe(1)
     expect(body.dailyMetric).toBe("impressions")
     expect(body.daily).toHaveLength(7)
-    expect(body.daily[0]?.value).toBe(4_000)
+    expect(body.daily[0]?.value).toBe(15_000)
+    expect(body.daily[1]?.value).toBeNull()
     expect(body.posts[0]?.metrics).toMatchObject({
       impressions: 15_000,
       reach: null,
@@ -596,15 +598,22 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
       engagementRate: null,
       averageWatchSeconds: null,
     })
-    const daily = latest(
-      (request) => request.path === "/v1/analytics/daily-metrics"
+    const all = latest(
+      (request) =>
+        request.path === "/v1/analytics" && request.query.get("limit") === "100"
     )!
-    expect(Object.fromEntries(daily.query)).toMatchObject({
+    expect(Object.fromEntries(all.query)).toMatchObject({
       accountId: fixture.state.extraAccounts[1]!._id,
-      platform: "twitter",
     })
-    const list = latest((request) => request.path === "/v1/analytics")!
-    expect(list.query.get("sortBy")).toBe("impressions")
+    // Zernio answers a platform filter from older data; the account suffices.
+    expect(all.query.has("platform")).toBe(false)
+    expect(
+      latest(
+        (request) =>
+          request.path === "/v1/analytics" &&
+          request.query.get("sortBy") === "impressions"
+      )
+    ).toBeDefined()
 
     const content = await session(
       `/insights/content?accountId=${accounts.youtube.id}&days=30`
@@ -615,11 +624,12 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
     expect(page.posts[0]?.kind).toBe("video")
     expect(page.posts[0]?.metrics.impressions).toBeNull()
 
-    fixture.state.dailyMetricsForeign = true
+    // A post of another account in the list stops the report.
+    fixture.state.analyticsOutsideAccount = true
     const mixed = await session(
       `/insights?accountId=${accounts.linkedin.id}&days=7`
     )
-    fixture.state.dailyMetricsForeign = false
+    fixture.state.analyticsOutsideAccount = false
     expect(mixed.statusCode).toBe(502)
   })
 
@@ -633,6 +643,28 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
     expect(taken.json().error.message).toBe(
       "Social set 1 already has a LinkedIn account. Use another social set, or disconnect that account first."
     )
+    // A second LinkedIn account that arrives through a sync is turned away
+    // too, and Zernio lets go of it.
+    const second = {
+      _id: `linkedin-second-${randomUUID()}`,
+      platform: "linkedin",
+      username: "studio-two",
+      displayName: "Studio Two",
+      isActive: true,
+    }
+    fixture.state.extraAccounts.push(second)
+    const synced = await session("/accounts/sync", "POST", {})
+    expect(synced.statusCode).toBe(200)
+    expect(
+      synced
+        .json<Account[]>()
+        .filter((account) => account.platform === "linkedin")
+        .map((account) => [account.username, account.status])
+    ).toEqual([
+      ["studio-co", "connected"],
+      ["studio-two", "disconnected"],
+    ])
+    expect(fixture.state.extraAccounts).not.toContainEqual(second)
     const refused = await session("/social-sets", "POST", { name: "Brand" })
     expect(refused.statusCode).toBe(403)
     expect(refused.json().error.message).toBe(

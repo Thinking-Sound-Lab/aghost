@@ -70,7 +70,12 @@ describe("independent published and scheduled post pickers", () => {
     vi.resetAllMocks()
     useEditorStore.setState(useEditorStore.getInitialState(), true)
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
-    useWorkspaceStore.setState({ accounts: [account] })
+    useWorkspaceStore.setState({
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
+      accounts: [account],
+    })
     vi.mocked(api.accounts.posts).mockResolvedValue([recent])
     vi.mocked(api.scheduledPosts.list).mockResolvedValue([])
   })

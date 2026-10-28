@@ -18,7 +18,6 @@ import {
   PanelLeft,
   Settings,
   Sun,
-  UsersRound,
   Workflow,
   X,
 } from "lucide-react"
@@ -58,7 +57,6 @@ const ITEM =
 
 const navigation = [
   { href: "/home", label: "Home", icon: House },
-  { href: "/contacts", label: "Contacts", icon: UsersRound },
   { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },

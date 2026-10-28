@@ -55,7 +55,6 @@ export async function startZernioFixture() {
     // How many more posts are created before the next one fails.
     postsBeforeFailure: null as number | null,
     // Daily metrics that include another platform's posts.
-    dailyMetricsForeign: false,
   }
   const accountId = `fixture-account-${randomUUID()}`
   const postId = "fixture-post-1"
@@ -167,6 +166,36 @@ export async function startZernioFixture() {
       })
       return
     }
+    if (url.pathname === "/v1/accounts/follower-stats") {
+      reply(200, {
+        accounts: [
+          {
+            _id: accountId,
+            platform: "instagram",
+            currentFollowers: 1_200,
+            growth: 40,
+            dataPoints: 30,
+          },
+          {
+            _id: "shrinking",
+            platform: "twitter",
+            currentFollowers: 50,
+            growth: -3,
+            dataPoints: 2,
+          },
+          // Connected today: one daily count, so no change to report yet.
+          {
+            _id: "new-account",
+            platform: "linkedin",
+            currentFollowers: 9,
+            growth: 0,
+            dataPoints: 1,
+          },
+          { platform: "threads", currentFollowers: 5 },
+        ],
+      })
+      return
+    }
     if (url.pathname === "/v1/accounts" && method === "GET") {
       const profileId = state.outsideProfile
         ? "foreign-profile"
@@ -242,7 +271,14 @@ export async function startZernioFixture() {
       const fromDate =
         url.searchParams.get("fromDate")?.slice(0, 10) ??
         new Date().toISOString().slice(0, 10)
-      const queriedPlatform = url.searchParams.get("platform") ?? "instagram"
+      // An account query answers with the account's own platform.
+      const queriedPlatform =
+        url.searchParams.get("platform") ??
+        String(
+          state.extraAccounts.find(
+            (account) => account._id === url.searchParams.get("accountId")
+          )?.platform ?? "instagram"
+        )
       const queriedAccount = url.searchParams.get("accountId") ?? accountId
       const analytics = state.analyticsMissing
         ? {}
@@ -282,57 +318,7 @@ export async function startZernioFixture() {
         analytics: { views: 999_999 },
         platforms: [platform],
       }
-      if (url.pathname === "/v1/analytics/daily-metrics") {
-        const metrics = {
-          impressions: 4_000,
-          reach: 2_500,
-          likes: 120,
-          comments: 14,
-          shares: 9,
-          saves: 30,
-          clicks: 21,
-          views: 3_100,
-        }
-        reply(200, {
-          dailyData: [
-            {
-              date: fromDate,
-              postCount: 2,
-              platforms: {
-                [queriedPlatform]: 2,
-                ...(state.dailyMetricsForeign && { instagram: 1 }),
-              },
-              metrics,
-            },
-          ],
-          platformBreakdown: [
-            { platform: queriedPlatform, postCount: 2, ...metrics },
-          ],
-        })
-      } else if (url.pathname === "/v1/analytics/dashboard") {
-        reply(200, {
-          dateRange: { fromDate, toDate: url.searchParams.get("toDate") },
-          totals: { views: 1, likes: 1 },
-          followers: {
-            current: 1_250,
-            gained: 37,
-            byAccount: [
-              { accountId, platform: "instagram", current: 1_200, gained: 40 },
-              {
-                accountId: "shrinking",
-                platform: "x",
-                current: 50,
-                gained: -3,
-              },
-              { platform: "linkedin", current: 9 },
-            ],
-          },
-          daily: [],
-          topPosts: [],
-          recentPosts: [],
-          dataAsOf: "2026-10-07T10:00:00.000Z",
-        })
-      } else if (url.pathname === "/v1/analytics/best-time") {
+      if (url.pathname === "/v1/analytics/best-time") {
         reply(
           200,
           state.analyticsMissing ? {} : { slots: state.analyticsTimingSlots }

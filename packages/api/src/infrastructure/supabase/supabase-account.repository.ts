@@ -35,6 +35,7 @@ function toRecord(row: AccountRow): AccountRecord {
     disconnectReason: row.disconnect_reason,
     socialSetId: row.social_set_id,
     providerProfileId: row.social_sets.zernio_profile_id,
+    sharedPlatformBeforeSets: row.shared_platform_before_sets,
     createdAt: row.created_at,
   }
 }

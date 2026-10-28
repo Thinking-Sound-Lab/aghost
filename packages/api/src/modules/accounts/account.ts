@@ -15,6 +15,11 @@ export type AccountRecord = {
   socialSetId: string
   /** Its social set's provider profile, which holds the account. */
   providerProfileId: string | null
+  /**
+   * It shared a platform with another account before social sets, so it may
+   * still reconnect beside it in the first set.
+   */
+  sharedPlatformBeforeSets: boolean
   createdAt: string
 }
 

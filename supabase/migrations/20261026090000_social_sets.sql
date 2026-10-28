@@ -89,10 +89,21 @@ create trigger workspaces_share_profile
 -- instagram_accounts: every account belongs to a set
 --------------------------------------------------------------------------------
 
-alter table public.instagram_accounts add column social_set_id uuid;
+alter table public.instagram_accounts
+  add column social_set_id uuid,
+  -- Set on accounts that shared a platform before sets, all of which went to
+  -- the first set. They may reconnect there; no other account may share.
+  add column shared_platform_before_sets boolean not null default false;
 
 update public.instagram_accounts a set social_set_id = s.id
 from public.social_sets s where s.workspace_id = a.workspace_id;
+
+update public.instagram_accounts a set shared_platform_before_sets = true
+where exists (
+  select 1 from public.instagram_accounts other
+  where other.workspace_id = a.workspace_id and other.platform = a.platform
+    and other.id <> a.id
+);
 
 alter table public.instagram_accounts
   alter column social_set_id set not null,
@@ -194,12 +205,13 @@ begin
   if v_limit = 0 or v_sets > v_limit then
     new.status := 'disconnected';
     new.disconnect_reason := 'Your plan has no room for another channel. Upgrade to reconnect it.';
-  -- A set holds one account on each platform. Accounts stored before sets may
-  -- share one, so reconnecting them is left alone.
-  elsif tg_op = 'INSERT' and exists (
+  -- A set holds one connected account on each platform, whether the account
+  -- is new or connecting again. Accounts that shared a platform before sets
+  -- keep doing so.
+  elsif not new.shared_platform_before_sets and exists (
     select 1 from public.instagram_accounts
     where social_set_id = new.social_set_id and platform = new.platform
-      and status = 'connected'
+      and status = 'connected' and id <> new.id
   ) then
     new.status := 'disconnected';
     new.disconnect_reason := 'This social set already has an account on this platform. Connect it to another set.';

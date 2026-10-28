@@ -251,7 +251,9 @@ describe("channels and times from the schedule dialog", () => {
 
   it("adds the account connected in another tab to the post", async () => {
     await draft()
-    useComposerStore.setState({ connecting: "twitter" })
+    useComposerStore.setState({
+      connecting: { platform: "twitter", socialSetId: "set" },
+    })
     vi.mocked(api.accounts.list).mockResolvedValue([account, x, youtube])
     await useComposerStore.getState().channelsChanged()
     expect(useWorkspaceStore.getState().accounts).toEqual([account, x, youtube])
@@ -261,6 +263,22 @@ describe("channels and times from the schedule dialog", () => {
       x.id,
     ])
     expect(useComposerStore.getState().connecting).toBeNull()
+  })
+
+  it("leaves out an account another tab connected to another set", async () => {
+    await draft()
+    useComposerStore.setState({
+      connecting: { platform: "twitter", socialSetId: "set" },
+    })
+    const elsewhere = { ...x, socialSetId: "other-set" }
+    vi.mocked(api.accounts.list).mockResolvedValue([account, elsewhere])
+    await useComposerStore.getState().channelsChanged()
+    expect(useComposerStore.getState().draft.accountIds).toEqual([account.id])
+    // This post still waits for the connection it started.
+    expect(useComposerStore.getState().connecting).toEqual({
+      platform: "twitter",
+      socialSetId: "set",
+    })
   })
 
   it("only lists accounts that another tab changed without connecting from here", async () => {

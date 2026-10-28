@@ -84,8 +84,11 @@ type ComposerState = {
   pending: "save" | "remove" | null
   /** Posts deleted since the app opened; late results must not restore them. */
   removed: string[]
-  /** A platform the owner is connecting in another tab, to add to the post. */
-  connecting: Platform | null
+  /**
+   * The platform and set the owner is connecting in another tab, to add the
+   * new account to the post.
+   */
+  connecting: { platform: Platform; socialSetId: string } | null
   initialize: (id: string | null, day: string | null) => Promise<void>
   leave: () => void
   patch: (patch: Partial<Draft>) => void
@@ -414,7 +417,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   connect: async (platform) => {
     const socialSet = currentSet()
     if (!socialSet) return
-    set({ connecting: platform })
+    set({ connecting: { platform, socialSetId: socialSet.id } })
     await useWorkspaceStore.getState().connectInNewTab(platform, socialSet.id)
     if (useWorkspaceStore.getState().error) set({ connecting: null })
   },
@@ -427,15 +430,19 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     const { connecting, post, status } = get()
     if (get().revision !== revision || status !== "ready" || post) return
     if (!connecting) return
-    set({ connecting: null })
     const added = useWorkspaceStore
       .getState()
       .accounts.filter(
         (account) =>
           !known.has(account.id) &&
-          account.platform === connecting &&
+          account.platform === connecting.platform &&
+          account.socialSetId === connecting.socialSetId &&
           account.status === "connected"
       )
+    // Another tab's change, such as a channel added to another set, leaves
+    // this connection waiting.
+    if (added.length === 0) return
+    set({ connecting: null })
     for (const account of added) await get().toggleAccount(account.id)
   },
   save: async () => {

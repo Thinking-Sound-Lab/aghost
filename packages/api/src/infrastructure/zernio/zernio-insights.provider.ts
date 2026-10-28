@@ -1,7 +1,6 @@
 import type {
   AnalyticsListResponse,
   AnalyticsSinglePostResponse,
-  GetDailyMetricsResponse,
   PostAnalytics,
 } from "@zernio/node"
 import { ZernioApiError } from "@zernio/node"
@@ -35,6 +34,8 @@ import { NotFoundError, ProviderError } from "../../shared/errors"
 import { causeOf, hasStatus, request, type ZernioAccess } from "./zernio-client"
 
 const PAGE_SIZE = 20
+// The largest page Zernio's post analytics returns.
+const MAX_PAGE_SIZE = 100
 type ListedPost = NonNullable<AnalyticsListResponse["posts"]>[number]
 const timingResponse = z.object({
   slots: z
@@ -183,7 +184,6 @@ export class ZernioInsightsProvider implements InsightsProvider {
             postId,
             profileId: account.profileId,
             accountId: account.accountId,
-            platform: account.platform,
           },
         })
       )
@@ -240,9 +240,9 @@ export class ZernioInsightsProvider implements InsightsProvider {
   }
 
   /**
-   * The whole profile in three requests, however many accounts it has:
-   * followers per account, and post totals per platform for the period and
-   * the one before it.
+   * The whole profile, however many accounts it has: followers per account,
+   * and the posts each platform published in the period and the one before,
+   * summed from Zernio's latest sync of each post.
    */
   getOverview(
     profileId: string,
@@ -250,59 +250,41 @@ export class ZernioInsightsProvider implements InsightsProvider {
     previous: InsightRange
   ): Promise<ProfileOverview | InsightsUnavailable> {
     return available(async () => {
-      const client = this.zernio()
-      const daily = (dates: InsightRange) =>
-        request("load channel performance", () =>
-          client.analytics.getDailyMetrics({
-            throwOnError: true,
-            query: { profileId, ...dates },
-          })
-        )
-      const [dashboard, current, before] = await Promise.all([
+      const [followers, current, before] = await Promise.all([
         request("load followers", () =>
-          client.analytics.getAnalyticsDashboard({
+          this.zernio().accounts.getFollowerStats({
             throwOnError: true,
-            query: {
-              profileId,
-              platform: "all",
-              ...range,
-              topPosts: 0,
-              recentPosts: 0,
-            },
+            query: { profileId, ...range, granularity: "daily" },
           })
         ),
-        daily(range),
-        daily(previous),
+        this.allPosts({ profileId }, range),
+        this.allPosts({ profileId }, previous),
       ])
-      if (
-        [current, before].some(
-          (result) =>
-            "hasAnalyticsAccess" in result &&
-            result.hasAnalyticsAccess === false
-        )
-      )
-        return { status: "not_enabled" }
+      if (current.status !== "ready") return current
+      if (before.status !== "ready") return before
       return {
         status: "ready",
-        followers: (dashboard.followers?.byAccount ?? []).flatMap((item) =>
-          item.accountId
+        followers: (followers.accounts ?? []).flatMap((item) =>
+          item._id
             ? [
                 {
-                  accountId: item.accountId,
-                  current: number(item.current),
+                  accountId: item._id,
+                  current: number(item.currentFollowers),
+                  // A change needs two daily counts: a new account has one.
                   // Followers can be lost, so a change may be negative.
                   gained:
-                    typeof item.gained === "number" &&
-                    Number.isFinite(item.gained)
-                      ? item.gained
+                    (item.dataPoints ?? 0) >= 2 &&
+                    typeof item.growth === "number" &&
+                    Number.isFinite(item.growth)
+                      ? item.growth
                       : null,
                 },
               ]
             : []
         ),
-        current: platformTotals(current),
-        previous: platformTotals(before),
-        updatedAt: dashboard.dataAsOf ?? null,
+        current: platformTotals(current.posts),
+        previous: platformTotals(before.posts),
+        updatedAt: current.lastSync,
       }
     })
   }
@@ -317,58 +299,94 @@ export class ZernioInsightsProvider implements InsightsProvider {
     range: InsightRange,
     query: Pick<InsightQuery, "page" | "sort">
   ): Promise<InsightReport> {
-    const [result, content] = await Promise.all([
-      request("load daily performance", () =>
-        this.zernio().analytics.getDailyMetrics({
-          throwOnError: true,
-          query: {
-            profileId: account.profileId,
-            accountId: account.accountId,
-            platform,
-            ...range,
-          },
-        })
-      ),
+    const [all, content] = await Promise.all([
+      this.allPosts(account, range),
       this.readContent(account, range, query),
     ])
     if (content.status !== "ready") return content
-    if ("hasAnalyticsAccess" in result && result.hasAnalyticsAccess === false)
-      return { status: "not_enabled" }
-    const days = result.dailyData ?? []
-    const breakdown = result.platformBreakdown ?? []
-    if (
-      breakdown.some((item) => item.platform !== platform) ||
-      days.some((day) =>
-        Object.entries(day.platforms ?? {}).some(
-          ([key, count]) => key !== platform && count > 0
-        )
-      )
-    )
-      throw new ProviderError(
-        "Couldn't load daily performance. The response included another platform."
-      )
+    if (all.status !== "ready") return all
+    const posts = all.posts.map((post) => listedPost(post, account))
     const rules = PLATFORM_RULES[platform]
-    const reported = (metric: ChannelMetric, value: unknown) =>
-      rules.metrics.includes(metric) ? number(value) : null
-    const sums = breakdown[0]
+    const sum = (values: (number | null)[]) => {
+      const known = values.filter((value) => value !== null)
+      // No post is a sum of zero; posts not yet measured are unknown.
+      return posts.length === 0
+        ? 0
+        : known.length === 0
+          ? null
+          : known.reduce((total, value) => total + value, 0)
+    }
+    const byDay = new Map<string, number[]>()
+    for (const post of posts) {
+      const value = post.metrics[rules.primaryMetric]
+      const day = post.publishedAt?.slice(0, 10)
+      if (day && value !== null)
+        byDay.set(day, [...(byDay.get(day) ?? []), value])
+    }
     return {
       ...content,
       platform,
       totals: Object.fromEntries(
         CHANNEL_METRICS.map((metric) => [
           metric,
-          reported(metric, sums?.[metric]),
+          rules.metrics.includes(metric)
+            ? sum(posts.map((post) => post.metrics[metric]))
+            : null,
         ])
       ) as ChannelReport["totals"],
-      postCount: number(sums?.postCount) ?? 0,
+      postCount: posts.length,
       dailyMetric: rules.primaryMetric,
       daily: series(
         range,
-        days.map((day) => ({
-          date: day.date,
-          value: day.metrics?.[rules.primaryMetric],
+        [...byDay].map(([date, values]) => ({
+          date,
+          value: values.reduce((total, value) => total + value, 0),
         }))
       ),
+    }
+  }
+
+  /**
+   * Every post the query matches in the period, a page at a time: totals
+   * read from the posts follow Zernio's latest sync of each one.
+   */
+  private async allPosts(
+    query: { profileId: string; accountId?: string },
+    range: InsightRange
+  ): Promise<
+    | { status: "ready"; posts: ListedPost[]; lastSync: string | null }
+    | InsightsUnavailable
+  > {
+    const posts: ListedPost[] = []
+    for (let page = 1; ; page++) {
+      const result = await request("load post performance", () =>
+        this.zernio().analytics.getAnalytics({
+          throwOnError: true,
+          query: {
+            profileId: query.profileId,
+            accountId: query.accountId,
+            ...range,
+            page,
+            limit: MAX_PAGE_SIZE,
+            sortBy: "date",
+            order: "desc",
+          },
+        })
+      )
+      if ("hasAnalyticsAccess" in result && result.hasAnalyticsAccess === false)
+        return { status: "not_enabled" }
+      if (!("posts" in result) && !("pagination" in result))
+        throw new ProviderError(
+          "Couldn't load post performance. The response was not a list."
+        )
+      const list = result as AnalyticsListResponse
+      posts.push(...(list.posts ?? []))
+      if (page >= (list.pagination?.pages ?? 1))
+        return {
+          status: "ready",
+          posts,
+          lastSync: list.overview?.lastSync ?? null,
+        }
     }
   }
 
@@ -380,10 +398,11 @@ export class ZernioInsightsProvider implements InsightsProvider {
     const result = await request("load post performance", () =>
       this.zernio().analytics.getAnalytics({
         throwOnError: true,
+        // No platform filter: Zernio answers it from older data, and the
+        // account already decides the platform.
         query: {
           profileId: account.profileId,
           accountId: account.accountId,
-          platform: account.platform,
           ...range,
           page: query.page,
           limit: PAGE_SIZE,
@@ -426,20 +445,38 @@ export class ZernioInsightsProvider implements InsightsProvider {
   }
 }
 
-function platformTotals(result: GetDailyMetricsResponse): PlatformTotals[] {
-  return (result.platformBreakdown ?? []).flatMap((item) =>
-    item.platform
-      ? [
-          {
-            platform: item.platform,
-            posts: number(item.postCount) ?? 0,
-            metrics: Object.fromEntries(
-              CHANNEL_METRICS.map((metric) => [metric, number(item[metric])])
-            ) as PlatformTotals["metrics"],
-          },
-        ]
-      : []
-  )
+/** Each platform's posts and the sum of their metrics, as far as synced. */
+function platformTotals(posts: ListedPost[]): PlatformTotals[] {
+  const byPlatform = new Map<string, PlatformTotals>()
+  for (const post of posts) {
+    const copies = post.platforms?.length
+      ? post.platforms.map((item) => ({
+          platform: item.platform,
+          analytics:
+            item.syncStatus === "pending" || item.syncStatus === "unavailable"
+              ? null
+              : item.analytics,
+        }))
+      : [{ platform: post.platform, analytics: post.analytics }]
+    for (const copy of copies) {
+      if (!copy.platform) continue
+      const totals = byPlatform.get(copy.platform) ?? {
+        platform: copy.platform,
+        posts: 0,
+        metrics: Object.fromEntries(
+          CHANNEL_METRICS.map((metric) => [metric, null])
+        ) as PlatformTotals["metrics"],
+      }
+      totals.posts += 1
+      for (const metric of CHANNEL_METRICS) {
+        const value = number(copy.analytics?.[metric])
+        if (value !== null)
+          totals.metrics[metric] = (totals.metrics[metric] ?? 0) + value
+      }
+      byPlatform.set(copy.platform, totals)
+    }
+  }
+  return [...byPlatform.values()]
 }
 
 async function available<T>(

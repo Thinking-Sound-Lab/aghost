@@ -35,6 +35,16 @@ export function Inbox() {
   const inSet = inbox.conversations.filter((item) =>
     accounts.some((account) => account.id === item.instagramAccountId)
   )
+  // A conversation of another set must not stay open to reply from.
+  const close = inbox.close
+  const foreign =
+    inbox.selected !== null &&
+    !accounts.some(
+      (account) => account.id === inbox.selected?.instagramAccountId
+    )
+  useEffect(() => {
+    if (foreign) close()
+  }, [foreign, close])
   const query = inbox.query.trim().toLowerCase()
   const conversations = inSet.filter((item) =>
     (item.participant.name ?? "").toLowerCase().includes(query)
@@ -109,7 +119,7 @@ export function Inbox() {
         )}
       </Panel>
       <Panel className="flex-1">
-        {inbox.selected ? (
+        {inbox.selected && !foreign ? (
           <Thread />
         ) : (
           <EmptyState icon={<InboxIcon />} title="Select a conversation" />

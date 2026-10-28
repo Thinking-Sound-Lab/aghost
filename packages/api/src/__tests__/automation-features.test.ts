@@ -194,6 +194,7 @@ describe("durable follow-up delivery", () => {
         disconnectReason: null,
         socialSetId: "set",
         providerProfileId: "profile",
+        sharedPlatformBeforeSets: false,
         createdAt: automation.createdAt,
       },
       plan: PLANS.business,

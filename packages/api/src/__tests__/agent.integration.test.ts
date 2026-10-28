@@ -680,7 +680,6 @@ describe("workspace API keys, REST and MCP against PostgreSQL and local provider
             accountId: fixture.accountId,
             page: "2",
             sortBy: "saves",
-            platform: "instagram",
           })
         }
       }

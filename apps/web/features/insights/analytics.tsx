@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ChartNoAxesCombined, ExternalLink, RefreshCw } from "lucide-react"
 import {
   INSIGHT_PERIODS,
+  PLATFORMS,
   PLATFORM_RULES,
   accountLabel,
   type Account,
@@ -13,6 +14,7 @@ import {
   type InsightPeriod,
   type InsightsUnavailable,
 } from "@workspace/api/contract"
+import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import { NativeSelect } from "@workspace/ui/components/native-select"
 import {
@@ -22,10 +24,11 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { EmptyState, ErrorBanner, Loading, Page } from "@/components/interface"
-import { ChannelAvatar } from "@/components/platform-icon"
+import { PlatformIcon } from "@/components/platform-icon"
 import { count, timeAgo } from "@/lib/format"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useInsightsStore } from "@/stores/insights-store"
+import { useOverviewStore } from "@/stores/overview-store"
 import { accountsIn, useActiveSet } from "@/stores/social-set-store"
 import { contactHref } from "@/features/marketing/contact"
 import {
@@ -36,6 +39,7 @@ import {
   percentage,
 } from "./content-performance"
 import { DitherChart } from "./dither-chart"
+import { SetOverview, useSetOverview } from "./set-overview"
 
 function AccessNotice({
   status,
@@ -82,7 +86,7 @@ function ChannelSummary({ report }: { report: ChannelReport }) {
   const label = metricLabels[report.dailyMetric]
   return (
     <>
-      <dl className="grid grid-cols-2 gap-6 border-y py-6 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-6 border-b pb-6 sm:grid-cols-4">
         {[
           ...metricsOf(report.platform).map(
             (metric) => [metricLabels[metric], report.totals[metric]] as const
@@ -232,12 +236,56 @@ function PostDetails({ account }: { account: Account }) {
   )
 }
 
+function Tab({
+  selected,
+  onSelect,
+  children,
+}: {
+  selected: boolean
+  onSelect: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onSelect}
+      className={cn(
+        "flex shrink-0 items-center gap-2 border-b-2 border-transparent pb-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground",
+        selected && "border-foreground font-medium text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** Every channel of the set together, with how each one did. */
+function AllChannels({ days }: { days: InsightPeriod }) {
+  useSetOverview(days)
+  return (
+    <section
+      aria-label="All channels"
+      className="grid grid-cols-[minmax(0,1fr)] gap-6"
+    >
+      <SetOverview />
+    </section>
+  )
+}
+
 export function Analytics() {
   const workspace = useWorkspaceStore()
   const store = useInsightsStore()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const accounts = accountsIn(workspace.accounts, useActiveSet())
-  const account = accounts.find((item) => item.id === selectedId) ?? accounts[0]
+  const overview = useOverviewStore()
+  // "all", or the id of the channel shown.
+  const [tab, setTab] = useState("all")
+  // In the order the platforms take everywhere else, as in the All table.
+  const accounts = accountsIn(workspace.accounts, useActiveSet()).sort(
+    (a, b) => PLATFORMS.indexOf(a.platform) - PLATFORMS.indexOf(b.platform)
+  )
+  // A channel that left the set falls back to all of them.
+  const account = accounts.find((item) => item.id === tab)
   const workspaceId = workspace.workspace?.id
   const accountId = account?.id
   const show = store.show
@@ -253,30 +301,29 @@ export function Analytics() {
   const loading =
     Boolean(account) &&
     (!current || store.status === "loading" || store.status === "idle")
+  const busy = account ? loading : overview.status === "loading"
 
   return (
     <Page
       title="Analytics"
       actions={
-        account && (
+        accounts.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            disabled={loading}
-            onClick={() => void store.refresh()}
+            disabled={busy}
+            onClick={() => void (account ? store.refresh() : overview.load())}
           >
             <RefreshCw
               aria-hidden="true"
-              className={
-                loading ? "animate-spin motion-reduce:animate-none" : ""
-              }
+              className={busy ? "animate-spin motion-reduce:animate-none" : ""}
             />
             Refresh
           </Button>
         )
       }
     >
-      {!account ? (
+      {accounts.length === 0 ? (
         <EmptyState
           icon={<ChartNoAxesCombined />}
           title="See how your content performs"
@@ -290,32 +337,36 @@ export function Analytics() {
         </EmptyState>
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <ChannelAvatar account={account} />
-              <label className="sr-only" htmlFor="analytics-account">
-                Account
-              </label>
-              <NativeSelect
-                id="analytics-account"
-                className="max-w-64"
-                value={account.id}
-                onChange={(event) => setSelectedId(event.target.value)}
-              >
-                {accounts.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {accountLabel(item)} · {PLATFORM_RULES[item.platform].name}
-                  </option>
-                ))}
-              </NativeSelect>
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b">
+            <div
+              role="tablist"
+              aria-label="Channels"
+              className="-mb-px flex min-w-0 gap-5 overflow-x-auto"
+            >
+              <Tab selected={!account} onSelect={() => setTab("all")}>
+                All
+              </Tab>
+              {accounts.map((item) => (
+                <Tab
+                  key={item.id}
+                  selected={item.id === account?.id}
+                  onSelect={() => setTab(item.id)}
+                >
+                  <PlatformIcon platform={item.platform} size={14} />
+                  {accountLabel(item)}
+                </Tab>
+              ))}
             </div>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <label className="flex items-center gap-2 pb-2 text-sm text-muted-foreground">
               Period
               <NativeSelect
                 value={store.days}
-                onChange={(event) =>
-                  void store.period(Number(event.target.value) as InsightPeriod)
-                }
+                onChange={(event) => {
+                  const days = Number(event.target.value) as InsightPeriod
+                  // All channels follow the period through the page.
+                  if (account) void store.period(days)
+                  else useInsightsStore.setState({ days })
+                }}
               >
                 {INSIGHT_PERIODS.map((days) => (
                   <option key={days} value={days}>
@@ -325,87 +376,93 @@ export function Analytics() {
               </NativeSelect>
             </label>
           </div>
-          <ErrorBanner
-            message={current ? store.error : null}
-            retry={() => void store.load()}
-          />
-          {loading && <Loading className="min-h-96" />}
-          {report && report.status !== "ready" && (
-            <AccessNotice status={report.status} account={account} />
-          )}
-          {ready?.platform !== "instagram" && ready && (
-            <ChannelSummary report={ready} />
-          )}
-          {ready && (
+          {account ? (
             <>
-              {ready.platform === "instagram" && (
+              <ErrorBanner
+                message={current ? store.error : null}
+                retry={() => void store.load()}
+              />
+              {loading && <Loading className="min-h-96" />}
+              {report && report.status !== "ready" && (
+                <AccessNotice status={report.status} account={account} />
+              )}
+              {ready?.platform !== "instagram" && ready && (
+                <ChannelSummary report={ready} />
+              )}
+              {ready && (
                 <>
-                  <dl className="grid grid-cols-2 gap-y-6 border-y py-6 sm:grid-cols-4 sm:divide-x">
-                    {[
-                      ["Views", ready.summary.views],
-                      ["Accounts reached", ready.summary.reach],
-                      ["Interactions", ready.summary.totalInteractions],
-                      ["Accounts engaged", ready.summary.accountsEngaged],
-                    ].map(([label, value], index) => (
-                      <div
-                        key={label}
-                        className={`grid gap-2 ${index > 0 ? "sm:pl-6" : ""}`}
+                  {ready.platform === "instagram" && (
+                    <>
+                      <dl className="grid grid-cols-2 gap-y-6 border-b pb-6 sm:grid-cols-4 sm:divide-x">
+                        {[
+                          ["Views", ready.summary.views],
+                          ["Accounts reached", ready.summary.reach],
+                          ["Interactions", ready.summary.totalInteractions],
+                          ["Accounts engaged", ready.summary.accountsEngaged],
+                        ].map(([label, value], index) => (
+                          <div
+                            key={label}
+                            className={`grid gap-2 ${index > 0 ? "sm:pl-6" : ""}`}
+                          >
+                            <dt className="text-xs text-muted-foreground">
+                              {label}
+                            </dt>
+                            <dd className="text-3xl font-semibold tracking-tight tabular-nums">
+                              {count(value as number | null)}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <section
+                        className="grid gap-5"
+                        aria-labelledby="reach-chart-title"
                       >
-                        <dt className="text-xs text-muted-foreground">
-                          {label}
-                        </dt>
-                        <dd className="text-3xl font-semibold tracking-tight tabular-nums">
-                          {count(value as number | null)}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <section
-                    className="grid gap-5"
-                    aria-labelledby="reach-chart-title"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h2
-                        id="reach-chart-title"
-                        className="text-sm font-semibold"
-                      >
-                        Reach over time
-                      </h2>
-                      <span className="text-xs text-muted-foreground">
-                        Account performance
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h2
+                            id="reach-chart-title"
+                            className="text-sm font-semibold"
+                          >
+                            Reach over time
+                          </h2>
+                          <span className="text-xs text-muted-foreground">
+                            Account performance
+                          </span>
+                        </div>
+                        <DitherChart
+                          points={ready.dailyReach}
+                          label="Accounts reached"
+                          description="Unique accounts reached each day (UTC)"
+                        />
+                      </section>
+                    </>
+                  )}
+                  <ContentPerformance
+                    loading={store.contentLoading}
+                    error={store.contentError}
+                    retry={() => void store.loadContent()}
+                    report={ready}
+                    sort={store.sort}
+                    onSort={(sort) => void store.order(sort)}
+                    onPage={(page) => void store.paginate(page)}
+                    onOpen={(id) => void store.openPost(id)}
+                  />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {ready.platform === "instagram"
+                      ? "Instagram insights can be delayed by up to 48 hours. A dash means a metric hasn't been reported. Account reach counts unique accounts for the period and may differ from the sum of daily reach."
+                      : `Totals add up the lifetime metrics of the posts published in this period. A dash means ${PLATFORM_RULES[ready.platform].name} doesn't report that metric or it hasn't synced yet.`}
+                    {ready.contentUpdatedAt && (
+                      <span className="ml-1">
+                        Content last synced {timeAgo(ready.contentUpdatedAt)}.
                       </span>
-                    </div>
-                    <DitherChart
-                      points={ready.dailyReach}
-                      label="Accounts reached"
-                      description="Unique accounts reached each day (UTC)"
-                    />
-                  </section>
+                    )}
+                  </p>
                 </>
               )}
-              <ContentPerformance
-                loading={store.contentLoading}
-                error={store.contentError}
-                retry={() => void store.loadContent()}
-                report={ready}
-                sort={store.sort}
-                onSort={(sort) => void store.order(sort)}
-                onPage={(page) => void store.paginate(page)}
-                onOpen={(id) => void store.openPost(id)}
-              />
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {ready.platform === "instagram"
-                  ? "Instagram insights can be delayed by up to 48 hours. A dash means a metric hasn't been reported. Account reach counts unique accounts for the period and may differ from the sum of daily reach."
-                  : `Totals add up the lifetime metrics of the posts published in this period. A dash means ${PLATFORM_RULES[ready.platform].name} doesn't report that metric or it hasn't synced yet.`}
-                {ready.contentUpdatedAt && (
-                  <span className="ml-1">
-                    Content last synced {timeAgo(ready.contentUpdatedAt)}.
-                  </span>
-                )}
-              </p>
+              <PostDetails account={account} />
             </>
+          ) : (
+            <AllChannels days={store.days} />
           )}
-          <PostDetails account={account} />
         </>
       )}
     </Page>

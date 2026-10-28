@@ -52,6 +52,7 @@ describe("automation creation compensation", () => {
           disconnectReason: null,
           socialSetId: "set",
           providerProfileId: "remote-profile",
+          sharedPlatformBeforeSets: false,
           createdAt: "2026-10-09T10:00:00Z",
         }),
         listByWorkspace: async () => [],

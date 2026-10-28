@@ -122,15 +122,17 @@ export class AccountService {
       const account = await this.get(workspace, accountId)
       const set = await this.sets.resolve(workspace, account.socialSetId)
       // A connected account keeps its place; a disconnected one needs room
-      // again, in the plan and in its set.
+      // again, in the plan and in its set, unless it shared its platform
+      // there before sets.
       if (account.status !== "connected") {
         await this.plan.assertCanConnectAccount(workspace)
-        await this.assertPlatformFree(
-          workspace,
-          set,
-          account.platform,
-          account.id
-        )
+        if (!account.sharedPlatformBeforeSets)
+          await this.assertPlatformFree(
+            workspace,
+            set,
+            account.platform,
+            account.id
+          )
       }
       const providerProfileId = await this.sets.ensureProviderProfile(set)
 

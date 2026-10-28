@@ -12,7 +12,8 @@ type OverviewState = {
   status: "idle" | "loading" | "ready" | "error"
   overview: InsightOverview | null
   error: string | null
-  show: (socialSetId: string) => Promise<void>
+  /** Loads the set's overview, for the period given or the one kept. */
+  show: (socialSetId: string, days?: InsightPeriod) => Promise<void>
   period: (days: InsightPeriod) => Promise<void>
   load: () => Promise<void>
   clear: () => void
@@ -29,8 +30,8 @@ const initial = {
 /** A social set's channels at a glance, for the home page. */
 export const useOverviewStore = create<OverviewState>((set, get) => ({
   ...initial,
-  show: async (socialSetId) => {
-    set({ socialSetId })
+  show: async (socialSetId, days) => {
+    set({ socialSetId, ...(days && { days }) })
     await get().load()
   },
   period: async (days) => {

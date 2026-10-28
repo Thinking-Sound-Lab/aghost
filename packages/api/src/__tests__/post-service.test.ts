@@ -216,6 +216,7 @@ describe("cross-posting when a copy fails", () => {
       disconnectReason: null,
       socialSetId: "set",
       providerProfileId: "profile",
+      sharedPlatformBeforeSets: false,
       createdAt: "2026-10-14T00:00:00Z",
     }))
     const rows = new Map<string, ScheduledPostRecord>()

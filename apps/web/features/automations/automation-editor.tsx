@@ -55,13 +55,13 @@ export function AutomationEditor({ id }: { id?: string }) {
       </Panel>
     )
 
-  // Comment-to-DM runs on Instagram accounts only: the set's, and the one a
-  // saved automation already runs on.
+  // Comment-to-DM runs on Instagram accounts only: the set's, and, when
+  // editing, the one the saved automation already runs on.
   const accounts = workspace.accounts.filter(
     (item) =>
       item.platform === "instagram" &&
       ((item.status === "connected" && item.socialSetId === socialSet?.id) ||
-        item.id === editor.draft.instagramAccountId)
+        (id !== undefined && item.id === editor.draft.instagramAccountId))
   )
   if (accounts.length === 0)
     return (
