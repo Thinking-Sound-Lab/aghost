@@ -8,19 +8,7 @@ import {
   billingChoice,
   billingLoginPath,
 } from "@workspace/api/contract"
-import {
-  CalendarDays,
-  ChartNoAxesCombined,
-  House,
-  Inbox,
-  Monitor,
-  Moon,
-  PanelLeft,
-  Settings,
-  Sun,
-  Workflow,
-  X,
-} from "lucide-react"
+import { Monitor, Moon, PanelLeft, Sun, X } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -45,24 +33,13 @@ import {
 import { Brand } from "@/components/brand"
 import { Avatar, ErrorBanner, Loading } from "@/components/interface"
 import { Paywall } from "@/features/billing/paywall"
+import { NAV_ITEM, NAV_ITEM_ACTIVE, navigation } from "./navigation"
 import { SocialSetSwitcher } from "./social-set-switcher"
 import { useAuthStore } from "@/stores/auth-store"
 import { hasPlan, useWorkspaceStore } from "@/stores/workspace-store"
 import { useBillingStore } from "@/stores/billing-store"
 import { usePendingConnectionStore } from "@/stores/pending-connection-store"
 import { THEMES, useThemeStore } from "@/stores/theme-store"
-
-const ITEM =
-  "flex h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8"
-
-const navigation = [
-  { href: "/home", label: "Home", icon: House },
-  { href: "/automations", label: "Automations", icon: Workflow },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/settings", label: "Settings", icon: Settings },
-]
 
 const themeOptions = {
   system: { label: "System", icon: Monitor },
@@ -103,10 +80,7 @@ function SidebarContent({
               href={href}
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
-              className={cn(
-                ITEM,
-                active && "bg-card font-medium text-foreground hover:bg-card"
-              )}
+              className={cn(NAV_ITEM, active && NAV_ITEM_ACTIVE)}
             >
               <Icon aria-hidden="true" className="size-4" />
               {label}
@@ -119,7 +93,7 @@ function SidebarContent({
           <DropdownMenuTrigger
             aria-label={`${name} account menu`}
             className={cn(
-              ITEM,
+              NAV_ITEM,
               "h-12 w-full min-w-0 px-2 text-foreground md:h-12"
             )}
           >

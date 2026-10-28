@@ -9,6 +9,7 @@ import { NativeSelect } from "@workspace/ui/components/native-select"
 import { ErrorBanner, Page } from "@/components/interface"
 import { Instagram } from "@/components/instagram-icon"
 import { AutomationRows } from "@/features/automations/automation-list"
+import { AutomationTotals } from "@/features/automations/automation-table"
 import { SetOverview, useSetOverview } from "@/features/insights/set-overview"
 import { count } from "@/lib/format"
 import { useAuthStore } from "@/stores/auth-store"
@@ -118,25 +119,13 @@ function Automations() {
           </Button>
         </div>
       )}
-      <dl className="grid grid-cols-3 gap-6">
-        {[
-          [
-            "Active",
-            count(
-              automations.filter((item) => item.status === "active").length
-            ),
-          ],
-          ["DMs sent", total("dmsSent")],
-          ["Link clicks", total("linkClicks")],
-        ].map(([label, value]) => (
-          <div key={label} className="grid gap-1">
-            <dt className="text-sm text-muted-foreground">{label}</dt>
-            <dd className="text-2xl font-semibold tracking-tight tabular-nums">
-              {value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <AutomationTotals
+        active={count(
+          automations.filter((item) => item.status === "active").length
+        )}
+        dmsSent={total("dmsSent")}
+        linkClicks={total("linkClicks")}
+      />
       <ErrorBanner
         message={store.statsError}
         retry={() => void store.loadStats()}

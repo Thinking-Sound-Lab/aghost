@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* The public site is always light, so dark styles stop at its wrapper. */
-@custom-variant dark (&:is(.dark *):not(.marketing, .marketing *));
+/* The public site is always light, so dark styles stop at its wrapper, and
+   at .app-light, the dashboard's light theme wherever it's placed. */
+@custom-variant dark (&:is(.dark *):not(.marketing, .marketing *, .app-light, .app-light *));
 @source "../**/*.{ts,tsx}";
 
 @theme inline {
@@ -66,7 +67,8 @@
   --color-pine: #13282f;
 }
 
-:root {
+:root,
+.app-light {
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.006 285.885);
   --card: oklch(1 0 0);
@@ -99,6 +101,12 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+}
+
+/* The dashboard's sample on the landing page, and its menus and dialogs. */
+.app-light {
+  color-scheme: light;
+  color: var(--foreground);
 }
 
 /* The marketing site's dark: its #0e0e0e canvas frames the sidebar, and its

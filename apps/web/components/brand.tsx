@@ -3,7 +3,7 @@ import Link from "next/link"
 import { cn } from "@workspace/ui/lib/utils"
 
 /** The mascot, rendered at `size` CSS pixels. */
-function Mascot({
+export function Mascot({
   size,
   alt = "",
   eager = false,

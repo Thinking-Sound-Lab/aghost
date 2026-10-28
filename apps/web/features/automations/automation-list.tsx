@@ -20,16 +20,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { Switch } from "@workspace/ui/components/switch"
 import {
   EmptyState,
   ErrorBanner,
   Page,
   SearchInput,
 } from "@/components/interface"
-import { count } from "@/lib/format"
 import { automationsIn, useActiveSet } from "@/stores/social-set-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { AutomationTable } from "./automation-table"
 
 function summary(item: Automation): string {
   const post = {
@@ -113,76 +112,58 @@ export function AutomationRows({
     (item) => item.id === store.pendingDelete
   )
   return (
-    <div className="divide-y">
-      <div className="-mx-3 flex items-center gap-4 px-3 pb-2 text-xs text-muted-foreground">
-        <span className="flex-1">Name</span>
-        <span className="w-20 text-right">DMs sent</span>
-        <span className="w-20 text-right">Clicks</span>
-        <span className="w-[4.5rem]" />
-      </div>
-      {items.map((item) => {
-        const stats = store.stats?.[item.id]
-        return (
-          <div
-            key={item.id}
-            className="-mx-3 flex items-center gap-4 px-3 py-3 transition-colors hover:bg-muted/60"
-          >
-            <Link href={`/automations/${item.id}`} className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{item.name}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {summary(item)}
-              </p>
-            </Link>
-            <span className="w-20 text-right text-sm tabular-nums">
-              {count(stats?.dmsSent)}
-            </span>
-            <span className="w-20 text-right text-sm tabular-nums">
-              {count(stats?.linkClicks)}
-            </span>
-            <Switch
-              checked={item.status === "active"}
-              disabled={store.busy}
-              aria-label={`${item.name} is ${item.status}`}
-              onCheckedChange={() => void store.toggle(item)}
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`${item.name} actions`}
-                  />
+    <>
+      <AutomationTable
+        rows={items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          summary: summary(item),
+          status: item.status,
+          dmsSent: store.stats?.[item.id]?.dmsSent,
+          linkClicks: store.stats?.[item.id]?.linkClicks,
+        }))}
+        busy={store.busy}
+        onToggle={(id) => {
+          const item = items.find((automation) => automation.id === id)
+          if (item) void store.toggle(item)
+        }}
+        href={(id) => `/automations/${id}`}
+        actions={(row) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`${row.name} actions`}
+                />
+              }
+            >
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem
+                onClick={() => router.push(`/automations/${row.id}`)}
+              >
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push(`/automations/${row.id}/activity`)}
+              >
+                Activity
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() =>
+                  useWorkspaceStore.setState({ pendingDelete: row.id })
                 }
               >
-                <MoreHorizontal />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36">
-                <DropdownMenuItem
-                  onClick={() => router.push(`/automations/${item.id}`)}
-                >
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    router.push(`/automations/${item.id}/activity`)
-                  }
-                >
-                  Activity
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() =>
-                    useWorkspaceStore.setState({ pendingDelete: item.id })
-                  }
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )
-      })}
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      />
       <Dialog
         open={pending !== undefined}
         onOpenChange={(open) => {
@@ -209,6 +190,6 @@ export function AutomationRows({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react"
 import Link from "next/link"
 import { ArrowRight, Check, Plus } from "lucide-react"
-import { PLATFORM_RULES, type Platform } from "@workspace/api/contract"
+import { PLATFORM_RULES } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Monogram } from "@/components/brand"
 import { PlatformIcon } from "@/components/platform-icon"
@@ -27,6 +27,7 @@ import {
   outlineButton,
   textLink,
 } from "./shell"
+import { DemoDashboard } from "./demo-dashboard"
 import { StepNav } from "./step-nav"
 
 const container = "mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"
@@ -133,62 +134,11 @@ function Hero() {
   )
 }
 
-const formats: Record<Platform, string> = {
-  instagram: "Posts, reels, carousels, stories and Trial Reels",
-  facebook: "Page posts with photos or a video",
-  linkedin: "Posts on your profile or company page",
-  twitter: "Posts with up to four photos or a video",
-  threads: "Text, photos and video",
-  youtube: "Videos with a title and audience setting",
-}
-
-const stats = [
-  { value: "6", text: "platforms from one post" },
-  { value: "0", text: "caps on DMs or contacts, on every plan" },
-  { value: "1", text: "API key for MCP and the REST API" },
-]
-
-function Platforms() {
+/** The dashboard with sample data, to try before signing up. */
+function Demo() {
   return (
-    <section
-      aria-labelledby="platforms-heading"
-      className={cn(container, "mt-28")}
-    >
-      <h2
-        id="platforms-heading"
-        className="mx-auto max-w-3xl text-center text-[clamp(1.75rem,3vw,2.5rem)] leading-tight font-medium tracking-[-0.04em] text-balance"
-      >
-        One calendar for every channel.
-      </h2>
-      <ul className="mt-10 grid border-t border-l border-ink/10 sm:grid-cols-2 lg:grid-cols-3">
-        {PLATFORM_ORDER.map((platform) => (
-          <li
-            key={platform}
-            className="grid content-start gap-4 border-r border-b border-ink/10 p-8"
-          >
-            <PlatformIcon platform={platform} size={30} />
-            <div className="grid gap-1">
-              <h3 className="text-xl font-medium tracking-[-0.02em]">
-                {PLATFORM_RULES[platform].name}
-              </h3>
-              <p className="text-ink/60">{formats[platform]}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <dl className="mt-16 grid gap-10 sm:grid-cols-3">
-        {stats.map((stat) => (
-          <div
-            key={stat.text}
-            className="grid gap-2 border-t border-ink/15 pt-6"
-          >
-            <dt className="text-6xl leading-none font-medium tracking-[-0.05em]">
-              {stat.value}
-            </dt>
-            <dd className="text-lg text-ink/65">{stat.text}</dd>
-          </div>
-        ))}
-      </dl>
+    <section aria-label="Sample dashboard" className={cn(container, "mt-28")}>
+      <DemoDashboard />
     </section>
   )
 }
@@ -566,7 +516,7 @@ export function Landing() {
   return (
     <MarketingPage>
       <Hero />
-      <Platforms />
+      <Demo />
       <Statement />
       <HowItWorks />
       <Agents />

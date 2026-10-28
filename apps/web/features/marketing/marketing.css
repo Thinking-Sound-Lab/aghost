@@ -27,6 +27,15 @@ html:has(.marketing) {
   --border: rgb(22 37 43 / 0.12);
   --input: rgb(22 37 43 / 0.16);
   --ring: var(--color-ink);
+  --destructive: #b42318;
+  --sidebar: #eeeee9;
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-ink);
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: var(--color-sage);
+  --sidebar-accent-foreground: var(--color-ink);
+  --sidebar-border: rgb(22 37 43 / 0.12);
+  --sidebar-ring: var(--color-ink);
   --radius: 0.125rem;
   color-scheme: light;
 }

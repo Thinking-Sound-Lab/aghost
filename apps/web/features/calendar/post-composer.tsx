@@ -63,7 +63,7 @@ import {
   Step,
 } from "@/features/automations/automation-fields"
 import { InstagramPreview } from "@/features/automations/instagram-preview"
-import { STATUS } from "@/features/calendar/calendar"
+import { STATUS } from "@/features/calendar/month-grid"
 import {
   INLINE_FIELDS,
   PostContentEditor,

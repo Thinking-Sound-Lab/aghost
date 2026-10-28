@@ -23,11 +23,14 @@ import {
  */
 export function Page({
   title,
+  heading: Heading = "h1",
   back,
   actions,
   children,
 }: {
   title: string
+  /** h2 where the page is shown inside another, as on the landing page. */
+  heading?: "h1" | "h2"
   back?: string
   actions?: React.ReactNode
   children: React.ReactNode
@@ -49,9 +52,9 @@ export function Page({
               <ArrowLeft />
             </Link>
           )}
-          <h1 className="mr-auto truncate text-xl font-semibold tracking-tight">
+          <Heading className="mr-auto truncate text-xl font-semibold tracking-tight">
             {title}
-          </h1>
+          </Heading>
           {actions}
         </header>
         {children}
@@ -75,14 +78,18 @@ export function Panel({
 
 export function PanelHeader({
   title,
+  heading: Heading = "h1",
   children,
 }: {
   title: string
+  heading?: "h1" | "h2"
   children?: React.ReactNode
 }) {
   return (
     <header className="box-content flex h-9 shrink-0 items-center gap-2 px-5 pt-10 pb-4">
-      <h1 className="mr-auto text-xl font-semibold tracking-tight">{title}</h1>
+      <Heading className="mr-auto text-xl font-semibold tracking-tight">
+        {title}
+      </Heading>
       {children}
     </header>
   )
