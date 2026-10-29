@@ -21,7 +21,9 @@ import {
   Menu,
   MessageCircle,
   MessageSquareMore,
+  MessageSquareText,
   MoreHorizontal,
+  MoreVertical,
   Play,
   Plus,
   Repeat2,
@@ -49,7 +51,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { Avatar } from "@/components/interface"
 import { PlatformIcon } from "@/components/platform-icon"
-import { MediaThumb } from "./post-media"
+import { PlayableMedia, useYouTubeShort } from "./post-media"
 
 /** How each app colours links, @mentions and #hashtags. */
 const LINK: Record<Platform, string> = {
@@ -113,7 +115,15 @@ type PreviewProps = {
 
 /** The post on a phone, in the app it is published to. */
 export function PostPreview(props: PreviewProps) {
-  const { account, kind } = props
+  const { account, kind, media } = props
+  const short = useYouTubeShort(media)
+  if (account.platform === "youtube" && short)
+    return (
+      <Phone label="YouTube Shorts preview" className="dark bg-black">
+        <Short {...props} />
+        <TabBar account={account} active={1} />
+      </Phone>
+    )
   if (kind === "story")
     return (
       <Phone label="Instagram story preview" className="bg-black text-white">
@@ -286,14 +296,24 @@ const TABS: Record<Platform, (typeof House)[]> = {
   youtube: [House, Clapperboard, Plus, TvMinimalPlay],
 }
 
-function TabBar({ account }: { account: Account }) {
+function TabBar({
+  account,
+  active = 0,
+}: {
+  account: Account
+  /** The tab the app is on. */
+  active?: number
+}) {
   const avatar =
     account.platform === "instagram" || account.platform === "youtube"
   return (
     <div aria-hidden="true" className="shrink-0 border-t">
-      <div className="flex h-12 items-center justify-around text-muted-foreground [&_svg]:size-6 [&_svg:first-child]:text-foreground">
+      <div className="flex h-12 items-center justify-around text-muted-foreground [&_svg]:size-6">
         {TABS[account.platform].map((Icon, index) => (
-          <Icon key={index} />
+          <Icon
+            key={index}
+            className={cn(index === active && "text-foreground")}
+          />
         ))}
         {avatar && (
           <Avatar
@@ -651,12 +671,84 @@ function Caption({
   )
 }
 
+/** A Short fills the screen, with its channel and title over the video. */
+function Short({ account, media, title }: PreviewProps) {
+  return (
+    <div className="relative min-h-0 flex-1 overflow-hidden text-white">
+      <PlayableMedia media={media[0]!} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 bg-linear-to-b from-black/40 to-transparent">
+        <StatusBar />
+        <div
+          aria-hidden="true"
+          className="flex h-11 items-center justify-end gap-5 px-4 [&_svg]:size-6"
+        >
+          <Search />
+          <MoreVertical />
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-3 bg-linear-to-t from-black/60 to-transparent px-3 pt-20 pb-4">
+        <div className="grid min-w-0 flex-1 gap-2.5">
+          <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+            <Avatar
+              src={account.profilePictureUrl}
+              name={account.username}
+              className="size-8"
+            />
+            <span className="truncate">@{account.username}</span>
+            <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-black">
+              Subscribe
+            </span>
+          </p>
+          <p
+            className={cn(
+              "line-clamp-2 text-sm leading-snug [overflow-wrap:anywhere]",
+              !title && "text-white/60"
+            )}
+          >
+            {title || "Your video title"}
+          </p>
+        </div>
+        <div
+          aria-hidden="true"
+          className="grid shrink-0 justify-items-center gap-3.5 text-xs font-medium [&_svg]:size-6 [&>span]:grid [&>span]:justify-items-center [&>span]:gap-1"
+        >
+          <span>
+            <ThumbsUp className="fill-current" />
+            {COUNTS.likes}
+          </span>
+          <span>
+            <ThumbsDown className="fill-current" />
+            Dislike
+          </span>
+          <span>
+            <MessageSquareText className="fill-current" />
+            {COUNTS.comments}
+          </span>
+          <span>
+            <Forward className="fill-current" />
+            Share
+          </span>
+          <span>
+            <Repeat2 />
+            Remix
+          </span>
+          <Avatar
+            src={account.profilePictureUrl}
+            name={account.username}
+            className="size-9 rounded-md border-2 border-white"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Story({ account, media }: PreviewProps) {
   return (
     <>
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-neutral-900">
         {media[0] ? (
-          <MediaThumb media={media[0]} />
+          <PlayableMedia media={media[0]} />
         ) : (
           <div className="grid h-full place-content-center gap-2 text-center text-white/50">
             <ImageIcon className="mx-auto size-7" />
@@ -728,7 +820,7 @@ function PreviewMedia({
               media.length === 3 && position === 0 && "row-span-2"
             )}
           >
-            <MediaThumb media={attachment} />
+            <PlayableMedia media={attachment} />
             {position === 3 && media.length > 4 && (
               <span className="absolute inset-0 grid place-items-center bg-black/50 text-lg font-medium text-white">
                 +{media.length - 4}
@@ -738,16 +830,22 @@ function PreviewMedia({
         ))}
       </div>
     )
+  // YouTube's player shows the whole video, with bars where it doesn't fit.
+  const letterbox = youtube && item?.type === "video"
   return (
     <div
       className={cn(
         "relative overflow-hidden bg-muted",
         instagram ? "aspect-[4/5]" : "aspect-video",
+        letterbox && "bg-black",
         className
       )}
     >
       {item ? (
-        <MediaThumb media={item} />
+        <PlayableMedia
+          media={item}
+          className={letterbox ? "object-contain" : undefined}
+        />
       ) : (
         <div className="absolute inset-0 grid place-content-center gap-2 text-center text-muted-foreground">
           {youtube ? (
@@ -759,16 +857,6 @@ function PreviewMedia({
             {youtube ? "Your video appears here" : "Your photo or video"}
           </p>
         </div>
-      )}
-      {item?.type === "video" && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 grid place-items-center bg-black/10"
-        >
-          <span className="grid size-11 place-items-center rounded-full bg-black/50 text-white">
-            <Play className="size-5 fill-current" />
-          </span>
-        </span>
       )}
       {media.length > 1 && (
         <>

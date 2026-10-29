@@ -68,7 +68,11 @@ import {
   INLINE_FIELDS,
   PostContentEditor,
 } from "@/features/calendar/post-content-editor"
-import { previewOf, timeLabel } from "@/features/calendar/post-media"
+import {
+  previewOf,
+  timeLabel,
+  useYouTubeShort,
+} from "@/features/calendar/post-media"
 import { PostPreview } from "@/features/calendar/post-preview"
 import { ScheduleDialog } from "@/features/calendar/schedule-dialog"
 import { onAccountsChanged } from "@/lib/account-events"
@@ -99,6 +103,7 @@ export function PostComposer({
   const tabsId = useId()
   const formId = useId()
   const editor = useRef<HTMLElement>(null)
+  const short = useYouTubeShort(composer.draft.media)
   const initialize = composer.initialize
   useEffect(() => {
     void initialize(id, day)
@@ -732,7 +737,10 @@ export function PostComposer({
           </Button>
           {active && (
             <span className="truncate text-xs text-muted-foreground">
-              {PLATFORM_RULES[active.platform].name} preview
+              {active.platform === "youtube" && short
+                ? "YouTube Shorts"
+                : PLATFORM_RULES[active.platform].name}{" "}
+              preview
             </span>
           )}
           {dmPreview && (

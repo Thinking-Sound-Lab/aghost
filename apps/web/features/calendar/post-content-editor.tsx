@@ -23,7 +23,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Avatar } from "@/components/interface"
 import { captionFor, useComposerStore } from "@/stores/composer-store"
-import { MediaThumb } from "./post-media"
+import { PlayableMedia, useYouTubeShort } from "./post-media"
 import { RichText } from "./post-preview"
 
 const PLACEHOLDER: Record<Platform, string> = {
@@ -67,6 +67,7 @@ export function PostContentEditor({
   const mediaError = fields[`${prefix}media`] ?? fields.media
   const titleError = fields[`${prefix}youtube.title`]
   const youtube = draft.youtube[account.id]
+  const short = useYouTubeShort(draft.media)
   const name = account.displayName || account.username
   const locked = !editable || busy
   const room =
@@ -106,7 +107,9 @@ export function PostContentEditor({
           : platform === "instagram"
             ? "portrait"
             : platform === "youtube"
-              ? "video"
+              ? short
+                ? "short"
+                : "video"
               : "flexible"
       }
       inputId={inputId}
@@ -451,7 +454,7 @@ function MediaEditor({
   rounded,
 }: {
   /** Where media is required, an empty post shows a drop area this shape. */
-  shape: "story" | "portrait" | "video" | "flexible"
+  shape: "story" | "portrait" | "video" | "short" | "flexible"
   inputId: string
   canUpload: boolean
   editable: boolean
@@ -468,9 +471,12 @@ function MediaEditor({
     story: "aspect-[9/16] w-full max-w-64",
     portrait: "aspect-[4/5]",
     video: "aspect-video",
+    short: "aspect-[9/16] w-full max-w-64",
     flexible: "aspect-video",
   }[shape]
   const tile = shape === "portrait" ? "aspect-square" : "aspect-[4/3]"
+  // YouTube's player shows the whole video, with bars where it doesn't fit.
+  const letterbox = shape === "video"
   const hint =
     shape === "story"
       ? "One photo or video, shown for 24 hours."
@@ -518,15 +524,22 @@ function MediaEditor({
           "grid gap-1 overflow-hidden",
           radius,
           single ? "grid-cols-1" : "grid-cols-2",
-          single && shape === "story" && "max-w-64"
+          single && (shape === "story" || shape === "short") && "max-w-64"
         )}
       >
         {draft.media.map((item, index) => (
           <div
             key={item.url}
-            className={cn("group relative bg-muted", single ? frame : tile)}
+            className={cn(
+              "group relative bg-muted",
+              single ? frame : tile,
+              letterbox && "bg-black"
+            )}
           >
-            <MediaThumb media={item} />
+            <PlayableMedia
+              media={item}
+              className={letterbox ? "object-contain" : undefined}
+            />
             {editable && (
               <span className="absolute inset-x-2 top-2 flex justify-between opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
                 {index > 0 ? (

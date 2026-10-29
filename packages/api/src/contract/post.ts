@@ -61,6 +61,18 @@ export function isReelMedia(media: PostMedia[]): boolean {
   return media.length === 1 && media[0]?.type === "video"
 }
 
+/** A video's frame in pixels and its length, as its file reports them. */
+export type VideoShape = { width: number; height: number; seconds: number }
+
+const YOUTUBE_SHORT_MAX_SECONDS = 180
+
+/** YouTube publishes a vertical or square video up to 3 minutes long as a Short. */
+export function isYouTubeShort(video: VideoShape): boolean {
+  return (
+    video.height >= video.width && video.seconds <= YOUTUBE_SHORT_MAX_SECONDS
+  )
+}
+
 const MAX_BYTES: Record<MediaType, number> = {
   image: POST_LIMITS.imageMaxBytes,
   video: POST_LIMITS.videoMaxBytes,
