@@ -11,7 +11,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Brand } from "@/components/brand"
 import { ErrorBanner, Loading } from "@/components/interface"
-import { MediaThumb } from "@/features/calendar/post-media"
+import { PlayableMedia } from "@/features/calendar/post-media"
 import { useAuthStore } from "@/stores/auth-store"
 import { useUploadLinkStore } from "@/stores/upload-link-store"
 
@@ -95,7 +95,7 @@ export function UploadLinkPage({ linkId }: { linkId: string | null }) {
               key={item.url}
               className="relative aspect-square overflow-hidden rounded-md bg-muted"
             >
-              <MediaThumb media={item} />
+              <PlayableMedia media={item} />
               {link.status === "waiting" && (
                 <Button
                   type="button"
