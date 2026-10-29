@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import Image from "next/image"
 import { Play } from "lucide-react"
 import { isYouTubeShort, type PostMedia } from "@workspace/api/contract"
@@ -64,9 +64,25 @@ export function PlayableMedia({
 }
 
 function VideoPlayer({ url, className }: { url: string; className?: string }) {
+  const id = useId()
   const video = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
   const loaded = useVideoStore((state) => state.loaded)
+  const started = useVideoStore((state) => state.started)
+  const current = useVideoStore((state) => state.playing)
+  // Another video started.
+  useEffect(() => {
+    if (current !== id) video.current!.pause()
+  }, [current, id])
+  // Hidden, as a closed preview is, or scrolled out of view.
+  useEffect(() => {
+    const element = video.current!
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry!.isIntersecting) element.pause()
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
   return (
     <>
       <video
@@ -83,7 +99,10 @@ function VideoPlayer({ url, className }: { url: string; className?: string }) {
             seconds: duration,
           })
         }}
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          setPlaying(true)
+          started(id)
+        }}
         onPause={() => setPlaying(false)}
         className={cn("absolute inset-0 size-full object-cover", className)}
       />

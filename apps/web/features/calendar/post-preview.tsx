@@ -675,7 +675,7 @@ function Caption({
 function Short({ account, media, title }: PreviewProps) {
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden text-white">
-      <PlayableMedia media={media[0]!} />
+      <PlayableMedia media={media[0]!} className="object-contain" />
       <div className="pointer-events-none absolute inset-x-0 top-0 bg-linear-to-b from-black/40 to-transparent">
         <StatusBar />
         <div
@@ -822,7 +822,7 @@ function PreviewMedia({
           >
             <PlayableMedia media={attachment} />
             {position === 3 && media.length > 4 && (
-              <span className="absolute inset-0 grid place-items-center bg-black/50 text-lg font-medium text-white">
+              <span className="pointer-events-none absolute inset-0 grid place-items-center bg-black/50 text-lg font-medium text-white">
                 +{media.length - 4}
               </span>
             )}

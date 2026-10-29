@@ -475,8 +475,8 @@ function MediaEditor({
     flexible: "aspect-video",
   }[shape]
   const tile = shape === "portrait" ? "aspect-square" : "aspect-[4/3]"
-  // YouTube's player shows the whole video, with bars where it doesn't fit.
-  const letterbox = shape === "video"
+  // YouTube's players show the whole video, with bars where it doesn't fit.
+  const letterbox = shape === "video" || shape === "short"
   const hint =
     shape === "story"
       ? "One photo or video, shown for 24 hours."
