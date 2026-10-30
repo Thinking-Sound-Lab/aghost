@@ -23,6 +23,7 @@ function post(id: string, scheduledFor: Date): ScheduledPost {
     caption: "Caption",
     trialReel: null,
     youtube: null,
+    facebook: null,
     media: [{ url: "https://media.example/cover.jpg", type: "image" }],
     scheduledFor: scheduledFor.toISOString(),
     status: "scheduled",

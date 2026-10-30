@@ -3,9 +3,11 @@ import {
   AUTOMATION_LIMITS,
   POST_LIMITS,
   crossPostSchema,
+  facebookReelProblem,
   platformProblems,
   updateScheduledPostSchema,
   type Account,
+  type FacebookSettings,
   type Platform,
   type PostKind,
   type PostMedia,
@@ -26,6 +28,7 @@ import { responseForSave } from "@/lib/automation-draft"
 import { fileProblem, uploadFiles } from "@/lib/media"
 import { useCalendarStore } from "./calendar-store"
 import { accountsIn, currentSet } from "./social-set-store"
+import { useVideoStore } from "./video-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
 type Draft = {
@@ -38,6 +41,8 @@ type Draft = {
   captions: Record<string, string>
   /** Each YouTube account's video settings, by account id. */
   youtube: Record<string, YouTubeSettings>
+  /** Whether each Facebook account's copy is a reel, by account id. */
+  facebook: Record<string, FacebookSettings>
   media: PostMedia[]
   trialReel: TrialReel | null
   /** Local date and time, as a datetime-local input holds it. */
@@ -50,6 +55,7 @@ const emptyDraft = (scheduledAt: string): Draft => ({
   caption: "",
   captions: {},
   youtube: {},
+  facebook: {},
   media: [],
   trialReel: null,
   scheduledAt,
@@ -98,6 +104,7 @@ type ComposerState = {
   customize: (id: string, on: boolean) => void
   setCaption: (id: string, caption: string) => void
   setYouTube: (id: string, patch: Partial<YouTubeSettings>) => void
+  setFacebook: (id: string, settings: FacebookSettings) => void
   checkPublishing: (id: string) => Promise<void>
   addFiles: (files: File[]) => Promise<void>
   removeMedia: (index: number) => void
@@ -157,6 +164,21 @@ export function captionFor(draft: Draft, accountId: string): string {
   return draft.captions[accountId] ?? draft.caption
 }
 
+/** Why every channel's media has to be one video, or null when it can be more. */
+export function oneVideoReason(draft: Draft): string | null {
+  if (draft.trialReel) return "A Trial Reel needs exactly one video."
+  if (Object.values(draft.facebook).some((settings) => settings.reel))
+    return "A Facebook Reel needs exactly one video."
+  return null
+}
+
+/** Where a reel's video doesn't fit Facebook, once the browser has read it. */
+function reelVideoProblem(media: PostMedia[]): string | null {
+  const video = media.length === 1 && media[0]?.type === "video" && media[0]
+  const shape = video && useVideoStore.getState().shapes[video.url]
+  return shape ? facebookReelProblem(shape) : null
+}
+
 /** Where each chosen account's copy breaks its platform's rules, by field. */
 function problemsOf(
   draft: Draft,
@@ -166,28 +188,39 @@ function problemsOf(
   const instagram = hasInstagram(draft)
   return Object.assign(
     {},
-    ...accountsOf(draft).map((account, index) =>
-      Object.fromEntries(
-        Object.entries(
-          platformProblems(account.platform, {
-            kind: draft.kind,
-            caption:
-              draft.kind === "story"
-                ? null
-                : captionFor(draft, account.id).trim() || null,
-            media: draft.media,
-            trialReel:
-              account.platform === "instagram" ? draft.trialReel : null,
-            youtube:
-              account.platform === "youtube"
-                ? (draft.youtube[account.id] ?? null)
-                : null,
-            hasAutomation:
-              automation && instagram && account.platform === "instagram",
-          })
-        ).map(([field, message]) => [`${prefix(index)}${field}`, message])
+    ...accountsOf(draft).map((account, index) => {
+      const problems = platformProblems(account.platform, {
+        kind: draft.kind,
+        caption:
+          draft.kind === "story"
+            ? null
+            : captionFor(draft, account.id).trim() || null,
+        media: draft.media,
+        trialReel: account.platform === "instagram" ? draft.trialReel : null,
+        youtube:
+          account.platform === "youtube"
+            ? (draft.youtube[account.id] ?? null)
+            : null,
+        facebook:
+          account.platform === "facebook"
+            ? (draft.facebook[account.id] ?? null)
+            : null,
+        hasAutomation:
+          automation && instagram && account.platform === "instagram",
+      })
+      // The server never sees the video, so only the browser checks its shape.
+      const reelVideo =
+        draft.facebook[account.id]?.reel && !problems.media
+          ? reelVideoProblem(draft.media)
+          : null
+      if (reelVideo) problems.media = reelVideo
+      return Object.fromEntries(
+        Object.entries(problems).map(([field, message]) => [
+          `${prefix(index)}${field}`,
+          message,
+        ])
       )
-    )
+    })
   )
 }
 
@@ -252,6 +285,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
             kind: post.kind,
             caption: post.caption ?? "",
             youtube: post.youtube ? { [post.accountId]: post.youtube } : {},
+            facebook: post.facebook ? { [post.accountId]: post.facebook } : {},
             media: post.media,
             trialReel: post.trialReel ?? null,
           },
@@ -304,11 +338,13 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     if (draft.accountIds.includes(id)) {
       const { [id]: _caption, ...captions } = draft.captions
       const { [id]: _youtube, ...youtube } = draft.youtube
+      const { [id]: _facebook, ...facebook } = draft.facebook
       const accountIds = draft.accountIds.filter((item) => item !== id)
       get().patch({
         accountIds,
         captions,
         youtube,
+        facebook,
         // A Trial Reel is Instagram's; without it, uploads aren't limited
         // to one video and the setting has nowhere to be switched off.
         ...(!hasInstagram({ ...draft, accountIds }) && { trialReel: null }),
@@ -328,6 +364,9 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
           ...draft.youtube,
           [id]: { title: "", madeForKids: false },
         },
+      }),
+      ...(account.platform === "facebook" && {
+        facebook: { ...draft.facebook, [id]: { reel: false } },
       }),
     })
     await get().checkPublishing(id)
@@ -358,6 +397,8 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     const current = youtube[id] ?? { title: "", madeForKids: false }
     get().patch({ youtube: { ...youtube, [id]: { ...current, ...patch } } })
   },
+  setFacebook: (id, settings) =>
+    get().patch({ facebook: { ...get().draft.facebook, [id]: settings } }),
   addFiles: async (files) => {
     const { draft, uploads, revision, pending } = get()
     // A batch keeps selection order; the next batch waits for its slots.
@@ -365,27 +406,23 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       set({ error: "Wait for the current uploads or save to finish." })
       return
     }
+    const oneVideo = oneVideoReason(draft)
     const room =
-      (draft.kind === "story" || draft.trialReel
-        ? 1
-        : POST_LIMITS.maxMediaItems) -
+      (draft.kind === "story" || oneVideo ? 1 : POST_LIMITS.maxMediaItems) -
       draft.media.length -
       uploads.length
     if (files.length > room) {
       set({
-        error: draft.trialReel
-          ? "A Trial Reel needs exactly one video."
-          : draft.kind === "story"
+        error:
+          oneVideo ??
+          (draft.kind === "story"
             ? "A story has one photo or video."
-            : `A post can have up to ${POST_LIMITS.maxMediaItems} photos or videos.`,
+            : `A post can have up to ${POST_LIMITS.maxMediaItems} photos or videos.`),
       })
       return
     }
-    if (
-      draft.trialReel &&
-      files.some((file) => !file.type.startsWith("video/"))
-    ) {
-      set({ error: "A Trial Reel needs exactly one video." })
+    if (oneVideo && files.some((file) => !file.type.startsWith("video/"))) {
+      set({ error: oneVideo })
       return
     }
     const problem = fileProblem(files)
@@ -487,6 +524,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     const update = editing && {
       ...content,
       youtube: draft.youtube[editing.accountId] ?? null,
+      facebook: draft.facebook[editing.accountId] ?? null,
       automation,
     }
     const input = {
@@ -496,6 +534,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
         caption:
           draft.kind === "story" ? null : (draft.captions[account.id] ?? null),
         youtube: draft.youtube[account.id] ?? null,
+        facebook: draft.facebook[account.id] ?? null,
       })),
       automation,
     }

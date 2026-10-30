@@ -49,6 +49,7 @@ function scheduled(days = 1, accountId = account.id): ScheduledPost {
     platform: "instagram",
     instagramAccountId: accountId,
     youtube: null,
+    facebook: null,
     kind: "post",
     caption: "Scheduled",
     trialReel: null,

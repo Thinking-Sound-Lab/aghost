@@ -6,6 +6,7 @@ import {
   Bell,
   Bookmark,
   BriefcaseBusiness,
+  Camera,
   Cast,
   ChartNoAxesColumn,
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
   MessageSquareText,
   MoreHorizontal,
   MoreVertical,
+  Music,
   Play,
   Plus,
   Repeat2,
@@ -111,6 +113,8 @@ type PreviewProps = {
   media: PostMedia[]
   title: string | null
   kind: PostKind
+  /** Whether a Facebook copy publishes as a reel. */
+  reel: boolean
 }
 
 /** The post on a phone, in the app it is published to. */
@@ -121,6 +125,13 @@ export function PostPreview(props: PreviewProps) {
     return (
       <Phone label="YouTube Shorts preview" className="dark bg-black">
         <Short {...props} />
+        <TabBar account={account} active={1} />
+      </Phone>
+    )
+  if (account.platform === "facebook" && props.reel)
+    return (
+      <Phone label="Facebook Reels preview" className="dark bg-black">
+        <FacebookReel {...props} />
         <TabBar account={account} active={1} />
       </Phone>
     )
@@ -737,6 +748,74 @@ function Short({ account, media, title }: PreviewProps) {
             name={account.username}
             className="size-9 rounded-md border-2 border-white"
           />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** A reel fills the screen, with the Page and caption over the video. */
+function FacebookReel({ account, caption, media }: PreviewProps) {
+  const name = account.displayName || account.username
+  return (
+    <div className="relative min-h-0 flex-1 overflow-hidden text-white">
+      {media[0] ? (
+        <PlayableMedia media={media[0]} className="object-contain" />
+      ) : (
+        <div className="grid h-full place-content-center gap-2 text-center text-white/50">
+          <Clapperboard className="mx-auto size-7" />
+          <p className="text-xs">Your reel appears here</p>
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bg-linear-to-b from-black/40 to-transparent">
+        <StatusBar />
+        <div
+          aria-hidden="true"
+          className="flex h-11 items-center gap-5 px-4 [&_svg]:size-6"
+        >
+          <span className="mr-auto text-xl font-bold">Reels</span>
+          <Search />
+          <Camera />
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-3 bg-linear-to-t from-black/60 to-transparent px-3 pt-20 pb-4">
+        <div className="grid min-w-0 flex-1 gap-2">
+          <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+            <Avatar
+              src={account.profilePictureUrl}
+              name={name}
+              className="size-8"
+            />
+            <span className="truncate">{name}</span>
+            <span className="shrink-0">· Follow</span>
+          </p>
+          {caption && (
+            <p className="line-clamp-2 text-sm leading-snug [overflow-wrap:anywhere] whitespace-pre-wrap">
+              {caption}
+            </p>
+          )}
+          <p className="flex min-w-0 items-center gap-1.5 text-xs">
+            <Music className="size-3.5 shrink-0" />
+            <span className="truncate">{name} · Original audio</span>
+          </p>
+        </div>
+        <div
+          aria-hidden="true"
+          className="grid shrink-0 justify-items-center gap-4 text-xs font-medium [&_svg]:size-7 [&>span]:grid [&>span]:justify-items-center [&>span]:gap-1"
+        >
+          <span>
+            <ThumbsUp className="fill-current" />
+            {COUNTS.likes}
+          </span>
+          <span>
+            <MessageCircle className="fill-current" />
+            {COUNTS.comments}
+          </span>
+          <span>
+            <Forward className="fill-current" />
+            {COUNTS.shares}
+          </span>
+          <MoreHorizontal />
         </div>
       </div>
     </div>
