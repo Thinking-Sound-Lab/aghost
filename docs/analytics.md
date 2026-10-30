@@ -5,8 +5,8 @@ aghost records product analytics in [PostHog](https://posthog.com). The browser 
 ## Setup
 
 1. Create a PostHog project. In its settings, copy the **project API key** (`phc_…`) and the **host**: `https://us.i.posthog.com`, or `https://eu.i.posthog.com` for an EU project.
-2. Locally, set `POSTHOG_KEY` and `POSTHOG_HOST` in the root `.env`, then run `pnpm local:start` so the API container gets them. Next.js reads them when it starts.
-3. In production, set the same key and host:
+2. Locally, leave `POSTHOG_KEY` empty in the root `.env`, so local runs stay out of real numbers. To test analytics, set it to a separate PostHog project's key, then run `pnpm local:start` so the API container gets it. Next.js reads it when it starts.
+3. In production, set the key and host:
    - **Vercel:** `POSTHOG_KEY` and `POSTHOG_HOST` on the `aghost` project, for Production only, so previews do not mix into real numbers. Redeploy, because Next.js reads them at build time.
    - **API on ECS:** the `POSTHOG_KEY` variable of the `prod` GitHub environment. The host is fixed in `infra/lib/config.ts`; change it there for an EU project.
 4. In PostHog's project settings, turn on session replay and heatmaps. Workspace-level reports need PostHog's group analytics add-on; everything else works without it.
