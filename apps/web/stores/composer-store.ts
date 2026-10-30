@@ -172,11 +172,19 @@ export function oneVideoReason(draft: Draft): string | null {
   return null
 }
 
-/** Where a reel's video doesn't fit Facebook, once the browser has read it. */
+/**
+ * Where a reel's video doesn't fit Facebook. The server never sees the file,
+ * so a reel waits until the browser has read it.
+ */
 function reelVideoProblem(media: PostMedia[]): string | null {
   const video = media.length === 1 && media[0]?.type === "video" && media[0]
-  const shape = video && useVideoStore.getState().shapes[video.url]
-  return shape ? facebookReelProblem(shape) : null
+  if (!video) return null
+  const { shapes, unreadable } = useVideoStore.getState()
+  const shape = shapes[video.url]
+  if (shape) return facebookReelProblem(shape)
+  return unreadable.includes(video.url)
+    ? "This browser can't read the video to check it for a Facebook Reel"
+    : "Wait for the video to load"
 }
 
 /** Where each chosen account's copy breaks its platform's rules, by field. */
@@ -208,7 +216,6 @@ function problemsOf(
         hasAutomation:
           automation && instagram && account.platform === "instagram",
       })
-      // The server never sees the video, so only the browser checks its shape.
       const reelVideo =
         draft.facebook[account.id]?.reel && !problems.media
           ? reelVideoProblem(draft.media)

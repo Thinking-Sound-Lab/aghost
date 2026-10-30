@@ -249,6 +249,17 @@ describe("cross-posting from the composer", () => {
       type: "video",
     }
     useComposerStore.getState().patch({ media: [video] })
+    // The server never sees the file, so the reel waits for the browser.
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media": "Wait for the video to load",
+    })
+    useVideoStore.getState().failed(video.url)
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media":
+        "This browser can't read the video to check it for a Facebook Reel",
+    })
     useVideoStore
       .getState()
       .loaded(video.url, { width: 1920, height: 1080, seconds: 30 })

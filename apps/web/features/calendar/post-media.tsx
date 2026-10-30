@@ -68,6 +68,7 @@ function VideoPlayer({ url, className }: { url: string; className?: string }) {
   const video = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
   const loaded = useVideoStore((state) => state.loaded)
+  const failed = useVideoStore((state) => state.failed)
   const started = useVideoStore((state) => state.started)
   const current = useVideoStore((state) => state.playing)
   // Another video started.
@@ -99,6 +100,7 @@ function VideoPlayer({ url, className }: { url: string; className?: string }) {
             seconds: duration,
           })
         }}
+        onError={() => failed(url)}
         onPlay={() => {
           setPlaying(true)
           started(id)
