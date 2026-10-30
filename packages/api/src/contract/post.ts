@@ -73,6 +73,19 @@ export function isYouTubeShort(video: VideoShape): boolean {
   )
 }
 
+// From Meta's Reels publishing guide. Zernio does not check them, so a video
+// outside them fails when it publishes.
+const FACEBOOK_REEL_SECONDS = { min: 3, max: 90 }
+
+/** Where a video can't be a Facebook Reel, or null when it fits. */
+export function facebookReelProblem(video: VideoShape): string | null {
+  return video.height >= video.width &&
+    video.seconds >= FACEBOOK_REEL_SECONDS.min &&
+    video.seconds <= FACEBOOK_REEL_SECONDS.max
+    ? null
+    : `A Facebook Reel is a vertical video of ${FACEBOOK_REEL_SECONDS.min} to ${FACEBOOK_REEL_SECONDS.max} seconds`
+}
+
 const MAX_BYTES: Record<MediaType, number> = {
   image: POST_LIMITS.imageMaxBytes,
   video: POST_LIMITS.videoMaxBytes,
@@ -136,6 +149,17 @@ export const youtubeSchema = z.object({
 
 export type YouTubeSettings = z.infer<typeof youtubeSchema>
 
+/** How a Facebook copy publishes. */
+export const facebookSchema = z.object({
+  reel: z
+    .boolean()
+    .describe(
+      "true publishes one vertical video of 3 to 90 seconds as a Facebook Reel; false publishes a feed post."
+    ),
+})
+
+export type FacebookSettings = z.infer<typeof facebookSchema>
+
 type PostShape = {
   kind: PostKind
   caption: string
@@ -166,6 +190,7 @@ export type PlatformPost = {
   media: PostMedia[]
   trialReel: TrialReel | null
   youtube: YouTubeSettings | null
+  facebook: FacebookSettings | null
   hasAutomation: boolean
 }
 
@@ -187,10 +212,18 @@ export function platformProblems(
     if (post.hasAutomation)
       problems.automation = "Comment-to-DM automations are for Instagram"
   }
+  if (platform !== "facebook" && post.facebook)
+    problems.facebook = "Facebook settings are for Facebook"
   if ((post.caption?.length ?? 0) > rules.captionMaxLength)
     problems.caption = `${name} takes up to ${rules.captionMaxLength.toLocaleString("en")} characters`
   if (rules.videoOnly && (post.media.length !== 1 || videos !== 1))
     problems.media = `${name} needs one video`
+  else if (
+    platform === "facebook" &&
+    post.facebook?.reel &&
+    !isReelMedia(post.media)
+  )
+    problems.media = "A Facebook Reel needs one video"
   else if (rules.needsMedia && post.media.length === 0)
     problems.media = `${name} needs a photo or video`
   else if (post.media.length > rules.maxMedia)
@@ -232,6 +265,12 @@ export const updateScheduledPostSchema = z
       .describe(
         "A YouTube video's title and audience. Omit to keep them; other platforms have none."
       ),
+    facebook: facebookSchema
+      .nullable()
+      .optional()
+      .describe(
+        "A Facebook post's format, which can't change once scheduled. Omit to keep it; other platforms have none."
+      ),
     automation: postAutomationSchema.nullable().default(null),
   })
   .check(checkKind)
@@ -242,6 +281,8 @@ const postTargetSchema = z.object({
   // Replaces the shared caption on this account, for example a shorter one for X.
   caption: captionSchema.nullable().default(null),
   youtube: youtubeSchema.nullable().default(null),
+  // Null on a Facebook account publishes a feed post.
+  facebook: facebookSchema.nullable().default(null),
 })
 
 /** The same post scheduled on several accounts, each publishing its own copy. */
@@ -379,6 +420,8 @@ export type ScheduledPost = {
   trialReel: TrialReel | null
   /** A YouTube video's title and audience; null on other platforms. */
   youtube: YouTubeSettings | null
+  /** Whether a Facebook post is a reel; null on other platforms. */
+  facebook: FacebookSettings | null
   status: ScheduledPostStatus
   /** The platform's id for the post, once it is published. */
   platformPostId: string | null

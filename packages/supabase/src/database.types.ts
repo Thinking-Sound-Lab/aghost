@@ -415,6 +415,7 @@ export type Database = {
           caption: string | null
           created_at: string
           error: string | null
+          facebook_reel: boolean
           id: string
           instagram_account_id: string
           kind: string
@@ -437,6 +438,7 @@ export type Database = {
           caption?: string | null
           created_at?: string
           error?: string | null
+          facebook_reel?: boolean
           id?: string
           instagram_account_id: string
           kind: string
@@ -458,6 +460,7 @@ export type Database = {
           caption?: string | null
           created_at?: string
           error?: string | null
+          facebook_reel?: boolean
           id?: string
           instagram_account_id?: string
           kind?: string

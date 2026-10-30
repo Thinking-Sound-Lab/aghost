@@ -2,13 +2,18 @@ import type {
   CreateAutomationInput,
   PostAutomationInput,
 } from "../../contract/automation"
-import { accountLabel, PLATFORM_RULES } from "../../contract/platform"
+import {
+  accountLabel,
+  PLATFORM_RULES,
+  type Platform,
+} from "../../contract/platform"
 import {
   MEDIA_CONTENT_TYPES,
   POST_LIMITS,
   isReelMedia,
   platformProblems,
   type CreateMediaUploadInput,
+  type FacebookSettings,
   type MediaUpload,
   type ParsedCrossPostInput,
   type ParsedSchedulePostInput,
@@ -150,7 +155,7 @@ export class PostService {
           instagramAccountId:
             "Choose an Instagram account. Posts on other platforms are scheduled with cross_post.",
         })
-      const content = contentOf({ ...input, youtube: null })
+      const content = contentOf({ ...input, youtube: null, facebook: null })
       assertFits(account, content, input.automation !== null, "")
       assertAhead(content.scheduledFor)
       await this.assertCanPublish(account)
@@ -177,7 +182,7 @@ export class PostService {
   ): Promise<ScheduledPostRecord[]> {
     return this.operations.run(workspace.id, async () => {
       await this.plan.assertCanUseWorkspace(workspace)
-      const shared = contentOf({ ...input, youtube: null })
+      const shared = contentOf({ ...input, youtube: null, facebook: null })
       const copies = await Promise.all(
         input.targets.map(async (target) => {
           const account = await this.getAccount(workspace.id, target.accountId)
@@ -190,6 +195,7 @@ export class PostService {
             // publish as plain posts.
             trialReel: instagram ? shared.trialReel : null,
             youtube: target.youtube,
+            facebook: facebookOf(account.platform, target.facebook),
           }
           return {
             account,
@@ -311,6 +317,10 @@ export class PostService {
         trialReel:
           input.trialReel === undefined ? current.trialReel : input.trialReel,
         youtube: input.youtube === undefined ? current.youtube : input.youtube,
+        facebook:
+          input.facebook === undefined
+            ? current.facebook
+            : facebookOf(current.platform, input.facebook),
       })
       // Validate the effective settings too: an older client may omit
       // trialReel while replacing the video with a photo or carousel.
@@ -327,6 +337,13 @@ export class PostService {
       if (content.kind !== current.kind)
         throw new ValidationError({
           kind: "A post can't become a story or a story a post. Delete it and schedule a new one.",
+        })
+      // As with stories, the provider's record of a reel can't be relied on
+      // to change.
+      if (content.facebook?.reel !== current.facebook?.reel)
+        throw new ValidationError({
+          facebook:
+            "A Facebook post can't become a reel or a reel a post. Delete it and schedule a new one.",
         })
       await this.assertCanPublish(account)
 
@@ -528,7 +545,9 @@ function contentOf(
     ParsedCrossPostInput,
     "kind" | "caption" | "media" | "scheduledFor"
   > &
-    Pick<PostContent, "youtube"> & { trialReel?: PostContent["trialReel"] }
+    Pick<PostContent, "youtube" | "facebook"> & {
+      trialReel?: PostContent["trialReel"]
+    }
 ): PostContent {
   return {
     kind: input.kind,
@@ -536,8 +555,20 @@ function contentOf(
     media: input.media,
     trialReel: input.trialReel ?? null,
     youtube: input.youtube,
+    facebook: input.facebook,
     scheduledFor: new Date(input.scheduledFor).toISOString(),
   }
+}
+
+/**
+ * A Facebook copy without settings is a feed post. Other platforms keep what
+ * they were given, for the platform check to turn down.
+ */
+function facebookOf(
+  platform: Platform,
+  settings: FacebookSettings | null
+): FacebookSettings | null {
+  return platform === "facebook" ? (settings ?? { reel: false }) : settings
 }
 
 /** Where the copy breaks its platform's rules, by field under `prefix`. */

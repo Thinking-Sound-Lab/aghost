@@ -22,7 +22,11 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Avatar } from "@/components/interface"
-import { captionFor, useComposerStore } from "@/stores/composer-store"
+import {
+  captionFor,
+  oneVideoReason,
+  useComposerStore,
+} from "@/stores/composer-store"
 import { PlayableMedia, useYouTubeShort } from "./post-media"
 import { RichText } from "./post-preview"
 
@@ -68,14 +72,16 @@ export function PostContentEditor({
   const titleError = fields[`${prefix}youtube.title`]
   const youtube = draft.youtube[account.id]
   const short = useYouTubeShort(draft.media)
+  const reel = draft.facebook[account.id]?.reel ?? false
   const name = account.displayName || account.username
   const locked = !editable || busy
+  const oneVideo = oneVideoReason(draft) !== null
   const room =
-    (story || draft.trialReel ? 1 : POST_LIMITS.maxMediaItems) -
+    (story || oneVideo ? 1 : POST_LIMITS.maxMediaItems) -
     draft.media.length -
     uploads.length
   const canUpload = editable && !busy && uploads.length === 0 && room > 0
-  const accept = draft.trialReel
+  const accept = oneVideo
     ? "video/mp4,video/quicktime"
     : Object.keys(MEDIA_CONTENT_TYPES).join(",")
 
@@ -110,7 +116,9 @@ export function PostContentEditor({
               ? short
                 ? "short"
                 : "video"
-              : "flexible"
+              : reel
+                ? "reel"
+                : "flexible"
       }
       inputId={inputId}
       canUpload={canUpload}
@@ -179,7 +187,7 @@ export function PostContentEditor({
       type="file"
       disabled={!canUpload}
       accept={accept}
-      multiple={!story && !draft.trialReel}
+      multiple={!story && !oneVideo}
       className="sr-only"
       onChange={(event) => {
         const files = [...(event.target.files ?? [])]
@@ -454,7 +462,7 @@ function MediaEditor({
   rounded,
 }: {
   /** Where media is required, an empty post shows a drop area this shape. */
-  shape: "story" | "portrait" | "video" | "short" | "flexible"
+  shape: "story" | "portrait" | "video" | "short" | "reel" | "flexible"
   inputId: string
   canUpload: boolean
   editable: boolean
@@ -472,19 +480,24 @@ function MediaEditor({
     portrait: "aspect-[4/5]",
     video: "aspect-video",
     short: "aspect-[9/16] w-full max-w-64",
+    reel: "aspect-[9/16] w-full max-w-64",
     flexible: "aspect-video",
   }[shape]
+  const vertical = shape === "story" || shape === "short" || shape === "reel"
   const tile = shape === "portrait" ? "aspect-square" : "aspect-[4/3]"
-  // YouTube's players show the whole video, with bars where it doesn't fit.
-  const letterbox = shape === "video" || shape === "short"
+  // YouTube's players show the whole video, with bars where it doesn't fit,
+  // and a reel shows whether its video is vertical.
+  const letterbox = shape === "video" || shape === "short" || shape === "reel"
   const hint =
     shape === "story"
       ? "One photo or video, shown for 24 hours."
       : draft.trialReel
         ? "One video, shown to non-followers first."
-        : shape === "video"
-          ? "One video."
-          : null
+        : shape === "reel"
+          ? "One vertical video, 3 to 90 seconds."
+          : shape === "video"
+            ? "One video."
+            : null
   const alert = error && (
     <p role="alert" className="text-xs text-destructive">
       {error}
@@ -505,7 +518,7 @@ function MediaEditor({
         >
           <ImagePlus className="mx-auto size-6 text-muted-foreground" />
           <span className="text-sm font-medium">
-            {shape === "video" || draft.trialReel
+            {shape === "video" || shape === "reel" || draft.trialReel
               ? "Add a video"
               : "Add photos or a video"}
           </span>
@@ -524,7 +537,7 @@ function MediaEditor({
           "grid gap-1 overflow-hidden",
           radius,
           single ? "grid-cols-1" : "grid-cols-2",
-          single && (shape === "story" || shape === "short") && "max-w-64"
+          single && vertical && "max-w-64"
         )}
       >
         {draft.media.map((item, index) => (

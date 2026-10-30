@@ -30,6 +30,7 @@ function stored(
     media: [{ url: "https://media.example/a.jpg", type: "image" }],
     trialReel: null,
     youtube: null,
+    facebook: null,
     scheduledFor: new Date(Date.now() + hoursAway * 3_600_000).toISOString(),
     status,
     platformPostId: null,
@@ -291,6 +292,7 @@ describe("cross-posting when a copy fails", () => {
           accountId: account.id,
           caption: null,
           youtube: null,
+          facebook: null,
         })),
       })
     ).rejects.toMatchObject({

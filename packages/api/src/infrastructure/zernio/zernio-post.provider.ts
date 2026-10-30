@@ -1,5 +1,6 @@
 import type {
   CreatePostData,
+  FacebookPlatformData,
   InstagramPlatformData,
   Post,
   YouTubePlatformData,
@@ -225,6 +226,12 @@ function platformDataOf(
       title: content.youtube.title,
       madeForKids: content.youtube.madeForKids,
     }
+    return data
+  }
+  if (platform === "facebook") {
+    const data: FacebookPlatformData = content.facebook?.reel
+      ? { contentType: "reel" }
+      : {}
     return data
   }
   if (platform !== "instagram") return {}

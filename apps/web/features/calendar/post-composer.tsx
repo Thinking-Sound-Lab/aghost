@@ -84,6 +84,11 @@ const KINDS: { value: PostKind; label: string }[] = [
   { value: "post", label: "Post or reel" },
   { value: "story", label: "Story" },
 ]
+const FACEBOOK_FORMATS: { value: "post" | "reel"; label: string }[] = [
+  { value: "post", label: "Post" },
+  { value: "reel", label: "Reel" },
+]
+
 export function PostComposer({
   id,
   day,
@@ -159,6 +164,7 @@ export function PostComposer({
     chosen.length > 0 && chosen.every((item) => item.platform === "instagram")
   const editable = !post || post.status === "scheduled"
   const story = draft.kind === "story"
+  const reel = active ? (draft.facebook[active.id]?.reel ?? false) : false
   const linked = post?.automationIds[0] ?? null
   const automationFields = Object.fromEntries(
     Object.entries(fields)
@@ -533,6 +539,17 @@ export function PostComposer({
                 onChange={(kind) => composer.patch({ kind })}
               />
             )}
+            {active?.platform === "facebook" && (
+              <Segmented
+                label="Facebook format"
+                value={reel ? "reel" : "post"}
+                options={FACEBOOK_FORMATS}
+                disabled={!!post || busy}
+                onChange={(format) =>
+                  composer.setFacebook(active.id, { reel: format === "reel" })
+                }
+              />
+            )}
             {active ? (
               <div
                 onFocus={() => useComposerStore.setState({ preview: "post" })}
@@ -739,7 +756,9 @@ export function PostComposer({
             <span className="truncate text-xs text-muted-foreground">
               {active.platform === "youtube" && short
                 ? "YouTube Shorts"
-                : PLATFORM_RULES[active.platform].name}{" "}
+                : reel
+                  ? "Facebook Reels"
+                  : PLATFORM_RULES[active.platform].name}{" "}
               preview
             </span>
           )}
@@ -797,6 +816,7 @@ export function PostComposer({
               media={draft.media}
               title={draft.youtube[active.id]?.title.trim() || null}
               kind={draft.kind}
+              reel={reel}
             />
           )}
         </div>

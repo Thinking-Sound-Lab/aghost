@@ -16,12 +16,12 @@ X bills every API call. Zernio refuses to connect X (`402`, `twitter_passthrough
 
 The dashboard composer posts to several accounts at once with `POST /api/scheduled-posts/batch`. Each account gets its own scheduled post and Zernio post, with its own status, link and error, and can then be edited or deleted on its own. All copies are scheduled or none: if one fails, the copies already created are cancelled with their automations.
 
-One caption is shared, and any account can have its own caption instead. A YouTube copy needs a title and an audience setting (made for kids or not). Every copy is checked against its platform before anything is scheduled:
+One caption is shared, and any account can have its own caption instead. A YouTube copy needs a title and an audience setting (made for kids or not). A Facebook copy is a feed post or, from one vertical video of 3 to 90 seconds, a reel; Zernio publishes it with `contentType: "reel"`. That choice is made when the post is scheduled and can't change afterwards. Every copy is checked against its platform before anything is scheduled:
 
 | Platform  | Caption | Media                                           | Text alone |
 | --------- | ------- | ----------------------------------------------- | ---------- |
 | Instagram | 2,200   | 1–10 photos and videos; stories; Trial Reels    | No         |
-| Facebook  | 63,206  | Up to 10 photos, or one video                   | Yes        |
+| Facebook  | 63,206  | Up to 10 photos, or one video; reels            | Yes        |
 | LinkedIn  | 3,000   | Up to 10 photos, or one video                   | Yes        |
 | X         | 280     | Up to 4 photos, or one video                    | Yes        |
 | Threads   | 500     | Up to 10 photos and videos                      | Yes        |

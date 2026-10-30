@@ -1,5 +1,6 @@
 import type { Platform } from "../../contract/platform"
 import type {
+  FacebookSettings,
   PostKind,
   PostMedia,
   ScheduledPostStatus,
@@ -20,6 +21,7 @@ export type ScheduledPostRecord = {
   scheduledFor: string
   trialReel: TrialReel | null
   youtube: YouTubeSettings | null
+  facebook: FacebookSettings | null
   status: ScheduledPostStatus
   platformPostId: string | null
   permalink: string | null
@@ -33,7 +35,13 @@ export type ScheduledPostRecord = {
 /** What is published, and when. */
 export type PostContent = Pick<
   ScheduledPostRecord,
-  "kind" | "caption" | "media" | "scheduledFor" | "trialReel" | "youtube"
+  | "kind"
+  | "caption"
+  | "media"
+  | "scheduledFor"
+  | "trialReel"
+  | "youtube"
+  | "facebook"
 >
 
 /** How far publishing got, as the provider reports it. */

@@ -5,6 +5,7 @@ import { platformSchema } from "../../contract/platform"
 import {
   POST_KINDS,
   SCHEDULED_POST_STATUSES,
+  facebookSchema,
   postMediaSchema,
   trialReelSchema,
   youtubeSchema,
@@ -33,11 +34,12 @@ const mediaSchema = z.array(postMediaSchema)
 function toRecord(
   row: PostRow & { automations: { id: string }[] }
 ): ScheduledPostRecord {
+  const platform = platformSchema.parse(row.platform)
   return {
     id: row.id,
     workspaceId: row.workspace_id,
     accountId: row.instagram_account_id,
-    platform: platformSchema.parse(row.platform),
+    platform,
     providerPostId: row.zernio_post_id,
     kind: kindSchema.parse(row.kind),
     caption: row.caption,
@@ -54,6 +56,10 @@ function toRecord(
             title: row.youtube_title,
             madeForKids: row.youtube_made_for_kids,
           }),
+    facebook:
+      platform === "facebook"
+        ? facebookSchema.parse({ reel: row.facebook_reel })
+        : null,
     scheduledFor: new Date(row.scheduled_for).toISOString(),
     status: statusSchema.parse(row.status),
     platformPostId: row.platform_post_id,
@@ -74,6 +80,7 @@ function toContentColumns(content: PostContent) {
     trial_graduation_strategy: content.trialReel?.graduationStrategy ?? null,
     youtube_title: content.youtube?.title ?? null,
     youtube_made_for_kids: content.youtube?.madeForKids ?? null,
+    facebook_reel: content.facebook?.reel ?? false,
     scheduled_for: content.scheduledFor,
   }
 }

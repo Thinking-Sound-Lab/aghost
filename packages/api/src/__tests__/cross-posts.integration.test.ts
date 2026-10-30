@@ -460,6 +460,71 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
     ).toEqual({ title: "Original title", madeForKids: false })
   })
 
+  it("publishes a Facebook copy as a reel, which stays one", async () => {
+    const before = created().length
+    const response = await crossPost({
+      targets: [
+        { accountId: accounts.instagram.id },
+        { accountId: accounts.facebook.id, facebook: { reel: true } },
+      ],
+    })
+    expect(response.statusCode).toBe(201)
+    const [instagram, reel] = response.json<ScheduledPost[]>()
+    expect(instagram!.facebook).toBeNull()
+    expect(reel!.facebook).toEqual({ reel: true })
+    const dataOf = (request: Recorded) =>
+      (request.body.platforms as { platformSpecificData: unknown }[])[0]!
+        .platformSpecificData
+    expect(created().slice(before).map(dataOf)).toEqual([
+      {},
+      { contentType: "reel" },
+    ])
+
+    // Without settings, a Facebook copy is a feed post.
+    const feed = await crossPost({
+      media: photos,
+      targets: [{ accountId: accounts.facebook.id }],
+    })
+    expect(feed.json<ScheduledPost[]>()[0]!.facebook).toEqual({ reel: false })
+    expect(dataOf(created().at(-1)!)).toEqual({})
+
+    const invalid = await crossPost({
+      media: photos,
+      targets: [
+        { accountId: accounts.facebook.id, facebook: { reel: true } },
+        { accountId: accounts.linkedin.id, facebook: { reel: false } },
+      ],
+    })
+    expect(invalid.statusCode).toBe(422)
+    expect(invalid.json().error.fields).toEqual({
+      "targets.0.media": "A Facebook Reel needs one video",
+      "targets.1.facebook": "Facebook settings are for Facebook",
+    })
+
+    const content = {
+      kind: "post",
+      caption: "New caption",
+      media: video,
+      scheduledFor: inHours(30),
+      automation: null,
+    }
+    const kept = await session(`/scheduled-posts/${reel!.id}`, "PATCH", content)
+    expect(kept.statusCode).toBe(200)
+    expect(kept.json<ScheduledPost>().facebook).toEqual({ reel: true })
+    expect(dataOf(latest((request) => request.method === "PUT")!)).toEqual({
+      contentType: "reel",
+    })
+    const switched = await session(`/scheduled-posts/${reel!.id}`, "PATCH", {
+      ...content,
+      facebook: { reel: false },
+    })
+    expect(switched.statusCode).toBe(422)
+    expect(switched.json().error.fields).toEqual({
+      facebook:
+        "A Facebook post can't become a reel or a reel a post. Delete it and schedule a new one.",
+    })
+  })
+
   it("keeps automations and the inbox on Instagram, and lets agents post everywhere", async () => {
     const automationOnLinkedIn = await session("/automations", "POST", {
       ...automation(),

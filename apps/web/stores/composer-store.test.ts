@@ -8,6 +8,7 @@ import type {
 import { api } from "@/lib/api"
 import { localInput } from "@/features/calendar/schedule-time"
 import { useComposerStore } from "./composer-store"
+import { useVideoStore } from "./video-store"
 import { useWorkspaceStore } from "./workspace-store"
 import { useCalendarStore } from "./calendar-store"
 
@@ -53,6 +54,7 @@ function post(automationIds: string[] = []): ScheduledPost {
     platform: "instagram",
     instagramAccountId: account.id,
     youtube: null,
+    facebook: null,
     kind: "post",
     caption: "Original caption",
     media: [media],
@@ -133,6 +135,12 @@ const youtube: Account = {
   platform: "youtube",
   username: "Studio Channel",
 }
+const facebook: Account = {
+  ...account,
+  id: "88888888-8888-4888-8888-888888888888",
+  platform: "facebook",
+  username: "Studio Page",
+}
 
 describe("cross-posting from the composer", () => {
   beforeEach(() => {
@@ -145,7 +153,7 @@ describe("cross-posting from the composer", () => {
       socialSets: [
         { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
       ],
-      accounts: [account, x, youtube],
+      accounts: [account, x, youtube, facebook],
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
     vi.mocked(api.automations.stats).mockResolvedValue({})
@@ -189,12 +197,23 @@ describe("cross-posting from the composer", () => {
       expect.objectContaining({
         media: [video],
         targets: [
-          { accountId: account.id, caption: null, youtube: null },
-          { accountId: x.id, caption: "Launch day", youtube: null },
+          {
+            accountId: account.id,
+            caption: null,
+            youtube: null,
+            facebook: null,
+          },
+          {
+            accountId: x.id,
+            caption: "Launch day",
+            youtube: null,
+            facebook: null,
+          },
           {
             accountId: youtube.id,
             caption: null,
             youtube: { title: "Launch", madeForKids: false },
+            facebook: null,
           },
         ],
         automation: expect.objectContaining({ dmMessage: "Here is the guide" }),
@@ -204,6 +223,71 @@ describe("cross-posting from the composer", () => {
     expect(useComposerStore.getState().scheduled).toEqual(saved)
     expect(await useComposerStore.getState().save()).toBeNull()
     expect(api.scheduledPosts.create).toHaveBeenCalledOnce()
+  })
+
+  it("publishes a Facebook copy as a reel from one vertical video", async () => {
+    await draft()
+    await useComposerStore.getState().toggleAccount(facebook.id)
+    expect(useComposerStore.getState().draft.facebook).toEqual({
+      [facebook.id]: { reel: false },
+    })
+    useComposerStore.getState().setFacebook(facebook.id, { reel: true })
+    // A reel is one video, so a photo can't join it.
+    await useComposerStore
+      .getState()
+      .addFiles([new File(["x"], "photo.jpg", { type: "image/jpeg" })])
+    expect(useComposerStore.getState().error).toBe(
+      "A Facebook Reel needs exactly one video."
+    )
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media": "A Facebook Reel needs one video",
+    })
+
+    const video: PostMedia = {
+      url: "https://media.example/landscape.mp4",
+      type: "video",
+    }
+    useComposerStore.getState().patch({ media: [video] })
+    // The server never sees the file, so the reel waits for the browser.
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media": "Wait for the video to load",
+    })
+    useVideoStore.getState().failed(video.url)
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media":
+        "This browser can't read the video to check it for a Facebook Reel",
+    })
+    useVideoStore
+      .getState()
+      .loaded(video.url, { width: 1920, height: 1080, seconds: 30 })
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media":
+        "A Facebook Reel is a vertical video of 3 to 90 seconds",
+    })
+
+    useVideoStore
+      .getState()
+      .loaded(video.url, { width: 1080, height: 1920, seconds: 30 })
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue([post(), post()])
+    expect(await useComposerStore.getState().save()).not.toBeNull()
+    expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        targets: [
+          expect.objectContaining({ accountId: account.id, facebook: null }),
+          expect.objectContaining({
+            accountId: facebook.id,
+            facebook: { reel: true },
+          }),
+        ],
+      })
+    )
+
+    await useComposerStore.getState().toggleAccount(facebook.id)
+    expect(useComposerStore.getState().draft.facebook).toEqual({})
   })
 
   it("drops a Trial Reel when the last Instagram account leaves the post", async () => {
