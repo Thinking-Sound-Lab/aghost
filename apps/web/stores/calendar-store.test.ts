@@ -16,10 +16,14 @@ const october = new Date(2026, 9, 1)
 function post(id: string, scheduledFor: Date): ScheduledPost {
   return {
     id,
+    accountId: "11111111-1111-4111-8111-111111111111",
+    platform: "instagram",
     instagramAccountId: "11111111-1111-4111-8111-111111111111",
     kind: "post",
     caption: "Caption",
     trialReel: null,
+    youtube: null,
+    facebook: null,
     media: [{ url: "https://media.example/cover.jpg", type: "image" }],
     scheduledFor: scheduledFor.toISOString(),
     status: "scheduled",

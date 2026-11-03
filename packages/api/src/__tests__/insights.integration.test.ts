@@ -6,7 +6,7 @@ import { createAdminSupabaseClient } from "@workspace/supabase/server"
 import { createApi } from "../container"
 import { loadApiConfig } from "../config"
 import type { ApiApp } from "../http/app"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
 import type {
   InsightReport,
   InsightPostReport,
@@ -33,7 +33,7 @@ const admin = createAdminSupabaseClient(config.supabase)
 describe("Instagram analytics HTTP lifecycle", () => {
   let fixture: Awaited<ReturnType<typeof startZernioFixture>>
   let app: ApiApp
-  let account: InstagramAccount
+  let account: Account
   const users: string[] = []
   const cookies: string[] = []
   const get = (path: string, user = 0) =>
@@ -99,7 +99,7 @@ describe("Instagram analytics HTTP lifecycle", () => {
       payload: {},
     })
     expect(synced.statusCode).toBe(200)
-    account = synced.json<InstagramAccount[]>()[0]!
+    account = synced.json<Account[]>()[0]!
   })
   afterAll(async () => {
     await app?.close()
@@ -153,7 +153,6 @@ describe("Instagram analytics HTTP lifecycle", () => {
       page: "2",
       sortBy: "saves",
       accountId: fixture.accountId,
-      platform: "instagram",
     })
   })
 
@@ -170,6 +169,35 @@ describe("Instagram analytics HTTP lifecycle", () => {
       (await get("/insights/posting-times?accountId=invalid")).statusCode
     ).toBe(422)
     expect(fixture.requests).toHaveLength(0)
+  })
+
+  it("adds up the workspace's channels for the home overview", async () => {
+    expect((await get("/insights/overview", 99)).statusCode).toBe(401)
+    expect((await get("/insights/overview", 2)).statusCode).toBe(402)
+    expect((await get("/insights/overview?days=365")).statusCode).toBe(422)
+    // A workspace without channels has nothing to ask the provider for.
+    expect((await get("/insights/overview", 1)).json()).toMatchObject({
+      status: "ready",
+      channels: [],
+    })
+    expect(fixture.requests).toHaveLength(0)
+    const response = await get("/insights/overview?days=7")
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({
+      status: "ready",
+      followers: 1_200,
+      followersGained: 40,
+      // The fixture's one post: likes, comments, shares and saves.
+      totals: { posts: 1, views: 12_500, engagements: 440 },
+      channels: [
+        {
+          platform: "instagram",
+          accountIds: [account.id],
+          followers: 1_200,
+          posts: 1,
+        },
+      ],
+    })
   })
 
   it("returns posting-time samples through the account-scoped endpoint and real SDK", async () => {
@@ -196,7 +224,8 @@ describe("Instagram analytics HTTP lifecycle", () => {
     const response = await get(`/insights?accountId=${account.id}&days=7`)
     expect(response.statusCode).toBe(200)
     const report = response.json<InsightReport>()
-    if (report.status !== "ready") throw new Error("Expected insights")
+    if (report.status !== "ready" || report.platform !== "instagram")
+      throw new Error("Expected Instagram insights")
     expect(report.summary.reach).toBe(13_200)
     expect(report.dailyReach).toHaveLength(7)
     expect(report.posts[0]?.metrics.averageWatchSeconds).toBe(12.5)

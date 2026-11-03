@@ -18,18 +18,18 @@ export function Pricing() {
       <PageIntro
         category="Pricing"
         title="Simple, flat pricing"
-        description="Automate replies, showcase products, and bring people back with a gentle nudge. Every plan includes Instagram scheduling, MCP and REST API access. More contacts and DMs never raise your price."
+        description="Pay per social set: one account on each of six platforms. Every plan includes Instagram DM automation, analytics and API access. No caps on DMs."
       />
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 sm:px-8">
+      <div className="mx-auto grid max-w-7xl gap-8 px-5 sm:px-8 lg:px-12">
         <BillingIntervalToggle
           value={interval}
           onChange={setInterval}
-          className="justify-self-center rounded-full border-white/15 [&>button]:rounded-full"
+          className="justify-self-start"
         />
         <PlanCards
           currency="USD"
           interval={interval}
-          className="[&>section]:rounded-[2rem] [&>section]:bg-[#161616] [&>section]:p-8"
+          className="gap-0 border-t border-l border-ink/10 [&>section]:rounded-none [&>section]:border-0 [&>section]:border-r [&>section]:border-b [&>section]:border-ink/10 [&>section]:bg-white/50 [&>section]:p-8"
           action={(plan) => (
             <Link
               href={billingPath({ plan: plan.id, interval })}
@@ -39,7 +39,7 @@ export function Pricing() {
             </Link>
           )}
         />
-        <div className="text-center">
+        <div>
           <PricingTerms />
         </div>
       </div>

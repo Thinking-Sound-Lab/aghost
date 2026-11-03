@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type {
+  Account,
   Automation,
-  InstagramAccount,
   InstagramPost,
   ScheduledPost,
 } from "@workspace/api/contract"
@@ -23,13 +23,15 @@ vi.mock("./auth-store", () => ({
   useAuthStore: { getState: () => ({ expire: vi.fn() }) },
 }))
 
-const account: InstagramAccount = {
+const account: Account = {
+  platform: "instagram",
   id: "11111111-1111-4111-8111-111111111111",
   username: "creator",
   displayName: null,
   profilePictureUrl: null,
   status: "connected",
   disconnectReason: null,
+  socialSetId: "set",
   createdAt: "2026-10-14T00:00:00Z",
 }
 const recent: InstagramPost = {
@@ -45,7 +47,11 @@ const recent: InstagramPost = {
 function scheduled(days = 1, accountId = account.id): ScheduledPost {
   return {
     id: "22222222-2222-4222-8222-222222222222",
+    accountId,
+    platform: "instagram",
     instagramAccountId: accountId,
+    youtube: null,
+    facebook: null,
     kind: "post",
     caption: "Scheduled",
     trialReel: null,
@@ -67,7 +73,12 @@ describe("independent published and scheduled post pickers", () => {
     vi.resetAllMocks()
     useEditorStore.setState(useEditorStore.getInitialState(), true)
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
-    useWorkspaceStore.setState({ accounts: [account] })
+    useWorkspaceStore.setState({
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
+      accounts: [account],
+    })
     vi.mocked(api.accounts.posts).mockResolvedValue([recent])
     vi.mocked(api.scheduledPosts.list).mockResolvedValue([])
   })

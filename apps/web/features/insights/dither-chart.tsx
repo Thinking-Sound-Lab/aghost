@@ -50,7 +50,7 @@ export function DitherChart({
       <div className="grid h-64 place-content-center gap-1 rounded-md border border-dashed px-6 text-center">
         <p className="text-sm font-medium">No history reported yet</p>
         <p className="text-xs text-muted-foreground">
-          Instagram data can take up to 48 hours to appear.
+          New data can take up to 48 hours to appear.
         </p>
       </div>
     )
@@ -322,39 +322,26 @@ export function DitherChart({
           </div>
         </div>
       </div>
-      <details className="group text-xs text-muted-foreground">
-        <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-          <span className="group-open:hidden">Show data table</span>
-          <span className="hidden group-open:inline">Hide data table</span>
-        </summary>
-        <div className="mt-3 max-h-48 overflow-auto rounded-md border">
-          <table className="w-full text-left tabular-nums">
-            <caption className="sr-only">{label}</caption>
-            <thead>
-              <tr className="border-b">
-                <th scope="col" className="px-3 py-2 font-medium">
-                  Date (UTC)
-                </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">
-                  {label}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {points.map((point) => (
-                <tr key={point.date} className="border-b last:border-0">
-                  <th scope="row" className="px-3 py-1.5 font-normal">
-                    {point.date}
-                  </th>
-                  <td className="px-3 py-1.5 text-right">
-                    {point.value === null ? "Not reported" : count(point.value)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
+      {/* The values for screen readers; the chart shows them on hover. */}
+      <table className="sr-only">
+        <caption>{label}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date (UTC)</th>
+            <th scope="col">{label}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {points.map((point) => (
+            <tr key={point.date}>
+              <th scope="row">{point.date}</th>
+              <td>
+                {point.value === null ? "Not reported" : count(point.value)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </figure>
   )
 }

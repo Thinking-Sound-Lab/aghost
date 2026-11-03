@@ -1,17 +1,12 @@
 import type { Metadata } from "next"
 import { ArticleGrid, FeaturedArticle } from "@/features/blog/article-cards"
 import { articles, articlePath } from "@/features/blog/catalog"
-import {
-  Doodles,
-  MarketingCta,
-  MarketingPage,
-  Scribble,
-} from "@/features/marketing/shell"
+import { MarketingCta, MarketingPage, Pill } from "@/features/marketing/shell"
 import { openGraph, site } from "@/lib/site"
 
-const title = "Instagram scheduling and DM automation guides"
+const title = "Social media scheduling and Instagram DM guides"
 const description =
-  "Practical Instagram scheduling and DM guides: posts, Reels and Stories, auto replies, messaging rules, and direct automation tool comparisons."
+  "Guides to scheduling posts, Instagram DM automation, messaging rules and tool comparisons."
 const url = new URL("/blog", site.url).href
 
 export const metadata: Metadata = {
@@ -64,29 +59,24 @@ export default function Page() {
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
-      <section aria-labelledby="blog-heading" className="relative">
-        <Doodles />
-        <div className="relative mx-auto max-w-4xl px-5 pt-16 pb-16 text-center sm:px-8 sm:pt-24">
-          <h1
-            id="blog-heading"
-            className="text-5xl leading-[1.1] font-extrabold tracking-[-0.04em] text-balance sm:text-6xl"
-          >
-            The aghost blog: Instagram scheduling, DMs,{" "}
-            <span className="whitespace-nowrap">
-              <Scribble>AI agents</Scribble>,
-            </span>{" "}
-            and automation
-          </h1>
-          <p className="mx-auto mt-8 max-w-2xl text-lg text-pretty text-white/70 sm:text-xl">
-            Guides for the work behind your content: scheduling a post, choosing
-            a tool, delivering a requested link, and understanding Instagram’s
-            rules.
-          </p>
-        </div>
+      <section
+        aria-labelledby="blog-heading"
+        className="mx-auto grid max-w-7xl gap-6 px-5 pt-16 pb-16 sm:px-8 sm:pt-24 lg:px-12"
+      >
+        <Pill>Blog</Pill>
+        <h1
+          id="blog-heading"
+          className="max-w-4xl text-[clamp(2.75rem,6vw,4.75rem)] leading-[1.02] font-medium tracking-[-0.05em] text-balance"
+        >
+          Guides for scheduling, DMs and AI agents
+        </h1>
+        <p className="max-w-2xl text-lg text-pretty text-ink/65 sm:text-xl">
+          Scheduling, DMs, tools and Instagram’s rules.
+        </p>
       </section>
-      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
         {featured && <FeaturedArticle article={featured} />}
-        <h2 className="mt-24 text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">
+        <h2 className="mt-24 text-[clamp(2rem,3.6vw,3rem)] font-medium tracking-[-0.045em]">
           All posts
         </h2>
         <ArticleGrid articles={rest} className="mt-10" />

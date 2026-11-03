@@ -2,10 +2,10 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Mail } from "lucide-react"
 import { contactEmail, contactHref } from "@/features/marketing/contact"
-import { gradients } from "@/features/marketing/feature-board"
 import {
   MarketingPage,
   PageIntro,
+  Painting,
   card,
   outlineButton,
   prose,
@@ -37,16 +37,17 @@ export default function Page() {
         description="Need a hand with an automation, have a billing question, or want to share an idea? There’s a person on the other end."
       />
       <section className={`${section} mt-0! grid gap-4 lg:grid-cols-2`}>
-        <div
-          className={`grid content-start gap-5 rounded-[2rem] p-8 sm:p-10 ${gradients.blue}`}
+        <Painting
+          tone="dusk"
+          className="grid content-start gap-5 p-8 text-white sm:p-10"
         >
           <Mail aria-hidden="true" className="size-9" />
-          <h2 className="text-4xl font-extrabold tracking-[-0.035em]">
+          <h2 className="text-4xl font-medium tracking-[-0.045em]">
             Drop us a note
           </h2>
           <a
             href={contactHref()}
-            className={`${textLink} w-fit text-xl font-semibold break-all`}
+            className="w-fit text-xl font-medium break-all underline decoration-white/40 underline-offset-4 hover:decoration-white"
           >
             {contactEmail}
           </a>
@@ -54,11 +55,11 @@ export default function Page() {
             Use this address for product support, billing issues, privacy
             questions, and requests about your personal information.
           </p>
-        </div>
+        </Painting>
         <div className={`${card} ${prose}`}>
           <h3>A little context helps</h3>
           <p>
-            Include your sign-in email, the connected Instagram username, and
+            Include your sign-in email, the connected account and platform, and
             what you were trying to do. If something failed, include the error
             message and when it happened.
           </p>
@@ -69,14 +70,14 @@ export default function Page() {
             username and the account you interacted with.
           </p>
           <nav aria-label="Privacy resources" className="flex flex-wrap gap-5">
-            <Link href="/privacy-policy" className={`${textLink} text-white`}>
+            <Link href="/privacy-policy" className={textLink}>
               Privacy Policy
             </Link>
-            <Link href="/data-deletion" className={`${textLink} text-white`}>
+            <Link href="/data-deletion" className={textLink}>
               Data deletion instructions
             </Link>
           </nav>
-          <p className="border-t border-white/10 pt-5">
+          <p className="border-t border-ink/10 pt-5">
             Keep passwords, API keys, card details, and unrelated private
             conversations out of your email. We’ll ask for only the information
             needed to help.
@@ -84,10 +85,10 @@ export default function Page() {
         </div>
       </section>
       <section className={`${section} text-center`}>
-        <h2 className="text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">
+        <h2 className="text-4xl font-medium tracking-[-0.045em] sm:text-5xl">
           A few answers are already here
         </h2>
-        <p className="mt-4 text-lg text-white/70">
+        <p className="mt-4 text-lg text-ink/65">
           Your agent setup and the questions we hear most.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">

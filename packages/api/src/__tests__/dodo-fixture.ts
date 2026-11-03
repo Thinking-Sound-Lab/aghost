@@ -55,7 +55,7 @@ export function dodoFixture(withProducts = true) {
     return {
       payment_id: "pay_1",
       status: "succeeded",
-      total_amount: 900,
+      total_amount: 2900,
       currency: "USD",
       customer: { customer_id: "cus_1" },
       subscription_id: "sub_1",

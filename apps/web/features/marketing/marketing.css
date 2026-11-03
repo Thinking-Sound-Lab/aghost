@@ -1,10 +1,43 @@
-/* What Tailwind utilities can't say on their own: the page canvas, the two
-   animations, and long-form text. Everything else is in the components. */
+/* What Tailwind utilities can't say on their own: the page canvas, the
+   paintings, the animations, and long-form text. Everything else is in the
+   components. */
 
-/* Overscroll and the area behind the page match the marketing canvas. */
+/* The public site stays light, whatever the dashboard theme is. */
 html:has(.marketing) {
-  background: #0e0e0e;
-  color-scheme: dark;
+  background: var(--color-canvas);
+  color-scheme: light;
+}
+
+/* Shared components inside the site take its palette, not the app theme. */
+.marketing {
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+  --card: #fff;
+  --card-foreground: var(--color-ink);
+  --popover: #fff;
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-ink);
+  --primary-foreground: #fff;
+  --secondary: var(--color-sage);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-sage);
+  --muted-foreground: rgb(22 37 43 / 0.62);
+  --accent: var(--color-sage);
+  --accent-foreground: var(--color-ink);
+  --border: rgb(22 37 43 / 0.12);
+  --input: rgb(22 37 43 / 0.16);
+  --ring: var(--color-ink);
+  --destructive: #b42318;
+  --sidebar: #eeeee9;
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-ink);
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: var(--color-sage);
+  --sidebar-accent-foreground: var(--color-ink);
+  --sidebar-border: rgb(22 37 43 / 0.12);
+  --sidebar-ring: var(--color-ink);
+  --radius: 0.125rem;
+  color-scheme: light;
 }
 
 /* Loops a column that holds its items twice, used on the sign-in page. */
@@ -22,42 +55,263 @@ html:has(.marketing) {
   animation-direction: reverse;
 }
 
-/* Steps through a column of five agents plus a copy of the first: each row is
-   a sixth of the column, and each agent holds for most of its fifth. */
-@keyframes marketing-rotate {
-  0%,
-  16% {
-    transform: translateY(0);
+/* Paintings: skies and fields in layered colour, then a grain of dots, the
+   way an oil landscape reads up close. */
+.painting {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: #8fb3d9;
+}
+
+.painting::before,
+.painting::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.painting::before {
+  background-image: radial-gradient(
+    rgb(255 255 255 / 0.3) 0.75px,
+    transparent 1.35px
+  );
+  background-size: 4px 4px;
+  mix-blend-mode: soft-light;
+}
+
+.painting::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+}
+
+.painting > .painting-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+/* A bright noon: blue sky, piled white cloud, a green field below. */
+.painting-sky .painting-layer {
+  background:
+    radial-gradient(
+      42% 22% at 72% 26%,
+      rgb(255 255 255 / 0.95),
+      transparent 72%
+    ),
+    radial-gradient(
+      34% 18% at 58% 34%,
+      rgb(255 248 236 / 0.85),
+      transparent 70%
+    ),
+    radial-gradient(
+      38% 16% at 22% 44%,
+      rgb(255 255 255 / 0.75),
+      transparent 70%
+    ),
+    radial-gradient(
+      28% 12% at 88% 50%,
+      rgb(236 226 214 / 0.7),
+      transparent 70%
+    ),
+    radial-gradient(80% 30% at 30% 100%, #3f6a2f, transparent 72%),
+    radial-gradient(70% 26% at 85% 98%, #56803b, transparent 70%),
+    linear-gradient(
+      180deg,
+      #4f80bb 0%,
+      #7ea6d3 30%,
+      #b8cedf 52%,
+      #d5ddd2 64%,
+      #93b06a 76%,
+      #4f7536 100%
+    );
+}
+
+/* Evening: deep blue sky, peach cloud, dark trees on the edges. */
+.painting-dusk .painting-layer {
+  background:
+    radial-gradient(
+      34% 20% at 28% 46%,
+      rgb(214 150 112 / 0.9),
+      transparent 72%
+    ),
+    radial-gradient(
+      26% 14% at 58% 38%,
+      rgb(198 132 100 / 0.65),
+      transparent 70%
+    ),
+    radial-gradient(
+      22% 10% at 44% 56%,
+      rgb(232 186 150 / 0.45),
+      transparent 70%
+    ),
+    radial-gradient(40% 70% at 96% 62%, #102618, transparent 70%),
+    radial-gradient(30% 50% at 2% 58%, #183420, transparent 70%),
+    radial-gradient(90% 26% at 50% 100%, #243f1c, transparent 72%),
+    linear-gradient(
+      180deg,
+      #0d2343 0%,
+      #1a3c68 40%,
+      #34587a 60%,
+      #3d5a3c 74%,
+      #1f3519 100%
+    );
+}
+
+/* A pale morning: mist, soft cloud, a hint of green. */
+.painting-mist .painting-layer {
+  background:
+    radial-gradient(
+      44% 30% at 26% 34%,
+      rgb(255 255 255 / 0.95),
+      transparent 72%
+    ),
+    radial-gradient(
+      36% 24% at 74% 40%,
+      rgb(255 252 240 / 0.85),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 30% at 50% 100%,
+      rgb(176 198 160 / 0.7),
+      transparent 72%
+    ),
+    linear-gradient(180deg, #d6e4ec 0%, #e9eee9 46%, #e4e9da 100%);
+}
+
+/* Late afternoon over water: gold light, blue haze. */
+.painting-gold .painting-layer {
+  background:
+    radial-gradient(
+      40% 24% at 70% 30%,
+      rgb(255 236 200 / 0.9),
+      transparent 72%
+    ),
+    radial-gradient(
+      30% 16% at 30% 42%,
+      rgb(255 246 230 / 0.75),
+      transparent 70%
+    ),
+    radial-gradient(70% 30% at 40% 100%, #5d7f4a, transparent 72%),
+    linear-gradient(
+      180deg,
+      #6e93bd 0%,
+      #a9c1d6 38%,
+      #e3d8bf 60%,
+      #a7b27a 78%,
+      #5a7a3f 100%
+    );
+}
+
+/* The hero's product steps take turns: 3 seconds each, five in a loop. The
+   delays are negative so every step starts mid-loop, already in its place. */
+@keyframes hero-step {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  3%,
+  17% {
+    opacity: 1;
+    transform: none;
   }
   20%,
-  36% {
-    transform: translateY(calc(-100% / 6));
-  }
-  40%,
-  56% {
-    transform: translateY(calc(-200% / 6));
-  }
-  60%,
-  76% {
-    transform: translateY(-50%);
-  }
-  80%,
-  96% {
-    transform: translateY(calc(-400% / 6));
-  }
   100% {
-    transform: translateY(calc(-500% / 6));
+    opacity: 0;
+    transform: translateY(-10px);
   }
 }
 
-.marketing-rotate {
-  animation: marketing-rotate 12.5s cubic-bezier(0.7, 0, 0.3, 1) infinite;
+@keyframes hero-tab {
+  0%,
+  19.9% {
+    color: var(--color-ink);
+    background: rgb(255 255 255 / 0.92);
+  }
+  20%,
+  100% {
+    color: rgb(255 255 255 / 0.8);
+    background: transparent;
+  }
+}
+
+@keyframes hero-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  19.9% {
+    transform: scaleX(1);
+  }
+  20%,
+  100% {
+    transform: scaleX(0);
+  }
+}
+
+.hero-step {
+  opacity: 0;
+  animation: hero-step 15s infinite both;
+  animation-delay: calc(var(--step) * 3s - 15s);
+}
+
+.hero-tab {
+  animation: hero-tab 15s infinite both;
+  animation-delay: calc(var(--step) * 3s - 15s);
+}
+
+.hero-tab::after {
+  content: "";
+  position: absolute;
+  inset: auto 0.75rem 0.4rem;
+  height: 2px;
+  background: var(--color-ink);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: hero-progress 15s infinite both;
+  animation-delay: calc(var(--step) * 3s - 15s);
+}
+
+.hero-cycle:hover .hero-step,
+.hero-cycle:hover .hero-tab,
+.hero-cycle:hover .hero-tab::after {
+  animation-play-state: paused;
+}
+
+/* Lines that ink in as they scroll into view. */
+@supports (animation-timeline: view()) {
+  @keyframes ink-in {
+    from {
+      color: transparent;
+      -webkit-text-stroke-color: rgb(255 255 255 / 0.55);
+    }
+    to {
+      color: #fff;
+      -webkit-text-stroke-color: transparent;
+    }
+  }
+
+  .ink-in {
+    -webkit-text-stroke: 1px transparent;
+    animation: ink-in linear both;
+    animation-timeline: view();
+    animation-range: entry 30% cover 45%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .marketing-scroll,
-  .marketing-rotate {
+  .hero-step,
+  .hero-tab,
+  .hero-tab::after,
+  .ink-in {
     animation: none;
+  }
+
+  .hero-step:first-child {
+    opacity: 1;
   }
 }
 
@@ -67,16 +321,16 @@ html:has(.marketing) {
   gap: 1.1rem;
   font-size: 1rem;
   line-height: 1.8;
-  color: rgb(255 255 255 / 0.72);
+  color: rgb(22 37 43 / 0.75);
 }
 
 .marketing-prose h2 {
   margin-top: 1.5rem;
   font-size: 1.5rem;
   line-height: 1.3;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--color-ink);
 }
 
 .marketing-prose section {
@@ -91,20 +345,20 @@ html:has(.marketing) {
 }
 
 .marketing-prose a {
-  color: #fff;
+  color: var(--color-ink);
   text-decoration: underline;
-  text-decoration-color: rgb(255 255 255 / 0.35);
+  text-decoration-color: rgb(22 37 43 / 0.3);
   text-underline-offset: 4px;
   overflow-wrap: anywhere;
 }
 
 .marketing-prose a:hover {
-  text-decoration-color: var(--color-brand);
+  text-decoration-color: var(--color-ink);
 }
 
 .marketing-prose strong {
   font-weight: 600;
-  color: #fff;
+  color: var(--color-ink);
 }
 
 .marketing-prose ul {

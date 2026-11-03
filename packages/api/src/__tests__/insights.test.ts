@@ -7,29 +7,52 @@ import {
   it,
   vi,
 } from "vitest"
-import { insightQuerySchema, type InsightQuery } from "../contract/insights"
+import {
+  insightQuerySchema,
+  type InsightQuery,
+  type InsightsUnavailable,
+} from "../contract/insights"
+import {
+  CHANNEL_METRICS,
+  type ChannelMetric,
+  type Platform,
+} from "../contract/platform"
 import { createZernioClient } from "../infrastructure/zernio/zernio-client"
 import { ZernioInsightsProvider } from "../infrastructure/zernio/zernio-insights.provider"
 import type { AccountRecord } from "../modules/accounts/account"
-import type { InsightsProvider } from "../modules/insights/insights.provider"
+import type {
+  InsightsProvider,
+  ProfileOverview,
+} from "../modules/insights/insights.provider"
 import { InsightsService } from "../modules/insights/insights.service"
+import type { SocialSetRecord } from "../modules/social-sets/social-set"
 import { startZernioFixture } from "./zernio-fixture"
 
 const workspace = {
   id: "workspace",
   ownerId: "owner",
   name: "Workspace",
+}
+const socialSet: SocialSetRecord = {
+  id: "set",
+  workspaceId: workspace.id,
+  name: "Studio",
   providerProfileId: "profile",
+  createdAt: "2026-01-01T00:00:00Z",
 }
 const account: AccountRecord = {
   id: "11111111-1111-4111-8111-111111111111",
   workspaceId: workspace.id,
   providerAccountId: "provider-account",
+  platform: "instagram",
   username: "creator",
   status: "connected",
   displayName: null,
   profilePictureUrl: null,
   disconnectReason: null,
+  socialSetId: "set",
+  providerProfileId: "profile",
+  sharedPlatformBeforeSets: false,
   createdAt: "2026-01-01T00:00:00Z",
 }
 const query: InsightQuery = {
@@ -49,14 +72,18 @@ describe("workspace-scoped Instagram insights", () => {
         status: "ready" as const,
         slots: [],
       })),
+      getOverview: vi.fn(async () => ({ status: "not_enabled" as const })),
     }
     const findById = vi.fn(async () => stored)
+    const listByWorkspace = vi.fn(async () => (stored ? [stored] : []))
     return {
       provider,
       findById,
+      listByWorkspace,
       service: new InsightsService(
         provider,
-        { findById },
+        { findById, listByWorkspace },
+        { resolve: async () => socialSet },
         () => new Date("2027-01-02T01:00:00Z")
       ),
     }
@@ -107,8 +134,9 @@ describe("workspace-scoped Instagram insights", () => {
       referenceTime: "2027-01-02T01:00:00.000Z",
     })
     expect(provider.getPostingTimes).toHaveBeenCalledWith({
-      profileId: workspace.providerProfileId,
+      profileId: account.providerProfileId,
       accountId: account.providerAccountId,
+      platform: "instagram",
     })
   })
 
@@ -117,8 +145,9 @@ describe("workspace-scoped Instagram insights", () => {
     await service.getReport(workspace, query)
     expect(provider.getReport).toHaveBeenCalledWith(
       {
-        profileId: workspace.providerProfileId,
+        profileId: account.providerProfileId,
         accountId: account.providerAccountId,
+        platform: "instagram",
       },
       { fromDate: "2026-12-27", toDate: "2027-01-02" },
       query
@@ -126,8 +155,9 @@ describe("workspace-scoped Instagram insights", () => {
     await service.getContent(workspace, query)
     expect(provider.getContent).toHaveBeenCalledWith(
       {
-        profileId: workspace.providerProfileId,
+        profileId: account.providerProfileId,
         accountId: account.providerAccountId,
+        platform: "instagram",
       },
       { fromDate: "2026-12-27", toDate: "2027-01-02" },
       query
@@ -151,11 +181,193 @@ describe("workspace-scoped Instagram insights", () => {
   })
 })
 
+describe("the workspace overview", () => {
+  const metrics = (values: Partial<Record<ChannelMetric, number>>) =>
+    Object.fromEntries(
+      CHANNEL_METRICS.map((metric) => [metric, values[metric] ?? null])
+    ) as Record<ChannelMetric, number | null>
+  const channel = (
+    id: string,
+    platform: Platform,
+    providerAccountId: string,
+    status: AccountRecord["status"] = "connected"
+  ): AccountRecord => ({ ...account, id, platform, providerAccountId, status })
+
+  function setup(
+    accounts: AccountRecord[],
+    overview: ProfileOverview | InsightsUnavailable
+  ) {
+    const getOverview = vi.fn(async () => overview)
+    const provider: InsightsProvider = {
+      getReport: vi.fn(async () => ({ status: "not_enabled" as const })),
+      getPost: vi.fn(async () => ({ status: "not_enabled" as const })),
+      getContent: vi.fn(async () => ({ status: "not_enabled" as const })),
+      getPostingTimes: vi.fn(async () => ({ status: "not_enabled" as const })),
+      getOverview,
+    }
+    return {
+      getOverview,
+      service: new InsightsService(
+        provider,
+        { findById: vi.fn(), listByWorkspace: vi.fn(async () => accounts) },
+        { resolve: async () => socialSet },
+        () => new Date("2027-01-02T01:00:00Z")
+      ),
+    }
+  }
+
+  it("groups connected channels by platform and leaves out the profile's other accounts", async () => {
+    const { getOverview, service } = setup(
+      [
+        channel("ig", "instagram", "ig-1"),
+        channel("li-a", "linkedin", "li-1"),
+        channel("li-b", "linkedin", "li-2"),
+        channel("yt", "youtube", "yt-1", "disconnected"),
+      ],
+      {
+        status: "ready",
+        followers: [
+          { accountId: "ig-1", current: 100, gained: 5 },
+          { accountId: "li-1", current: 50, gained: -2 },
+          { accountId: "li-2", current: null, gained: null },
+          { accountId: "yt-1", current: 999, gained: 9 },
+          { accountId: "foreign", current: 777, gained: 7 },
+        ],
+        current: [
+          {
+            platform: "instagram",
+            posts: 3,
+            metrics: metrics({
+              impressions: 5,
+              reach: 1_000,
+              views: 2_000,
+              likes: 10,
+              comments: 2,
+              shares: 1,
+              saves: 4,
+            }),
+          },
+          {
+            platform: "linkedin",
+            posts: 2,
+            metrics: metrics({
+              impressions: 300,
+              reach: 200,
+              views: 40,
+              likes: 6,
+              comments: 1,
+              shares: 0,
+              saves: 0,
+              clicks: 3,
+            }),
+          },
+          { platform: "youtube", posts: 9, metrics: metrics({ views: 5_000 }) },
+          { platform: "tiktok", posts: 1, metrics: metrics({ views: 10 }) },
+        ],
+        previous: [
+          {
+            platform: "instagram",
+            posts: 1,
+            metrics: metrics({
+              views: 500,
+              likes: 3,
+              comments: 1,
+              shares: 0,
+              saves: 0,
+            }),
+          },
+        ],
+        updatedAt: "2027-01-02T00:30:00Z",
+      }
+    )
+    const range = { fromDate: "2026-12-27", toDate: "2027-01-02" }
+    const previousRange = { fromDate: "2026-12-20", toDate: "2026-12-26" }
+    expect(await service.getOverview(workspace, { days: 7 })).toEqual({
+      status: "ready",
+      range,
+      previousRange,
+      followers: 150,
+      followersGained: 3,
+      totals: { posts: 5, views: 2_040, engagements: 24 },
+      // LinkedIn published nothing before, which is zero, not unknown.
+      previousTotals: { posts: 1, views: 500, engagements: 4 },
+      channels: [
+        {
+          platform: "instagram",
+          accountIds: ["ig"],
+          followers: 100,
+          followersGained: 5,
+          posts: 3,
+          engagements: 17,
+          // Instagram posts report no impressions or clicks.
+          metrics: {
+            ...metrics({
+              reach: 1_000,
+              views: 2_000,
+              likes: 10,
+              comments: 2,
+              shares: 1,
+              saves: 4,
+            }),
+          },
+        },
+        {
+          platform: "linkedin",
+          accountIds: ["li-a", "li-b"],
+          followers: 50,
+          followersGained: -2,
+          posts: 2,
+          engagements: 7,
+          metrics: metrics({
+            impressions: 300,
+            reach: 200,
+            views: 40,
+            likes: 6,
+            comments: 1,
+            shares: 0,
+            saves: 0,
+            clicks: 3,
+          }),
+        },
+      ],
+      updatedAt: "2027-01-02T00:30:00Z",
+    })
+    expect(getOverview).toHaveBeenCalledWith("profile", range, previousRange)
+  })
+
+  it("doesn't contact the provider without a connected channel", async () => {
+    const { getOverview, service } = setup(
+      [channel("yt", "youtube", "yt-1", "disconnected")],
+      { status: "not_enabled" }
+    )
+    expect(await service.getOverview(workspace, { days: 30 })).toMatchObject({
+      status: "ready",
+      followers: null,
+      totals: { posts: 0, views: null, engagements: null },
+      channels: [],
+    })
+    expect(getOverview).not.toHaveBeenCalled()
+  })
+
+  it("passes on missing analytics access", async () => {
+    const { service } = setup([channel("ig", "instagram", "ig-1")], {
+      status: "not_enabled",
+    })
+    expect(await service.getOverview(workspace, { days: 30 })).toEqual({
+      status: "not_enabled",
+    })
+  })
+})
+
 describe("Instagram insight SDK adapter", () => {
   let fixture: Awaited<ReturnType<typeof startZernioFixture>>
   let provider: ZernioInsightsProvider
   const range = { fromDate: "2026-10-01", toDate: "2026-10-07" }
-  const owner = () => ({ profileId: "profile", accountId: fixture.accountId })
+  const owner = () => ({
+    profileId: "profile",
+    accountId: fixture.accountId,
+    platform: "instagram" as const,
+  })
 
   beforeAll(async () => {
     fixture = await startZernioFixture()
@@ -189,7 +401,8 @@ describe("Instagram insight SDK adapter", () => {
       sort: "saves",
     })
     expect(result.status).toBe("ready")
-    if (result.status !== "ready") throw new Error("Expected insights")
+    if (result.status !== "ready" || result.platform !== "instagram")
+      throw new Error("Expected Instagram insights")
     expect(result.summary.reach).toBe(13_200)
     expect(result.dailyReach.slice(0, 3)).toEqual([
       { date: "2026-10-01", value: 240 },
@@ -209,11 +422,12 @@ describe("Instagram insight SDK adapter", () => {
     expect(Object.fromEntries(list.query)).toMatchObject({
       profileId: "profile",
       accountId: fixture.accountId,
-      platform: "instagram",
       page: "2",
       limit: "20",
       sortBy: "saves",
     })
+    // Zernio answers a platform filter from older data; the account suffices.
+    expect(list.query.has("platform")).toBe(false)
     const series = fixture.requests.find(
       (request) => request.query.get("metricType") === "time_series"
     )!
@@ -227,7 +441,8 @@ describe("Instagram insight SDK adapter", () => {
       status: "ready",
       summary: { views: null, reach: null },
     })
-    if (absent.status !== "ready") throw new Error("Expected insights")
+    if (absent.status !== "ready" || absent.platform !== "instagram")
+      throw new Error("Expected Instagram insights")
     expect(absent.posts[0]?.metrics.views).toBeNull()
     expect(absent.dailyReach.every((point) => point.value === null)).toBe(true)
     fixture.state.analyticsMissing = false
@@ -254,7 +469,6 @@ describe("Instagram insight SDK adapter", () => {
     ).toMatchObject({
       profileId: "profile",
       accountId: fixture.accountId,
-      platform: "instagram",
       fromDate: range.fromDate,
       toDate: range.toDate,
       page: "2",
@@ -354,6 +568,90 @@ describe("Instagram insight SDK adapter", () => {
       })
     }
   )
+
+  it("sums a whole profile's posts per platform, with followers per account", async () => {
+    const previous = { fromDate: "2026-09-24", toDate: "2026-09-30" }
+    // The fixture lists one Instagram post with these lifetime metrics.
+    const totals = {
+      platform: "instagram",
+      posts: 1,
+      metrics: {
+        impressions: 15_000,
+        reach: 8_000,
+        views: 12_500,
+        likes: 240,
+        comments: 32,
+        shares: 72,
+        saves: 96,
+        clicks: 18,
+      },
+    }
+    expect(await provider.getOverview("profile", range, previous)).toEqual({
+      status: "ready",
+      // An entry without an account id can't be matched, so it's left out.
+      followers: [
+        { accountId: fixture.accountId, current: 1_200, gained: 40 },
+        { accountId: "shrinking", current: 50, gained: -3 },
+        // One daily count is no history: the change is unknown, not zero.
+        { accountId: "new-account", current: 9, gained: null },
+      ],
+      current: [totals],
+      previous: [totals],
+      updatedAt: expect.any(String),
+    })
+    expect(
+      fixture.requests.map((request) => [
+        request.path,
+        request.query.get("profileId"),
+        request.query.get("accountId"),
+        request.query.get("limit"),
+        request.query.get("fromDate"),
+        request.query.get("toDate"),
+      ])
+    ).toEqual(
+      expect.arrayContaining([
+        [
+          "/v1/accounts/follower-stats",
+          "profile",
+          null,
+          null,
+          range.fromDate,
+          range.toDate,
+        ],
+        ["/v1/analytics", "profile", null, "100", range.fromDate, range.toDate],
+        [
+          "/v1/analytics",
+          "profile",
+          null,
+          "100",
+          previous.fromDate,
+          previous.toDate,
+        ],
+      ])
+    )
+    expect(fixture.requests).toHaveLength(3)
+  })
+
+  it("leaves metrics a pending post hasn't reported unknown", async () => {
+    fixture.state.analyticsPending = true
+    const result = await provider.getOverview("profile", range, range)
+    if (result.status !== "ready") throw new Error("Expected an overview")
+    expect(result.current).toEqual([
+      expect.objectContaining({
+        platform: "instagram",
+        posts: 1,
+        metrics: expect.objectContaining({ views: null, likes: null }),
+      }),
+    ])
+  })
+
+  it("reports a missing analytics add-on for the overview", async () => {
+    fixture.state.analyticsFailureStatus = 403
+    fixture.state.analyticsRequiresAddon = true
+    expect(await provider.getOverview("profile", range, range)).toEqual({
+      status: "not_enabled",
+    })
+  })
 
   it("distinguishes a required analytics add-on from permission failures for posting times", async () => {
     fixture.state.analyticsFailureStatus = 403

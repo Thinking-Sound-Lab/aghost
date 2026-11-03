@@ -16,6 +16,8 @@ type InboxState = {
   sending: boolean
   load: () => Promise<void>
   open: (conversation: Conversation) => Promise<void>
+  /** Leaves the open conversation, such as when another set is chosen. */
+  close: () => void
   send: () => Promise<void>
 }
 
@@ -60,6 +62,14 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         set({ messagesLoading: false })
     }
   },
+  close: () =>
+    set({
+      selected: null,
+      messages: [],
+      messagesLoading: false,
+      messagesError: null,
+      draft: "",
+    }),
   send: async () => {
     const conversation = get().selected
     const text = get().draft.trim()
@@ -75,7 +85,8 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       )
       if (get().selected?.id === conversation.id) set({ messages, draft: "" })
     } catch (error) {
-      set({ messagesError: errorMessage(error) })
+      if (get().selected?.id === conversation.id)
+        set({ messagesError: errorMessage(error) })
     } finally {
       set({ sending: false })
     }

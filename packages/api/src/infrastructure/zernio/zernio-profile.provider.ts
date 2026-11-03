@@ -2,9 +2,14 @@ import { ZernioApiError } from "@zernio/node"
 
 import type { ProfileProvider } from "../../modules/workspaces/profile.provider"
 import { ProviderError } from "../../shared/errors"
-import { hasStatus, toProviderError, type ZernioAccess } from "./zernio-client"
+import {
+  hasStatus,
+  requestDeletion,
+  toProviderError,
+  type ZernioAccess,
+} from "./zernio-client"
 
-const ACTION = "set up the workspace for Instagram"
+const ACTION = "set up the social set"
 
 export class ZernioProfileProvider implements ProfileProvider {
   constructor(private readonly zernio: ZernioAccess) {}
@@ -37,6 +42,15 @@ export class ZernioProfileProvider implements ProfileProvider {
     }
 
     return profileId
+  }
+
+  deleteProfile(profileId: string): Promise<void> {
+    return requestDeletion("delete the social set", () =>
+      this.zernio().profiles.deleteProfile({
+        throwOnError: true,
+        path: { profileId },
+      })
+    )
   }
 }
 

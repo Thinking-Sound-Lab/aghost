@@ -4,9 +4,11 @@ import {
   BILLING_INTERVALS,
   PLAN_IDS,
   PLANS,
+  socialSetCount,
   type BillingCurrency,
   type BillingInterval,
   type Plan,
+  type PlanId,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -54,14 +56,20 @@ export function BillingIntervalToggle({
   )
 }
 
-const descriptions = {
+const descriptions: Record<PlanId, string> = {
   pro: "Turn interested comments into conversations.",
   growth: "Turn your DMs into a product showcase.",
-  business: "Bring interested people back to your offer.",
+  business: "Run up to ten brands, and bring people back to your offer.",
+}
+
+const purposes: Record<PlanId, string> = {
+  pro: "Start the conversation",
+  growth: "Showcase your products",
+  business: "Grow every brand",
 }
 
 function benefits(plan: Plan): string[] {
-  const accounts = `${plan.instagramAccounts} Instagram account${plan.instagramAccounts === 1 ? "" : "s"}`
+  const accounts = `${socialSetCount(plan.socialSets)}: one account on each platform`
   if (plan.features.followUpNudge)
     return [
       "Everything in Growth",
@@ -82,7 +90,9 @@ function benefits(plan: Plan): string[] {
     ]
   return [
     accounts,
-    "Instagram post and story scheduling",
+    "Instagram, Facebook, LinkedIn, X, Threads and YouTube",
+    "Scheduling and cross-posting",
+    "Analytics for every channel",
     "Unlimited automations, contacts and DMs",
     "Post and reel comment triggers",
     "Keyword or any-comment matching",
@@ -107,7 +117,7 @@ export function PlanCards({
   className?: string
 }) {
   return (
-    <div className={cn("grid gap-4 md:grid-cols-3", className)}>
+    <div className={cn("grid gap-4 lg:grid-cols-3", className)}>
       {PLAN_IDS.map((id) => {
         const plan = PLANS[id]
         return (
@@ -119,11 +129,7 @@ export function PlanCards({
             )}
           >
             <p className="plan-card-purpose mb-4 text-xs font-medium text-muted-foreground">
-              {id === "pro"
-                ? "Start the conversation"
-                : id === "growth"
-                  ? "Showcase your products"
-                  : "Keep the conversation going"}
+              {purposes[id]}
             </p>
             <h2 className="text-lg font-semibold">{plan.name}</h2>
             <p className="mt-1 min-h-10 text-sm text-muted-foreground">

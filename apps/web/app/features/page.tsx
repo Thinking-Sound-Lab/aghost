@@ -14,14 +14,14 @@ import {
 import { openGraph } from "@/lib/site"
 
 const description =
-  "Schedule Instagram content, automate comment replies, track link clicks, and manage your inbox with your AI agent or the aghost dashboard."
+  "Cross-post to six platforms, preview every post, turn Instagram comments into DMs and track every channel."
 export const metadata: Metadata = {
-  title: "Instagram growth tools and AI agent features",
+  title: "Social media scheduling and DM automation features",
   description,
   alternates: { canonical: "/features" },
   openGraph: {
     ...openGraph,
-    title: "Instagram growth tools and AI agent features · aghost",
+    title: "Social media scheduling and DM automation features · aghost",
     description,
     url: "/features",
   },
@@ -32,35 +32,32 @@ export default function Page() {
     <MarketingPage>
       <PageIntro
         category="Features"
-        title="Grow your Instagram with your AI agent"
+        title="Everything between the draft and the DM"
         description={description}
       />
       <section aria-labelledby="growth-features-heading">
         <h2 id="growth-features-heading" className="sr-only">
-          Instagram growth features
+          Features
         </h2>
-        <FeatureBoard />
+        <div className="px-5 sm:px-8 lg:px-12">
+          <FeatureBoard />
+        </div>
       </section>
       <section className={section}>
         <div
           className={`${card} grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-center`}
         >
           <div className="grid gap-4">
-            <h2 className="text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">
+            <h2 className="text-3xl font-medium tracking-[-0.04em] sm:text-4xl">
               Before you connect
             </h2>
-            <p className="max-w-3xl text-lg text-white/70">
-              You need an Instagram Business or Creator account and an active
-              aghost plan. Instagram scheduling, MCP, and REST API access are
-              included on every plan.
-            </p>
-            <p className="max-w-3xl text-lg text-white/70">
-              Comment-to-DM delivery depends on Instagram’s permissions,
-              messaging windows, and rate limits.
+            <p className="max-w-3xl text-lg text-ink/65">
+              Every plan includes all six platforms, analytics and API access.
+              DM automation needs an Instagram Business or Creator account.
             </p>
             <Link
               href="/instagram-dm-automation"
-              className={`${textLink} w-fit text-white/80`}
+              className={`${textLink} w-fit`}
             >
               Learn how Instagram comment-to-DM automation works
             </Link>

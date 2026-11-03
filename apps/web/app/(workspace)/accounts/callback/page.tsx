@@ -11,8 +11,11 @@ export default function Page() {
   const { sync, error } = useWorkspaceStore()
   useEffect(() => {
     void sync().then(() => {
-      if (!useWorkspaceStore.getState().error)
-        router.replace("/settings#channels")
+      if (useWorkspaceStore.getState().error) return
+      // A tab the composer opened returns the owner to their post. Browsers
+      // ignore this for a tab the owner opened, which goes on to settings.
+      window.close()
+      router.replace("/settings#channels")
     })
   }, [sync, router])
   return (

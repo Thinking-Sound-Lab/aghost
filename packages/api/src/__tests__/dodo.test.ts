@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { BILLING_INTERVALS, PLAN_IDS } from "../contract/billing"
 import { DodoBillingProvider } from "../infrastructure/dodo/dodo-billing.provider"
 import { loadCatalog, syncCatalog } from "../infrastructure/dodo/dodo-catalog"
 import { dodoFixture } from "./dodo-fixture"
@@ -235,18 +236,20 @@ describe("Dodo SDK billing integration", () => {
     ).toBeNull()
   })
 
-  it("creates six USD-only products and reruns without duplicating them", async () => {
+  it("creates one USD-only product per plan and interval and reruns without duplicating them", async () => {
     const fixture = dodoFixture(false)
     await syncCatalog(fixture.client, () => {})
     await loadCatalog(fixture.client)
     await syncCatalog(fixture.client, () => {})
-    expect(fixture.products.size).toBe(6)
+    expect(fixture.products.size).toBe(
+      PLAN_IDS.length * BILLING_INTERVALS.length
+    )
     expect([...fixture.rules.values()].flat()).toHaveLength(0)
     expect(
       fixture.requests.filter(
         (request) => request.method === "POST" && request.path === "/products"
       )
-    ).toHaveLength(6)
+    ).toHaveLength(PLAN_IDS.length * BILLING_INTERVALS.length)
     expect(
       [...fixture.products.values()].every(
         (product) =>
@@ -280,11 +283,13 @@ describe("Dodo SDK billing integration", () => {
     )
     await syncCatalog(fixture.client, () => {})
     await loadCatalog(fixture.client)
-    expect(fixture.products.size).toBe(6)
+    expect(fixture.products.size).toBe(
+      PLAN_IDS.length * BILLING_INTERVALS.length
+    )
     expect([...fixture.rules.values()].flat()).toHaveLength(0)
     expect(
       fixture.requests.filter((request) => request.method === "PATCH")
-    ).toHaveLength(6)
+    ).toHaveLength(PLAN_IDS.length * BILLING_INTERVALS.length)
     expect(
       fixture.requests.some(
         (request) => request.method === "POST" && request.path === "/products"

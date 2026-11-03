@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { PLANS, socialSetCount } from "@workspace/api/contract"
 import { ComparisonTable, Source, sources, aghostPrice } from "./shared"
 import type { ArticleContent } from "./types"
 
@@ -37,7 +38,7 @@ export const bestInstagramDmAutomationTools: ArticleContent = {
               [
                 "aghost",
                 "Comment-to-DM with MCP and REST",
-                `${aghostPrice()}/month; one Instagram account`,
+                `${aghostPrice()}/month; ${socialSetCount(PLANS.pro.socialSets)}`,
               ],
               [
                 "ManyChat",

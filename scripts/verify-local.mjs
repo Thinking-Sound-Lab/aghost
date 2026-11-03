@@ -26,7 +26,6 @@ for (const path of [
   "/login",
   "/pricing",
   "/home",
-  "/contacts",
   "/automations",
   "/automations/new",
   "/inbox",

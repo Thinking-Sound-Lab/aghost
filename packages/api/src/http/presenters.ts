@@ -1,11 +1,13 @@
 import type { Automation } from "../contract/automation"
-import type { InstagramAccount } from "../contract/account"
+import type { Account } from "../contract/account"
 import type { ScheduledPost } from "../contract/post"
+import type { SocialSet } from "../contract/social-set"
 import type { SessionUser } from "../contract/auth"
 import type { User } from "@supabase/supabase-js"
 import type { AutomationRecord } from "../modules/automations/automation"
 import type { AccountRecord } from "../modules/accounts/account"
 import type { ScheduledPostRecord } from "../modules/posts/post"
+import type { SocialSetRecord } from "../modules/social-sets/social-set"
 import type { WorkspaceRecord } from "../modules/workspaces/workspace"
 
 export function presentWorkspace(record: WorkspaceRecord) {
@@ -24,25 +26,33 @@ export function presentUser(user: User): SessionUser {
   }
 }
 
-export function presentAccount(record: AccountRecord): InstagramAccount {
+export function presentAccount(record: AccountRecord): Account {
   const {
     id,
+    platform,
     username,
     displayName,
     profilePictureUrl,
     status,
     disconnectReason,
+    socialSetId,
     createdAt,
   } = record
   return {
     id,
+    platform,
     username,
     displayName,
     profilePictureUrl,
     status,
     disconnectReason,
+    socialSetId,
     createdAt,
   }
+}
+
+export function presentSocialSet(record: SocialSetRecord): SocialSet {
+  return { id: record.id, name: record.name, createdAt: record.createdAt }
 }
 
 export function presentAutomation(record: AutomationRecord): Automation {
@@ -64,5 +74,5 @@ export function presentScheduledPost(
     providerPostId: _providerId,
     ...post
   } = record
-  return { ...post, instagramAccountId: accountId }
+  return { ...post, accountId, instagramAccountId: accountId }
 }

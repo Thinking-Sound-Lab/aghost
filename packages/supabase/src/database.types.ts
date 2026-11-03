@@ -59,6 +59,7 @@ export type Database = {
       }
       automations: {
         Row: {
+          account_platform: string
           comment_reply: string | null
           created_at: string
           dm_buttons: NonNullable<Json>
@@ -86,6 +87,7 @@ export type Database = {
         }
         ComputedFields: never
         Insert: {
+          account_platform?: string
           comment_reply?: string | null
           created_at?: string
           dm_buttons?: NonNullable<Json>
@@ -112,6 +114,7 @@ export type Database = {
           zernio_automation_id: string
         }
         Update: {
+          account_platform?: string
           comment_reply?: string | null
           created_at?: string
           dm_buttons?: NonNullable<Json>
@@ -138,6 +141,13 @@ export type Database = {
           zernio_automation_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "automations_account_platform_fkey"
+            columns: ["instagram_account_id", "account_platform"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id", "platform"]
+          },
           {
             foreignKeyName: "automations_account_workspace_fkey"
             columns: ["workspace_id", "instagram_account_id"]
@@ -265,7 +275,10 @@ export type Database = {
           disconnect_reason: string | null
           display_name: string | null
           id: string
+          platform: string
           profile_picture_url: string | null
+          shared_platform_before_sets: boolean
+          social_set_id: string
           status: string
           updated_at: string
           username: string
@@ -278,7 +291,10 @@ export type Database = {
           disconnect_reason?: string | null
           display_name?: string | null
           id?: string
+          platform?: string
           profile_picture_url?: string | null
+          shared_platform_before_sets?: boolean
+          social_set_id: string
           status: string
           updated_at?: string
           username: string
@@ -290,7 +306,10 @@ export type Database = {
           disconnect_reason?: string | null
           display_name?: string | null
           id?: string
+          platform?: string
           profile_picture_url?: string | null
+          shared_platform_before_sets?: boolean
+          social_set_id?: string
           status?: string
           updated_at?: string
           username?: string
@@ -298,6 +317,13 @@ export type Database = {
           zernio_account_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "instagram_accounts_social_set_fkey"
+            columns: ["social_set_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "social_sets"
+            referencedColumns: ["id", "workspace_id"]
+          },
           {
             foreignKeyName: "instagram_accounts_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -392,11 +418,13 @@ export type Database = {
           caption: string | null
           created_at: string
           error: string | null
+          facebook_reel: boolean
           id: string
           instagram_account_id: string
           kind: string
           media: NonNullable<Json>
           permalink: string | null
+          platform: string
           platform_post_id: string | null
           published_at: string | null
           scheduled_for: string
@@ -404,6 +432,8 @@ export type Database = {
           trial_graduation_strategy: string | null
           updated_at: string
           workspace_id: string
+          youtube_made_for_kids: boolean | null
+          youtube_title: string | null
           zernio_post_id: string
         }
         ComputedFields: never
@@ -411,11 +441,13 @@ export type Database = {
           caption?: string | null
           created_at?: string
           error?: string | null
+          facebook_reel?: boolean
           id?: string
           instagram_account_id: string
           kind: string
           media: NonNullable<Json>
           permalink?: string | null
+          platform?: string
           platform_post_id?: string | null
           published_at?: string | null
           scheduled_for: string
@@ -423,17 +455,21 @@ export type Database = {
           trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id: string
+          youtube_made_for_kids?: boolean | null
+          youtube_title?: string | null
           zernio_post_id: string
         }
         Update: {
           caption?: string | null
           created_at?: string
           error?: string | null
+          facebook_reel?: boolean
           id?: string
           instagram_account_id?: string
           kind?: string
           media?: NonNullable<Json>
           permalink?: string | null
+          platform?: string
           platform_post_id?: string | null
           published_at?: string | null
           scheduled_for?: string
@@ -441,9 +477,18 @@ export type Database = {
           trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id?: string
+          youtube_made_for_kids?: boolean | null
+          youtube_title?: string | null
           zernio_post_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_account_platform_fkey"
+            columns: ["instagram_account_id", "platform"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id", "platform"]
+          },
           {
             foreignKeyName: "scheduled_posts_instagram_account_id_fkey"
             columns: ["instagram_account_id"]
@@ -453,6 +498,42 @@ export type Database = {
           },
           {
             foreignKeyName: "scheduled_posts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_sets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          workspace_id: string
+          zernio_profile_id: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          workspace_id: string
+          zernio_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+          zernio_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_sets_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"

@@ -1,18 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type {
   Automation,
-  InstagramAccount,
+  Account,
   PostMedia,
   ScheduledPost,
 } from "@workspace/api/contract"
 import { api } from "@/lib/api"
-import { localInput, useComposerStore } from "./composer-store"
+import { localInput } from "@/features/calendar/schedule-time"
+import { useComposerStore } from "./composer-store"
+import { useVideoStore } from "./video-store"
 import { useWorkspaceStore } from "./workspace-store"
 import { useCalendarStore } from "./calendar-store"
 
 vi.mock("@/lib/api", () => ({
   api: {
-    accounts: { publishing: vi.fn() },
+    accounts: { publishing: vi.fn(), list: vi.fn() },
     scheduledPosts: {
       list: vi.fn(),
       get: vi.fn(),
@@ -29,13 +31,15 @@ vi.mock("./auth-store", () => ({
   useAuthStore: { getState: () => ({ expire: vi.fn() }) },
 }))
 
-const account: InstagramAccount = {
+const account: Account = {
+  platform: "instagram",
   id: "11111111-1111-4111-8111-111111111111",
   username: "creator",
   displayName: null,
   profilePictureUrl: null,
   status: "connected",
   disconnectReason: null,
+  socialSetId: "set",
   createdAt: "2026-10-14T00:00:00Z",
 }
 const media: PostMedia = {
@@ -46,7 +50,11 @@ const media: PostMedia = {
 function post(automationIds: string[] = []): ScheduledPost {
   return {
     id: "22222222-2222-4222-8222-222222222222",
+    accountId: account.id,
+    platform: "instagram",
     instagramAccountId: account.id,
+    youtube: null,
+    facebook: null,
     kind: "post",
     caption: "Original caption",
     media: [media],
@@ -116,6 +124,280 @@ async function draft(withAutomation = false) {
   })
 }
 
+const x: Account = {
+  ...account,
+  id: "44444444-4444-4444-8444-444444444444",
+  platform: "twitter",
+  username: "studio",
+}
+const youtube: Account = {
+  ...account,
+  id: "55555555-5555-4555-8555-555555555555",
+  platform: "youtube",
+  username: "Studio Channel",
+}
+const facebook: Account = {
+  ...account,
+  id: "88888888-8888-4888-8888-888888888888",
+  platform: "facebook",
+  username: "Studio Page",
+}
+
+describe("cross-posting from the composer", () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    useComposerStore.setState(useComposerStore.getInitialState(), true)
+    useCalendarStore.setState(useCalendarStore.getInitialState(), true)
+    useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
+    useWorkspaceStore.setState({
+      workspace: { id: "workspace", name: "Workspace" },
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
+      accounts: [account, x, youtube, facebook],
+    })
+    vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
+    vi.mocked(api.automations.stats).mockResolvedValue({})
+  })
+
+  it("checks each platform's limits, then sends one request with each account's caption", async () => {
+    await draft(true)
+    const video: PostMedia = {
+      url: "https://media.example/launch.mp4",
+      type: "video",
+    }
+    useComposerStore
+      .getState()
+      .patch({ caption: "Comment LINK. ".repeat(30), media: [video] })
+    await useComposerStore.getState().toggleAccount(x.id)
+    await useComposerStore.getState().toggleAccount(youtube.id)
+    expect(useComposerStore.getState().draft.accountIds).toEqual([
+      account.id,
+      x.id,
+      youtube.id,
+    ])
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.caption": "X takes up to 280 characters",
+      "targets.2.youtube.title": "Give the video a title",
+    })
+    expect(api.scheduledPosts.create).not.toHaveBeenCalled()
+
+    useComposerStore.getState().customize(x.id, true)
+    useComposerStore.getState().setCaption(x.id, "Launch day")
+    useComposerStore.getState().setYouTube(youtube.id, { title: "Launch" })
+    const saved = [
+      post(["33333333-3333-4333-8333-333333333333"]),
+      { ...post(), id: "66666666-6666-4666-8666-666666666666" },
+      { ...post(), id: "77777777-7777-4777-8777-777777777777" },
+    ]
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.automations.get).mockResolvedValue(automationFor(saved[0]!))
+    expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        media: [video],
+        targets: [
+          {
+            accountId: account.id,
+            caption: null,
+            youtube: null,
+            facebook: null,
+          },
+          {
+            accountId: x.id,
+            caption: "Launch day",
+            youtube: null,
+            facebook: null,
+          },
+          {
+            accountId: youtube.id,
+            caption: null,
+            youtube: { title: "Launch", madeForKids: false },
+            facebook: null,
+          },
+        ],
+        automation: expect.objectContaining({ dmMessage: "Here is the guide" }),
+      })
+    )
+    // Several posts went out, so the draft cannot be sent again.
+    expect(useComposerStore.getState().scheduled).toEqual(saved)
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(api.scheduledPosts.create).toHaveBeenCalledOnce()
+  })
+
+  it("publishes a Facebook copy as a reel from one vertical video", async () => {
+    await draft()
+    await useComposerStore.getState().toggleAccount(facebook.id)
+    expect(useComposerStore.getState().draft.facebook).toEqual({
+      [facebook.id]: { reel: false },
+    })
+    useComposerStore.getState().setFacebook(facebook.id, { reel: true })
+    // A reel is one video, so a photo can't join it.
+    await useComposerStore
+      .getState()
+      .addFiles([new File(["x"], "photo.jpg", { type: "image/jpeg" })])
+    expect(useComposerStore.getState().error).toBe(
+      "A Facebook Reel needs exactly one video."
+    )
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media": "A Facebook Reel needs one video",
+    })
+
+    const video: PostMedia = {
+      url: "https://media.example/landscape.mp4",
+      type: "video",
+    }
+    useComposerStore.getState().patch({ media: [video] })
+    // The server never sees the file, so the reel waits for the browser.
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media": "Wait for the video to load",
+    })
+    useVideoStore.getState().failed(video.url)
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media":
+        "This browser can't read the video to check it for a Facebook Reel",
+    })
+    useVideoStore
+      .getState()
+      .loaded(video.url, { width: 1920, height: 1080, seconds: 30 })
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.media":
+        "A Facebook Reel is a vertical video of 3 to 90 seconds",
+    })
+
+    useVideoStore
+      .getState()
+      .loaded(video.url, { width: 1080, height: 1920, seconds: 30 })
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue([post(), post()])
+    expect(await useComposerStore.getState().save()).not.toBeNull()
+    expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        targets: [
+          expect.objectContaining({ accountId: account.id, facebook: null }),
+          expect.objectContaining({
+            accountId: facebook.id,
+            facebook: { reel: true },
+          }),
+        ],
+      })
+    )
+
+    await useComposerStore.getState().toggleAccount(facebook.id)
+    expect(useComposerStore.getState().draft.facebook).toEqual({})
+  })
+
+  it("drops a Trial Reel when the last Instagram account leaves the post", async () => {
+    await draft()
+    useComposerStore.getState().patch({
+      trialReel: { graduationStrategy: "manual" },
+    })
+    await useComposerStore.getState().toggleAccount(x.id)
+    expect(useComposerStore.getState().draft.trialReel).not.toBeNull()
+    await useComposerStore.getState().toggleAccount(account.id)
+    expect(useComposerStore.getState().draft.accountIds).toEqual([x.id])
+    expect(useComposerStore.getState().draft.trialReel).toBeNull()
+  })
+
+  it("keeps stories on Instagram and drops an account's own caption when it is removed", async () => {
+    await draft()
+    await useComposerStore.getState().toggleAccount(x.id)
+    useComposerStore.getState().customize(x.id, true)
+    expect(useComposerStore.getState().draft.captions).toEqual({
+      [x.id]: "Comment LINK",
+    })
+    useComposerStore.getState().patch({ kind: "story" })
+    expect(useComposerStore.getState().draft.accountIds).toEqual([account.id])
+    await useComposerStore.getState().toggleAccount(x.id)
+    expect(useComposerStore.getState().draft.kind).toBe("post")
+    await useComposerStore.getState().toggleAccount(x.id)
+    expect(useComposerStore.getState().draft.captions).toEqual({})
+  })
+})
+
+describe("channels and times from the schedule dialog", () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    useComposerStore.setState(useComposerStore.getInitialState(), true)
+    useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
+    useWorkspaceStore.setState({
+      workspace: { id: "workspace", name: "Workspace" },
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
+      accounts: [account],
+    })
+    vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
+  })
+
+  it("adds the account connected in another tab to the post", async () => {
+    await draft()
+    useComposerStore.setState({
+      connecting: { platform: "twitter", socialSetId: "set" },
+    })
+    vi.mocked(api.accounts.list).mockResolvedValue([account, x, youtube])
+    await useComposerStore.getState().channelsChanged()
+    expect(useWorkspaceStore.getState().accounts).toEqual([account, x, youtube])
+    // Only the platform being connected joins the post.
+    expect(useComposerStore.getState().draft.accountIds).toEqual([
+      account.id,
+      x.id,
+    ])
+    expect(useComposerStore.getState().connecting).toBeNull()
+  })
+
+  it("leaves out an account another tab connected to another set", async () => {
+    await draft()
+    useComposerStore.setState({
+      connecting: { platform: "twitter", socialSetId: "set" },
+    })
+    const elsewhere = { ...x, socialSetId: "other-set" }
+    vi.mocked(api.accounts.list).mockResolvedValue([account, elsewhere])
+    await useComposerStore.getState().channelsChanged()
+    expect(useComposerStore.getState().draft.accountIds).toEqual([account.id])
+    // This post still waits for the connection it started.
+    expect(useComposerStore.getState().connecting).toEqual({
+      platform: "twitter",
+      socialSetId: "set",
+    })
+  })
+
+  it("only lists accounts that another tab changed without connecting from here", async () => {
+    await draft()
+    vi.mocked(api.accounts.list).mockResolvedValue([account, x])
+    await useComposerStore.getState().channelsChanged()
+    expect(useWorkspaceStore.getState().accounts).toEqual([account, x])
+    expect(useComposerStore.getState().draft.accountIds).toEqual([account.id])
+  })
+
+  it("keeps a calendar day's post on that day after 10 AM has passed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 9, 22, 15, 7))
+    await useComposerStore.getState().initialize(null, "2026-10-22")
+    expect(useComposerStore.getState().draft.scheduledAt).toBe(
+      "2026-10-22T16:00"
+    )
+    // The dialog keeps the post on that day; without one, the date can move.
+    expect(useComposerStore.getState().day).toBe("2026-10-22")
+    vi.setSystemTime(new Date(2026, 9, 22, 23, 32))
+    await useComposerStore.getState().initialize(null, "2026-10-22")
+    expect(useComposerStore.getState().draft.scheduledAt).toBe(
+      "2026-10-22T23:45"
+    )
+    await useComposerStore.getState().initialize(null, "2026-10-24")
+    expect(useComposerStore.getState().draft.scheduledAt).toBe(
+      "2026-10-24T10:00"
+    )
+    await useComposerStore.getState().initialize(null, null)
+    expect(useComposerStore.getState().day).toBeNull()
+    vi.useRealTimers()
+  })
+})
+
 describe("the scheduling composer across failures and navigation", () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -124,6 +406,9 @@ describe("the scheduling composer across failures and navigation", () => {
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true)
     useWorkspaceStore.setState({
       workspace: { id: "workspace", name: "Workspace" },
+      socialSets: [
+        { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
+      ],
       accounts: [account],
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
@@ -145,9 +430,9 @@ describe("the scheduling composer across failures and navigation", () => {
         media: [video],
         trialReel,
       }
-      vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+      vi.mocked(api.scheduledPosts.create).mockResolvedValue([saved])
       vi.mocked(api.automations.get).mockResolvedValue(automationFor(saved))
-      expect(await useComposerStore.getState().save()).toEqual(saved)
+      expect(await useComposerStore.getState().save()).toEqual([saved])
       expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({
           kind: "post",
@@ -230,14 +515,14 @@ describe("the scheduling composer across failures and navigation", () => {
       },
     })
     const saved = post(["33333333-3333-4333-8333-333333333333"])
-    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue([saved])
     vi.mocked(api.automations.get).mockResolvedValue({
       ...automationFor(saved),
       productCarousel,
       followUp,
     })
 
-    expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(await useComposerStore.getState().save()).toEqual([saved])
     expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         automation: expect.objectContaining({
@@ -278,9 +563,9 @@ describe("the scheduling composer across failures and navigation", () => {
       }
       useComposerStore.setState({ response })
       const saved = post(["33333333-3333-4333-8333-333333333333"])
-      vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+      vi.mocked(api.scheduledPosts.create).mockResolvedValue([saved])
       vi.mocked(api.automations.get).mockResolvedValue(automationFor(saved))
-      expect(await useComposerStore.getState().save()).toEqual(saved)
+      expect(await useComposerStore.getState().save()).toEqual([saved])
       const sent = vi.mocked(api.scheduledPosts.create).mock.calls[0]![0]
         .automation!
       expect(sent).toMatchObject({
@@ -297,11 +582,11 @@ describe("the scheduling composer across failures and navigation", () => {
   it("keeps a successful scheduling result when the optional automation refresh fails", async () => {
     await draft(true)
     const saved = post(["33333333-3333-4333-8333-333333333333"])
-    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue([saved])
     vi.mocked(api.automations.get).mockRejectedValue(
       new Error("Refresh failed")
     )
-    expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(await useComposerStore.getState().save()).toEqual([saved])
     expect(api.automations.get).toHaveBeenCalledExactlyOnceWith(
       saved.automationIds[0]
     )
@@ -328,9 +613,9 @@ describe("the scheduling composer across failures and navigation", () => {
       await draft(true)
       const saved = post(["33333333-3333-4333-8333-333333333333"])
       const refreshing = deferred<Automation>()
-      vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+      vi.mocked(api.scheduledPosts.create).mockResolvedValue([saved])
       vi.mocked(api.automations.get).mockReturnValue(refreshing.promise)
-      expect(await useComposerStore.getState().save()).toEqual(saved)
+      expect(await useComposerStore.getState().save()).toEqual([saved])
       useComposerStore.getState().leave()
       if (!sameWorkspace) useWorkspaceStore.getState().clear()
       const automation = automationFor(saved)
@@ -419,7 +704,7 @@ describe("the scheduling composer across failures and navigation", () => {
 
   it("reloads the calendar for a save that completes after leaving, so an older copy cannot replace a newer one", async () => {
     await draft()
-    const saving = deferred<ScheduledPost>()
+    const saving = deferred<ScheduledPost[]>()
     vi.mocked(api.scheduledPosts.create).mockReturnValueOnce(saving.promise)
     const pending = useComposerStore.getState().save()
     useComposerStore.getState().leave()
@@ -430,7 +715,7 @@ describe("the scheduling composer across failures and navigation", () => {
     }
     useCalendarStore.setState({ posts: [newer] })
     vi.mocked(api.scheduledPosts.list).mockResolvedValue([newer])
-    saving.resolve(post())
+    saving.resolve([post()])
     expect(await pending).toBeNull()
     expect(useComposerStore.getState()).toMatchObject({
       id: null,
@@ -475,9 +760,9 @@ describe("the scheduling composer across failures and navigation", () => {
     await draft(true)
     const saved = post(["33333333-3333-4333-8333-333333333333"])
     const refreshing = deferred<Automation>()
-    vi.mocked(api.scheduledPosts.create).mockResolvedValue(saved)
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue([saved])
     vi.mocked(api.automations.get).mockReturnValueOnce(refreshing.promise)
-    expect(await useComposerStore.getState().save()).toEqual(saved)
+    expect(await useComposerStore.getState().save()).toEqual([saved])
     useComposerStore.getState().leave()
     vi.mocked(api.scheduledPosts.get).mockResolvedValue(saved)
     await useComposerStore.getState().initialize(saved.id, null)

@@ -50,6 +50,11 @@ export async function startZernioFixture() {
     analyticsViewHistory: null as { date: string; views: number }[] | null,
     // Fails the next automation write only, after other writes succeeded.
     automationFailureStatus: 0,
+    // Accounts on other platforms in the profile, as Zernio lists them.
+    extraAccounts: [] as Body[],
+    // How many more posts are created before the next one fails.
+    postsBeforeFailure: null as number | null,
+    // Daily metrics that include another platform's posts.
   }
   const accountId = `fixture-account-${randomUUID()}`
   const postId = "fixture-post-1"
@@ -151,25 +156,82 @@ export async function startZernioFixture() {
       }
       return
     }
-    if (url.pathname === "/v1/connect/instagram") {
-      reply(200, { authUrl: "https://example.com/fixture-oauth" })
+    const connect = url.pathname.match(/^\/v1\/connect\/([a-z]+)$/)
+    if (connect) {
+      reply(200, {
+        authUrl:
+          connect[1] === "instagram"
+            ? "https://example.com/fixture-oauth"
+            : `https://example.com/fixture-oauth/${connect[1]}`,
+      })
       return
     }
-    if (url.pathname === "/v1/accounts" && method === "GET") {
+    if (url.pathname === "/v1/accounts/follower-stats") {
       reply(200, {
         accounts: [
           {
             _id: accountId,
             platform: "instagram",
-            profileId: state.outsideProfile
-              ? "foreign-profile"
-              : url.searchParams.get("profileId"),
+            currentFollowers: 1_200,
+            growth: 40,
+            dataPoints: 30,
+          },
+          {
+            _id: "shrinking",
+            platform: "twitter",
+            currentFollowers: 50,
+            growth: -3,
+            dataPoints: 2,
+          },
+          // Connected today: one daily count, so no change to report yet.
+          {
+            _id: "new-account",
+            platform: "linkedin",
+            currentFollowers: 9,
+            growth: 0,
+            dataPoints: 1,
+          },
+          { platform: "threads", currentFollowers: 5 },
+        ],
+      })
+      return
+    }
+    if (url.pathname === "/v1/accounts" && method === "GET") {
+      const profileId = state.outsideProfile
+        ? "foreign-profile"
+        : url.searchParams.get("profileId")
+      reply(200, {
+        accounts: [
+          {
+            _id: accountId,
+            platform: "instagram",
+            profileId,
             username: "fixture_creator",
             displayName: "Fixture Creator",
             isActive: state.accountConnected,
           },
+          ...state.extraAccounts.map((account) => ({ ...account, profileId })),
         ],
       })
+      return
+    }
+    const extra = state.extraAccounts.find((account) =>
+      url.pathname.startsWith(`/v1/accounts/${String(account._id)}`)
+    )
+    if (extra && url.pathname.endsWith("/health")) {
+      reply(200, {
+        accountId: extra._id,
+        platform: extra.platform,
+        permissions: {
+          canPost: state.canPost,
+          canFetchAnalytics: state.canFetchAnalytics,
+        },
+      })
+      return
+    }
+    if (extra && method === "DELETE") {
+      state.extraAccounts = state.extraAccounts.filter((item) => item !== extra)
+      reply(200, { success: true })
       return
     }
     if (url.pathname === `/v1/accounts/${accountId}/posts`) {
@@ -209,6 +271,15 @@ export async function startZernioFixture() {
       const fromDate =
         url.searchParams.get("fromDate")?.slice(0, 10) ??
         new Date().toISOString().slice(0, 10)
+      // An account query answers with the account's own platform.
+      const queriedPlatform =
+        url.searchParams.get("platform") ??
+        String(
+          state.extraAccounts.find(
+            (account) => account._id === url.searchParams.get("accountId")
+          )?.platform ?? "instagram"
+        )
+      const queriedAccount = url.searchParams.get("accountId") ?? accountId
       const analytics = state.analyticsMissing
         ? {}
         : {
@@ -222,13 +293,15 @@ export async function startZernioFixture() {
             igReelsAvgWatchTime: 12_500,
             igReelsVideoViewTotalTime: 156_250_000,
             reelsSkipRate: 32.4,
+            impressions: 15_000,
+            clicks: 18,
             lastUpdated: new Date().toISOString(),
           }
       const platform = {
-        platform: "instagram",
+        platform: queriedPlatform,
         accountId: state.analyticsOutsideAccount
           ? "foreign-account"
-          : accountId,
+          : queriedAccount,
         platformPostId: postId,
         platformPostUrl: "https://instagram.com/reel/fixture",
         syncStatus: state.analyticsPending ? "pending" : "synced",
@@ -240,7 +313,7 @@ export async function startZernioFixture() {
         publishedAt: `${fromDate}T10:00:00.000Z`,
         mediaType: "video",
         mediaProductType: state.analyticsMediaProductType,
-        platform: "instagram",
+        platform: queriedPlatform,
         profileId: url.searchParams.get("profileId"),
         analytics: { views: 999_999 },
         platforms: [platform],
@@ -333,6 +406,14 @@ export async function startZernioFixture() {
       return
     }
     if (url.pathname === "/v1/posts" && method === "POST") {
+      if (
+        state.postsBeforeFailure !== null &&
+        state.postsBeforeFailure-- <= 0
+      ) {
+        state.postsBeforeFailure = null
+        reply(422, { error: "Intentional post fixture failure" })
+        return
+      }
       // Zernio's ids are 24 hexadecimal characters.
       const id = randomBytes(12).toString("hex")
       const post = { ...body, _id: id, status: "scheduled" }

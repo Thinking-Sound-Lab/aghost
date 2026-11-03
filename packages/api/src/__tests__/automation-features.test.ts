@@ -133,7 +133,6 @@ describe("shared plan feature policy", () => {
     id: automation.workspaceId,
     ownerId: "owner",
     name: "Studio",
-    providerProfileId: "profile",
   }
   function plan(id: "pro" | "growth" | "business") {
     return new PlanEntitlements(
@@ -142,7 +141,7 @@ describe("shared plan feature policy", () => {
           subscription: { plan: id, status: "active" },
         }),
       } as unknown as BillingRepository,
-      { countConnected: async () => 1 }
+      { countSocialSets: async () => 1 }
     )
   }
   it("reserves carousels for Growth and Business, and nudges for Business", async () => {
@@ -188,11 +187,15 @@ describe("durable follow-up delivery", () => {
         id: automation.accountId,
         workspaceId: automation.workspaceId,
         providerAccountId: job.providerAccountId,
+        platform: "instagram" as const,
         username: "studio",
         displayName: null,
         profilePictureUrl: null,
         status: "connected" as const,
         disconnectReason: null,
+        socialSetId: "set",
+        providerProfileId: "profile",
+        sharedPlatformBeforeSets: false,
         createdAt: automation.createdAt,
       },
       plan: PLANS.business,

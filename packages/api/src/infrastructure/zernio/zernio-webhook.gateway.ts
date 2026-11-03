@@ -20,7 +20,8 @@ const accountSchema = z.object({
   accountId: z.string().min(1),
   profileId: z.string().min(1),
   platform: z.string().min(1),
-  username: z.string().min(1),
+  // Facebook Pages, LinkedIn pages and YouTube channels may have no handle.
+  username: z.string().optional(),
   displayName: z.string().optional(),
 })
 
@@ -133,6 +134,10 @@ export class ZernioWebhookGateway implements WebhookGateway {
       }
       case "account.connected": {
         const { account } = decode(accountConnectedSchema, payload)
+        const username = account.username || account.displayName
+        // An account with no name to show is stored by the sync that follows
+        // the owner's authorization, which reads the provider's full record.
+        if (!username) return { ...event, kind: "unhandled" }
 
         return {
           ...event,
@@ -141,7 +146,7 @@ export class ZernioWebhookGateway implements WebhookGateway {
             providerAccountId: account.accountId,
             providerProfileId: account.profileId,
             platform: account.platform,
-            username: account.username,
+            username,
             displayName: account.displayName ?? null,
           },
         }

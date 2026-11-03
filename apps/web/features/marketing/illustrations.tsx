@@ -1,8 +1,6 @@
-import { Check, Heart, KeyRound, Search, X } from "lucide-react"
+import { Check, Heart, Search } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
-import { Mascot } from "@/components/brand"
-import { Instagram } from "@/components/instagram-icon"
-import { agentClients } from "./content"
+import { Monogram } from "@/components/brand"
 
 // Small, static pictures of the product for the marketing pages. They are
 // decorative: every claim they illustrate is also written in the text beside
@@ -23,8 +21,8 @@ function Face({ name, className }: { name: string; className?: string }) {
 
 function Brand() {
   return (
-    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#262626]">
-      <Mascot size={20} />
+    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-black">
+      <Monogram className="size-5" />
     </span>
   )
 }
@@ -85,25 +83,6 @@ function Comment({
       </div>
       <Heart className="mt-1 size-3.5 text-white/40" />
     </div>
-  )
-}
-
-/** What you type to your agent. */
-function Asked({ text }: { text: string }) {
-  return (
-    <p className="ml-auto w-fit max-w-[88%] rounded-2xl bg-white/10 px-3.5 py-2.5 text-[13px] text-white">
-      {text}
-    </p>
-  )
-}
-
-/** One call the agent makes to aghost's MCP server. */
-function ToolCall({ name }: { name: string }) {
-  return (
-    <p className="flex w-fit items-center gap-2 font-mono text-xs text-white/70">
-      <Check className="size-3.5 text-brand" strokeWidth={3} />
-      aghost · {name}
-    </p>
   )
 }
 
@@ -211,145 +190,6 @@ export const followScene = (
   </>
 )
 
-/** An agent building an automation, in a terminal beside the phone. */
-export function AgentWindow({ className }: { className?: string }) {
-  const fields = [
-    ["Post", "Latest reel"],
-    ["Keyword", "GUIDE"],
-    ["DM", "Hey {first name}! Here’s your guide ✨"],
-    ["Button", "Get the guide"],
-    ["Status", "Paused"],
-  ]
-  return (
-    <Window title="Claude Code · ~/studio" className={className}>
-      <div aria-hidden className="grid grid-cols-1 gap-3.5 p-5 text-[13px]">
-        <Asked text="DM my free guide to everyone who comments GUIDE on my latest reel." />
-        <div className="grid gap-1.5">
-          <ToolCall name="list_accounts" />
-          <ToolCall name="list_account_posts" />
-          <ToolCall name="create_automation" />
-        </div>
-        <div className="grid gap-1.5 rounded-xl bg-white/5 p-3.5 ring-1 ring-white/10">
-          <p className="font-semibold">Send the guide</p>
-          {fields.map(([label, value]) => (
-            <p key={label} className="flex gap-2 text-xs">
-              <span className="w-16 shrink-0 text-white/50">{label}</span>
-              <span className="min-w-0 truncate">{value}</span>
-            </p>
-          ))}
-        </div>
-        <p className="text-white/85">
-          “Send the guide” is ready and paused so you can check it. Switch it
-          on?
-        </p>
-        <Asked text="Yes, switch it on." />
-        <ToolCall name="set_automation_status" />
-        <p className="flex items-center gap-2 text-white">
-          <span className="size-2 rounded-full bg-brand" />
-          Live. Every GUIDE comment now gets the DM.
-        </p>
-      </div>
-    </Window>
-  )
-}
-
-function Step({
-  number,
-  title,
-  children,
-}: {
-  number: number
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex gap-3 border-b border-black/5 px-5 py-4 last:border-0">
-      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-black text-xs font-bold text-white">
-        {number}
-      </span>
-      <div className="grid min-w-0 flex-1 gap-2.5">
-        <p className="font-semibold">{title}</p>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function Option({ label, on = false }: { label: string; on?: boolean }) {
-  return (
-    <p className="flex items-center gap-2 text-[13px]">
-      <span
-        className={cn(
-          "grid size-4 shrink-0 place-items-center rounded-[5px] ring-1",
-          on ? "bg-black text-white ring-black" : "ring-black/25"
-        )}
-      >
-        {on && <Check className="size-3" strokeWidth={3} />}
-      </span>
-      {label}
-    </p>
-  )
-}
-
-/** The dashboard's step-by-step builder, as you fill it in yourself. */
-export function BuilderWindow({ className }: { className?: string }) {
-  return (
-    <Window light title="aghost · New automation" className={className}>
-      <div aria-hidden className="grid text-[13px]">
-        <Step number={1} title="When someone comments on">
-          <Option label="a specific post or reel" on />
-          <div className="flex gap-2">
-            {[false, true, false].map((selected, index) => (
-              <span
-                key={index}
-                className={cn(
-                  "grid size-14 place-items-center rounded-lg bg-brand-offwhite",
-                  selected && "ring-2 ring-brand-blue"
-                )}
-              >
-                <Mascot size={selected ? 34 : 26} />
-              </span>
-            ))}
-          </div>
-        </Step>
-        <Step number={2} title="And this comment has">
-          <Option label="a specific word or words" on />
-          <div className="flex flex-wrap gap-1.5">
-            {["GUIDE", "LINK"].map((keyword) => (
-              <span
-                key={keyword}
-                className="flex items-center gap-1 rounded-full bg-brand-offwhite px-2.5 py-1 text-xs font-semibold"
-              >
-                {keyword}
-                <X className="size-3 text-brand-gray" />
-              </span>
-            ))}
-          </div>
-        </Step>
-        <Step number={3} title="They will get">
-          <Option label="a DM with the link" on />
-          <div className="rounded-lg bg-brand-offwhite p-3">
-            <p>Hey {"{{first_name}}"}! Here’s your guide ✨</p>
-            <p className="mt-2 rounded-md bg-white py-1.5 text-center text-xs font-semibold ring-1 ring-black/10">
-              Get the guide
-            </p>
-          </div>
-          <Option label="a reply to their comment" on />
-          <Option label="the link only if they follow you" />
-        </Step>
-        <div className="flex justify-end gap-2 border-t border-black/5 px-5 py-3">
-          <span className="rounded-md px-3 py-1.5 text-xs font-semibold ring-1 ring-black/15">
-            Save draft
-          </span>
-          <span className="rounded-md bg-black px-3 py-1.5 text-xs font-semibold text-white">
-            Turn on
-          </span>
-        </div>
-      </div>
-    </Window>
-  )
-}
-
 /** A REST call that creates an automation, in the API's own shape. */
 export function RestScene({ endpoint }: { endpoint: string }) {
   const body = `{
@@ -384,44 +224,6 @@ export function RestScene({ endpoint }: { endpoint: string }) {
     </Window>
   )
 }
-
-export const stepScenes = [
-  <>
-    <div className="mx-auto flex items-center gap-3">
-      <span className="grid size-12 place-items-center rounded-2xl bg-linear-to-br from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white">
-        <Instagram size={28} />
-      </span>
-      <span className="text-2xl text-white/30">+</span>
-      <span className="grid size-12 place-items-center rounded-2xl bg-[#262626]">
-        <Mascot size={36} />
-      </span>
-    </div>
-    <p className="mx-auto flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[13px] font-medium">
-      <span className="size-2 rounded-full bg-brand" />
-      Connected · @studio.maya
-    </p>
-  </>,
-  <>
-    <p className="mx-auto flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 font-mono text-xs">
-      <KeyRound className="size-3.5" />
-      agh_••••••••••••
-    </p>
-    <div className="mx-auto flex flex-wrap justify-center gap-2">
-      {agentClients.map((client) => (
-        <span
-          key={client}
-          className="rounded-full bg-white px-3 py-1 text-[13px] font-semibold text-black"
-        >
-          {client}
-        </span>
-      ))}
-    </div>
-  </>,
-  <>
-    <Asked text="DM the guide to everyone who comments GUIDE" />
-    <ToolCall name="create_automation" />
-  </>,
-]
 
 /** The activity page of one automation, as the dashboard shows it. */
 export function StatsScene() {
