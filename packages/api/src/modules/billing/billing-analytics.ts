@@ -18,10 +18,11 @@ export function priceUsd(plan: PlanId, interval: BillingInterval): number {
 
 /**
  * Monthly recurring revenue in US dollars at the plan's list price: zero
- * without a working plan. Stored subscriptions do not keep their own price.
+ * during the free trial and without a working plan. Stored subscriptions do
+ * not keep their own price.
  */
 function mrrUsd(subscription: SubscriptionSnapshot): number {
-  if (!isEntitled(subscription.status)) return 0
+  if (!isEntitled(subscription.status) || subscription.trialEndsAt) return 0
   const price = priceUsd(subscription.plan, subscription.interval)
   const monthly = subscription.interval === "yearly" ? price / 12 : price
   return Math.round(monthly * 100) / 100
@@ -35,6 +36,7 @@ function shapeOf(subscription: SubscriptionSnapshot): SubscriptionShape {
     status: subscription.status,
     price_usd: priceUsd(subscription.plan, subscription.interval),
     mrr_usd: mrrUsd(subscription),
+    in_trial: subscription.trialEndsAt !== null,
   }
 }
 
@@ -78,6 +80,11 @@ export function subscriptionEvents(
     })
   if (!is) return events
 
+  const same =
+    previous.providerSubscriptionId === current.providerSubscriptionId
+  // The first payment after the trial starts a period, but renews nothing.
+  const converted =
+    same && previous.trialEndsAt !== null && current.trialEndsAt === null
   if (previous.plan !== current.plan || previous.interval !== current.interval)
     events.push({
       name: "subscription_plan_changed",
@@ -87,10 +94,12 @@ export function subscriptionEvents(
       previous_mrr_usd: mrrUsd(previous),
     })
   else if (
-    previous.providerSubscriptionId === current.providerSubscriptionId &&
+    same &&
+    !converted &&
     Date.parse(current.currentPeriodEnd) > Date.parse(previous.currentPeriodEnd)
   )
     events.push({ name: "subscription_renewed", ...shape })
+  if (converted) events.push({ name: "subscription_trial_converted", ...shape })
 
   if (!previous.cancelAtPeriodEnd && current.cancelAtPeriodEnd)
     events.push({ name: "subscription_cancellation_scheduled", ...shape })
@@ -109,6 +118,7 @@ export function subscriptionTraits(
     billing_interval: subscription.interval,
     subscription_status: subscription.status,
     mrr_usd: mrrUsd(subscription),
+    in_trial: subscription.trialEndsAt !== null,
     cancel_at_period_end: subscription.cancelAtPeriodEnd,
   }
 }

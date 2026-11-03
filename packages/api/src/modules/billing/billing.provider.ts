@@ -16,6 +16,8 @@ export type CheckoutRequest = {
   plan: PlanId
   interval: BillingInterval
   providerProductId: string
+  /** Free days before the first payment; 0 charges at checkout. */
+  trialDays: number
   returnUrl: string
   cancelUrl: string
 }
@@ -35,7 +37,10 @@ export interface BillingProvider {
   ): Promise<SubscriptionSnapshot | null>
   /** The customer's subscriptions to the plans. */
   listSubscriptions(providerCustomerId: string): Promise<SubscriptionSnapshot[]>
-  /** Moves the subscription to another plan or interval, charging the difference now. */
+  /**
+   * Moves the subscription to another plan or interval, charging the
+   * difference now. During the free trial nothing is charged until it ends.
+   */
   changePlan(
     providerSubscriptionId: string,
     plan: PlanId,

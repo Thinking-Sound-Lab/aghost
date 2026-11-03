@@ -1,3 +1,8 @@
+import { TRIAL_DAYS } from "@workspace/api/contract"
+
+/** The label of every sign-up button. */
+export const startTrial = `Start a ${TRIAL_DAYS} day trial for $0`
+
 export const marketingLinks = [
   { href: "/features", label: "Features" },
   { href: "/agents", label: "AI agents" },

@@ -54,6 +54,12 @@ export const PLANS: Record<PlanId, Plan> = {
   },
 }
 
+/**
+ * A workspace's first subscription starts with this many free days. The card
+ * is collected at checkout and charged the plan's price when the trial ends.
+ */
+export const TRIAL_DAYS = 7
+
 /** "1 social set", "10 social sets". */
 export function socialSetCount(count: number): string {
   return `${count} social set${count === 1 ? "" : "s"}`
@@ -91,6 +97,8 @@ type Subscription = {
   currentPeriodEnd: string
   /** The plan ends at `currentPeriodEnd` instead of renewing. */
   cancelAtPeriodEnd: boolean
+  /** During the free trial, when it ends and the first payment is taken. */
+  trialEndsAt: string | null
 }
 
 export type BillingState = {
@@ -102,6 +110,8 @@ export type BillingState = {
   subscription: Subscription | null
   /** The workspace's social sets, counted against the plan. */
   socialSets: number
+  /** The workspace has never had a plan, so checkout starts a free trial. */
+  trialAvailable: boolean
 }
 
 export const choosePlanSchema = z.object({

@@ -919,6 +919,7 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
       currency: "USD",
       subscription: null,
       socialSets: 1,
+      trialAvailable: true,
     })
     const checkout = await customer.request(
       "/billing/checkout",

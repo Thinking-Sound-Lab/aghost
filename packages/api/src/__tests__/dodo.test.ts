@@ -14,6 +14,7 @@ describe("Dodo SDK billing integration", () => {
       providerCustomerId: "cus_1",
       plan: "growth",
       interval: "yearly",
+      trialDays: 0,
       returnUrl: "https://app.example/settings#billing",
       cancelUrl: "https://app.example/settings#billing",
     })
@@ -25,8 +26,34 @@ describe("Dodo SDK billing integration", () => {
       billing_currency: "USD",
       feature_flags: { allow_currency_selection: false },
       product_cart: [{ product_id: "pdt_growth_yearly", quantity: 1 }],
+      subscription_data: { trial_period_days: 0 },
     })
     expect(checkouts[0]!.body).not.toHaveProperty("billing_address")
+  })
+
+  it("starts a free trial on the checkout, not the product", async () => {
+    const fixture = dodoFixture()
+    const provider = new DodoBillingProvider(() => fixture.client)
+    const providerProductId = await provider.prepareCheckout("pro", "monthly")
+    await provider.createCheckout({
+      providerProductId,
+      providerCustomerId: "cus_1",
+      plan: "pro",
+      interval: "monthly",
+      trialDays: 7,
+      returnUrl: "https://app.example/settings#billing",
+      cancelUrl: "https://app.example/settings#billing",
+    })
+    expect(
+      fixture.requests.find((request) => request.path === "/checkouts")!.body
+    ).toMatchObject({ subscription_data: { trial_period_days: 7 } })
+    // The trial is free, but the card is still required.
+    expect(fixture.products.get("pdt_pro_monthly")!.price_detail).toMatchObject(
+      {
+        trial_period_days: 0,
+        zero_amount_payment_method_optional: false,
+      }
+    )
   })
 
   it("reports a checkout left at the payment form as unpaid until a payment is submitted", async () => {
@@ -37,6 +64,7 @@ describe("Dodo SDK billing integration", () => {
       providerCustomerId: "cus_1",
       plan: "pro",
       interval: "monthly",
+      trialDays: 0,
       returnUrl: "https://app.example/settings#billing",
       cancelUrl: "https://app.example/settings#billing",
     })
@@ -75,6 +103,55 @@ describe("Dodo SDK billing integration", () => {
     fixture.state.subscription = fixture.subscription({ status: "on_hold" })
     expect(await provider.getSubscription("sub_1")).toMatchObject({
       status: "on_hold",
+    })
+  })
+
+  it("grants a free trial once its card is authorized, until the first payment", async () => {
+    const fixture = dodoFixture()
+    const provider = new DodoBillingProvider(() => fixture.client)
+    fixture.state.subscription = fixture.subscription({
+      trial_period_days: 7,
+      next_billing_date: "2026-10-18T00:00:00Z",
+    })
+    expect(await provider.getSubscription("sub_1")).toMatchObject({
+      status: "pending",
+      trialEndsAt: null,
+    })
+    fixture.state.payments = [
+      fixture.payment({ payment_id: "pay_authorization", total_amount: 0 }),
+    ]
+    expect(await provider.getSubscription("sub_1")).toMatchObject({
+      status: "active",
+      trialEndsAt: "2026-10-18T00:00:00Z",
+    })
+    fixture.state.subscription = fixture.subscription({
+      trial_period_days: 7,
+      next_billing_date: "2026-11-18T00:00:00Z",
+    })
+    fixture.state.payments.push(fixture.payment())
+    expect(await provider.getSubscription("sub_1")).toMatchObject({
+      status: "active",
+      trialEndsAt: null,
+    })
+  })
+
+  it("keeps the trial when the plan changes during it", async () => {
+    const fixture = dodoFixture()
+    const provider = new DodoBillingProvider(() => fixture.client)
+    fixture.state.subscription = fixture.subscription({ trial_period_days: 7 })
+    fixture.state.payments = [
+      fixture.payment({ payment_id: "pay_authorization", total_amount: 0 }),
+    ]
+    await provider.changePlan("sub_1", "business", "yearly")
+    expect(fixture.requests.at(-1)!.body).toMatchObject({
+      product_id: "pdt_business_yearly",
+      proration_billing_mode: "do_not_bill",
+    })
+    // Once the trial has been paid for, a change is prorated and charged.
+    fixture.state.payments.push(fixture.payment())
+    await provider.changePlan("sub_1", "growth", "monthly")
+    expect(fixture.requests.at(-1)!.body).toMatchObject({
+      proration_billing_mode: "prorated_immediately",
     })
   })
 

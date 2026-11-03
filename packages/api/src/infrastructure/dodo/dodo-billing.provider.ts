@@ -37,6 +37,7 @@ type DodoSubscription = Pick<
   | "next_billing_date"
   | "cancel_at_next_billing_date"
   | "created_at"
+  | "trial_period_days"
 >
 
 export class DodoBillingProvider implements BillingProvider {
@@ -99,6 +100,9 @@ export class DodoBillingProvider implements BillingProvider {
             },
           ],
           customer: { customer_id: checkout.providerCustomerId },
+          // The products have no trial. Only a workspace's first checkout
+          // gets one, which still collects the card it charges afterwards.
+          subscription_data: { trial_period_days: checkout.trialDays },
           // Bill the USD base price in every country and prevent the customer
           // from switching currencies through Adaptive Currency.
           billing_currency: "USD",
@@ -179,11 +183,17 @@ export class DodoBillingProvider implements BillingProvider {
     interval: BillingInterval
   ): Promise<string | null> {
     const catalog = await this.loadCatalog()
+    // A change during the trial is free, so check the trial with Dodo rather
+    // than a stored copy that may be out of date.
+    const current = await this.getSubscription(providerSubscriptionId)
     const changed = await request("change the plan", () =>
       this.dodo().subscriptions.changePlan(providerSubscriptionId, {
         product_id: catalog.productId(plan, interval),
         quantity: 1,
-        proration_billing_mode: "prorated_immediately",
+        // During the trial, the new plan is first charged when it ends.
+        proration_billing_mode: current?.trialEndsAt
+          ? "do_not_bill"
+          : "prorated_immediately",
         // A declined charge leaves the subscription on the plan it had.
         on_payment_failure: "prevent_change",
       })
@@ -202,34 +212,48 @@ export class DodoBillingProvider implements BillingProvider {
     // first debit can still be processing. Require a successful payment from
     // Dodo's API before granting initial access; later renewals keep the
     // provider's grace period until it puts the subscription on hold.
-    const paid = await request("confirm the subscription payment", async () => {
-      for await (const payment of this.dodo().payments.list({
-        subscription_id: subscription.subscription_id,
-        status: "succeeded",
-      })) {
-        if (
-          payment.status !== "succeeded" ||
-          payment.customer.customer_id !== snapshot.providerCustomerId ||
-          payment.currency !== snapshot.currency ||
-          (payment.subscription_id !== snapshot.providerSubscriptionId &&
-            !payment.subscription_ids.includes(snapshot.providerSubscriptionId))
-        )
-          continue
-        if (payment.total_amount > 0) return true
-        // A $0 payment is either a period that a 100% discount code made free
-        // or only a payment authorization. The list omits discounts.
-        const detail = await this.dodo().payments.retrieve(payment.payment_id)
-        if (
-          detail.discounts?.some(
-            (discount) =>
-              discount.type === "percentage" && discount.amount >= 10_000
+    const payment = await request(
+      "confirm the subscription payment",
+      async () => {
+        let authorized = false
+        for await (const payment of this.dodo().payments.list({
+          subscription_id: subscription.subscription_id,
+          status: "succeeded",
+        })) {
+          if (
+            payment.status !== "succeeded" ||
+            payment.customer.customer_id !== snapshot.providerCustomerId ||
+            payment.currency !== snapshot.currency ||
+            (payment.subscription_id !== snapshot.providerSubscriptionId &&
+              !payment.subscription_ids.includes(
+                snapshot.providerSubscriptionId
+              ))
           )
-        )
-          return true
+            continue
+          if (payment.total_amount > 0) return "paid"
+          // A $0 payment is either a period that a 100% discount code made
+          // free or only a payment authorization. The list omits discounts.
+          const detail = await this.dodo().payments.retrieve(payment.payment_id)
+          if (
+            detail.discounts?.some(
+              (discount) =>
+                discount.type === "percentage" && discount.amount >= 10_000
+            )
+          )
+            return "paid"
+          authorized = true
+        }
+        // A free trial is paid for by authorizing the card it charges when it
+        // ends, so until then the authorization is all there is.
+        return authorized && subscription.trial_period_days > 0
+          ? "trial"
+          : "unpaid"
       }
-      return false
-    })
-    return paid ? snapshot : { ...snapshot, status: "pending" }
+    )
+    if (payment === "unpaid") return { ...snapshot, status: "pending" }
+    return payment === "trial"
+      ? { ...snapshot, trialEndsAt: snapshot.currentPeriodEnd }
+      : snapshot
   }
 
   /** Existing contracts remain readable even if their SKU is archived or repriced. */
@@ -294,6 +318,7 @@ function toSnapshot(
     currency,
     currentPeriodEnd: subscription.next_billing_date,
     cancelAtPeriodEnd: subscription.cancel_at_next_billing_date,
+    trialEndsAt: null,
     createdAt: subscription.created_at,
   }
 }

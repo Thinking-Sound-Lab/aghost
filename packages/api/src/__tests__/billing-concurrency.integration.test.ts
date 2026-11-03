@@ -89,6 +89,7 @@ async function context() {
     currency: "USD",
     currentPeriodEnd: "2030-01-01T00:00:00Z",
     cancelAtPeriodEnd: false,
+    trialEndsAt: null,
     createdAt: new Date().toISOString(),
   }
   const remote = new Map<string, string>()

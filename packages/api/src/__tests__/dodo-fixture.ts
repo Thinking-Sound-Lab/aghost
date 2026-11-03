@@ -48,6 +48,7 @@ export function dodoFixture(withProducts = true) {
       previous_billing_date: "2026-10-11T00:00:00Z",
       cancel_at_next_billing_date: false,
       created_at: "2026-10-11T00:00:00Z",
+      trial_period_days: 0,
       ...overrides,
     }
   }

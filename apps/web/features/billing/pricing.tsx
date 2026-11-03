@@ -2,7 +2,11 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { billingPath, type BillingInterval } from "@workspace/api/contract"
+import {
+  billingPath,
+  TRIAL_DAYS,
+  type BillingInterval,
+} from "@workspace/api/contract"
 import {
   MarketingCta,
   MarketingPage,
@@ -18,7 +22,7 @@ export function Pricing() {
       <PageIntro
         category="Pricing"
         title="Simple, flat pricing"
-        description="Pay per social set: one account on each of six platforms. Every plan includes Instagram DM automation, analytics and API access. No caps on DMs."
+        description={`Pay per social set: one account on each of six platforms. Every plan includes Instagram DM automation, analytics and API access. No caps on DMs. Try any plan free for ${TRIAL_DAYS} days.`}
       />
       <div className="mx-auto grid max-w-7xl gap-8 px-5 sm:px-8 lg:px-12">
         <BillingIntervalToggle
@@ -29,13 +33,14 @@ export function Pricing() {
         <PlanCards
           currency="USD"
           interval={interval}
+          trial
           className="gap-0 border-t border-l border-ink/10 [&>section]:rounded-none [&>section]:border-0 [&>section]:border-r [&>section]:border-b [&>section]:border-ink/10 [&>section]:bg-white/50 [&>section]:p-8"
           action={(plan) => (
             <Link
               href={billingPath({ plan: plan.id, interval })}
               className={`${primaryButton} w-full`}
             >
-              Choose {plan.name}
+              Try {plan.name} free
             </Link>
           )}
         />

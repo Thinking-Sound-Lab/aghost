@@ -6,13 +6,19 @@ import {
   isEntitled,
   PLANS,
   socialSetCount,
+  TRIAL_DAYS,
   type SubscriptionStatus,
 } from "@workspace/api/contract"
 import { Button } from "@workspace/ui/components/button"
 import { ConfirmButton, ErrorBanner, Loading } from "@/components/interface"
 import { useBillingStore } from "@/stores/billing-store"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-import { BillingIntervalToggle, PlanCards, PricingTerms } from "./plan-cards"
+import {
+  BillingIntervalToggle,
+  PlanCards,
+  PricingTerms,
+  price,
+} from "./plan-cards"
 
 const statusLabels: Record<SubscriptionStatus, string> = {
   pending: "Payment processing",
@@ -25,6 +31,9 @@ const statusLabels: Record<SubscriptionStatus, string> = {
   expired: "Expired",
 }
 
+const date = (value: string) =>
+  new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value))
+
 export function Billing() {
   const store = useBillingStore()
   const configured = useWorkspaceStore(
@@ -36,6 +45,7 @@ export function Billing() {
   }, [configured, load])
   const subscription = store.state?.subscription
   const active = subscription && isEntitled(subscription.status)
+  const trialEndsAt = active ? subscription.trialEndsAt : null
   const recover =
     subscription &&
     ["pending", "on_hold", "paused"].includes(subscription.status)
@@ -66,7 +76,10 @@ export function Billing() {
                 {subscription ? (
                   <>
                     <p className="text-sm text-muted-foreground">
-                      {statusLabels[subscription.status]} ·{" "}
+                      {trialEndsAt
+                        ? "Free trial"
+                        : statusLabels[subscription.status]}{" "}
+                      ·{" "}
                       {subscription.interval === "monthly"
                         ? "Monthly"
                         : "Yearly"}
@@ -74,11 +87,15 @@ export function Billing() {
                     {active && (
                       <p className="text-sm text-muted-foreground">
                         {subscription.cancelAtPeriodEnd
-                          ? "Access ends"
-                          : "Renews"}{" "}
-                        {new Intl.DateTimeFormat("en", {
-                          dateStyle: "medium",
-                        }).format(new Date(subscription.currentPeriodEnd))}
+                          ? `Access ends ${date(subscription.currentPeriodEnd)}`
+                          : trialEndsAt
+                            ? `First payment of ${price(
+                                PLANS[subscription.plan].prices[
+                                  subscription.currency
+                                ][subscription.interval],
+                                subscription.currency
+                              )} on ${date(trialEndsAt)}`
+                            : `Renews ${date(subscription.currentPeriodEnd)}`}
                       </p>
                     )}
                     <p className="text-sm text-muted-foreground">
@@ -89,7 +106,9 @@ export function Billing() {
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Pick your tools. No contact-based charges.
+                    {store.state.trialAvailable
+                      ? `Try any plan free for ${TRIAL_DAYS} days. No contact-based charges.`
+                      : "Pick your tools. No contact-based charges."}
                   </p>
                 )}
               </div>
@@ -157,6 +176,7 @@ export function Billing() {
             <PlanCards
               currency={store.state.currency}
               interval={store.interval}
+              trial={store.state.trialAvailable}
               action={(plan) => {
                 const current =
                   active &&
@@ -181,7 +201,11 @@ export function Billing() {
                   return (
                     <ConfirmButton
                       title={`Change to ${plan.name}?`}
-                      description={`Switch to ${store.interval === "monthly" ? "monthly" : "yearly"} billing. Any prorated amount is charged now. Your plan changes after payment is confirmed.`}
+                      description={
+                        trialEndsAt
+                          ? `Switch to ${store.interval === "monthly" ? "monthly" : "yearly"} billing. Your free trial continues, and ${plan.name} is first charged on ${date(trialEndsAt)}.`
+                          : `Switch to ${store.interval === "monthly" ? "monthly" : "yearly"} billing. Any prorated amount is charged now. Your plan changes after payment is confirmed.`
+                      }
                       confirmLabel="Change plan"
                       busy={store.busy || !configured}
                       onConfirm={() => store.choose(plan.id)}
@@ -200,10 +224,9 @@ export function Billing() {
                     disabled={!configured || store.busy || Boolean(recover)}
                     onClick={() => void store.choose(plan.id)}
                   >
-                    {plan.id === store.selectedPlan
-                      ? "Continue with"
-                      : "Choose"}{" "}
-                    {plan.name}
+                    {store.state!.trialAvailable
+                      ? `Try ${plan.name} free`
+                      : `${plan.id === store.selectedPlan ? "Continue with" : "Choose"} ${plan.name}`}
                   </Button>
                 )
               }}
