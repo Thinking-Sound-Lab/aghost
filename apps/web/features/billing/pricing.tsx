@@ -3,11 +3,14 @@
 import { useState } from "react"
 import Link from "next/link"
 import { billingPath, type BillingInterval } from "@workspace/api/contract"
+import { cn } from "@workspace/ui/lib/utils"
+import { planCardsStyle } from "@/features/marketing/plans"
 import {
   MarketingCta,
   MarketingPage,
   PageIntro,
-  primaryButton,
+  accentButton,
+  outlineButton,
 } from "@/features/marketing/shell"
 import { BillingIntervalToggle, PlanCards, PricingTerms } from "./plan-cards"
 
@@ -24,16 +27,19 @@ export function Pricing() {
         <BillingIntervalToggle
           value={interval}
           onChange={setInterval}
-          className="justify-self-start"
+          className="justify-self-start rounded-full bg-white p-1 [&>button]:rounded-full"
         />
         <PlanCards
           currency="USD"
           interval={interval}
-          className="gap-0 border-t border-l border-ink/10 [&>section]:rounded-none [&>section]:border-0 [&>section]:border-r [&>section]:border-b [&>section]:border-ink/10 [&>section]:bg-white/50 [&>section]:p-8"
+          className={planCardsStyle}
           action={(plan) => (
             <Link
               href={billingPath({ plan: plan.id, interval })}
-              className={`${primaryButton} w-full`}
+              className={cn(
+                plan.id === "growth" ? accentButton : outlineButton,
+                "w-full"
+              )}
             >
               Choose {plan.name}
             </Link>

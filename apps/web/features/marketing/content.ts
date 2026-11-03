@@ -28,26 +28,6 @@ const schedulingFeature = {
   text: "Posts, reels, carousels and stories, with Trial Reels and DM automations ready before they publish.",
 }
 
-/** Who signs up, and what each of them gets out of it. */
-export const audiences = [
-  {
-    title: "Creators",
-    text: "Post one reel everywhere. Send your link to everyone who comments.",
-  },
-  {
-    title: "Brands and shops",
-    text: "One launch calendar for every channel. Product links in every DM.",
-  },
-  {
-    title: "Agencies",
-    text: "Up to 10 social sets, one per client, with analytics for each.",
-  },
-  {
-    title: "Developers",
-    text: "One API key for MCP and REST: schedule, automate, read analytics.",
-  },
-]
-
 const planPrices = PLAN_IDS.map((id) => {
   const plan = PLANS[id]
   return `${plan.name} ${price(plan.prices.USD.monthly, "USD")}/month for ${socialSetCount(plan.socialSets)}`

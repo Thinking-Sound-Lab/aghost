@@ -1,10 +1,10 @@
 /* What Tailwind utilities can't say on their own: the page canvas, the
-   paintings, the animations, and long-form text. Everything else is in the
+   paintings and sky, the animations, and long-form text. Everything else is in the
    components. */
 
 /* The public site stays light, whatever the dashboard theme is. */
 html:has(.marketing) {
-  background: var(--color-canvas);
+  background: var(--color-frame);
   color-scheme: light;
 }
 
@@ -36,8 +36,14 @@ html:has(.marketing) {
   --sidebar-accent-foreground: var(--color-ink);
   --sidebar-border: rgb(22 37 43 / 0.12);
   --sidebar-ring: var(--color-ink);
-  --radius: 0.125rem;
+  --radius: 0.625rem;
   color-scheme: light;
+}
+
+/* Headlines take Instrument Sans. The sample dashboard keeps the app's Inter,
+   so it looks the way the product does. */
+.marketing :is(h1, h2, h3):not(.app-light *) {
+  font-family: var(--font-instrument-sans), var(--font-sans), sans-serif;
 }
 
 /* Loops a column that holds its items twice, used on the sign-in page. */
@@ -206,112 +212,271 @@ html:has(.marketing) {
     );
 }
 
-/* The hero's product steps take turns: 3 seconds each, five in a loop. The
-   delays are negative so every step starts mid-loop, already in its place. */
-@keyframes hero-step {
+/* The hero's painted evening: lavender sky, peach horizon, soft cloud, then
+   the canvas the product window sits on. */
+.sky {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      16% 11% at 82% 9%,
+      rgb(255 248 228 / 0.95),
+      rgb(255 236 206 / 0.5) 45%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      #a89cd8 0%,
+      #b9abdf 12%,
+      #d2b9de 24%,
+      #eac4cd 34%,
+      #f6d0ba 42%,
+      #f8e0cf 50%,
+      #f3ebef 60%,
+      var(--color-canvas) 74%
+    );
+}
+
+/* Cloud: piled soft shapes, blurred so they read as paint, not geometry. */
+.sky::before {
+  content: "";
+  position: absolute;
+  inset: -4% -4% 40%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(13% 6% at 10% 17%, rgb(255 255 255 / 0.8), transparent 70%),
+    radial-gradient(9% 5% at 18% 21%, rgb(255 255 255 / 0.7), transparent 70%),
+    radial-gradient(16% 7% at 6% 30%, rgb(255 246 244 / 0.65), transparent 70%),
+    radial-gradient(14% 6% at 72% 22%, rgb(255 255 255 / 0.6), transparent 70%),
+    radial-gradient(18% 8% at 92% 30%, rgb(255 240 236 / 0.7), transparent 70%),
+    radial-gradient(11% 5% at 84% 38%, rgb(255 255 255 / 0.6), transparent 70%),
+    radial-gradient(22% 7% at 24% 52%, rgb(255 232 220 / 0.6), transparent 70%),
+    radial-gradient(
+      26% 8% at 70% 56%,
+      rgb(255 236 226 / 0.55),
+      transparent 70%
+    ),
+    radial-gradient(30% 9% at 50% 70%, rgb(255 244 238 / 0.6), transparent 70%);
+  filter: blur(16px);
+}
+
+/* A fine grain over the paint. */
+.sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+}
+
+/* Ghosts drift up and down, each on its own beat. */
+@keyframes ghost-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--tilt, 0deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(calc(var(--tilt, 0deg) * -1));
+  }
+}
+
+.ghost-float {
+  animation: ghost-float 6s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Each section's colour: its badge, highlights, active tab and icons. */
+.tone-blue {
+  --tone-ink: #1d4ed8;
+  --tone-from: #3b82f6;
+  --tone-to: #1d4ed8;
+  --tone-soft: #eef4ff;
+  --tone-ring: rgb(59 130 246 / 0.22);
+  --tone-glow: rgb(59 130 246 / 0.6);
+}
+
+.tone-violet {
+  --tone-ink: #6d28d9;
+  --tone-from: #a78bfa;
+  --tone-to: #7c3aed;
+  --tone-soft: #f4f0ff;
+  --tone-ring: rgb(139 92 246 / 0.22);
+  --tone-glow: rgb(139 92 246 / 0.6);
+}
+
+.tone-orange {
+  --tone-ink: #c2410c;
+  --tone-from: #fb923c;
+  --tone-to: #ea580c;
+  --tone-soft: #fff4ea;
+  --tone-ring: rgb(249 115 22 / 0.24);
+  --tone-glow: rgb(249 115 22 / 0.6);
+}
+
+.tone-green {
+  --tone-ink: #047857;
+  --tone-from: #34d399;
+  --tone-to: #059669;
+  --tone-soft: #ecfbf3;
+  --tone-ring: rgb(16 185 129 / 0.24);
+  --tone-glow: rgb(16 185 129 / 0.6);
+}
+
+.tone-cyan {
+  --tone-ink: #0e7490;
+  --tone-from: #22d3ee;
+  --tone-to: #0891b2;
+  --tone-soft: #e9fafd;
+  --tone-ring: rgb(6 182 212 / 0.24);
+  --tone-glow: rgb(6 182 212 / 0.6);
+}
+
+.tone-slate {
+  --tone-ink: #334155;
+  --tone-from: #64748b;
+  --tone-to: #334155;
+  --tone-soft: #eff2f6;
+  --tone-ring: rgb(100 116 139 / 0.22);
+  --tone-glow: rgb(100 116 139 / 0.55);
+}
+
+/* A section's three scenes take turns, 5 seconds each. The delays are
+   negative so each starts mid-loop, already in its place. Picking a tab
+   stops the loop on that scene. */
+@keyframes cycle-scene {
   0% {
     opacity: 0;
     transform: translateY(10px);
   }
   3%,
-  17% {
+  30% {
     opacity: 1;
     transform: none;
   }
-  20%,
+  33.33%,
   100% {
     opacity: 0;
     transform: translateY(-10px);
   }
 }
 
-@keyframes hero-tab {
+@keyframes cycle-tab {
   0%,
-  19.9% {
-    color: var(--color-ink);
-    background: rgb(255 255 255 / 0.92);
+  33.2% {
+    color: var(--tone-ink);
+    background: var(--tone-soft);
   }
-  20%,
+  33.33%,
   100% {
-    color: rgb(255 255 255 / 0.8);
+    color: rgb(18 20 22 / 0.62);
     background: transparent;
   }
 }
 
-@keyframes hero-progress {
-  0% {
-    transform: scaleX(0);
+@keyframes cycle-caption {
+  0%,
+  33.2% {
+    opacity: 1;
+    visibility: visible;
   }
-  19.9% {
-    transform: scaleX(1);
-  }
-  20%,
+  33.33%,
   100% {
-    transform: scaleX(0);
+    opacity: 0;
+    visibility: hidden;
   }
 }
 
-.hero-step {
+.cycle-scene,
+.cycle-tab,
+.cycle-caption {
+  animation-duration: 15s;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--i) * 5s - 15s);
+}
+
+.cycle-scene {
   opacity: 0;
-  animation: hero-step 15s infinite both;
-  animation-delay: calc(var(--step) * 3s - 15s);
+  animation-name: cycle-scene;
 }
 
-.hero-tab {
-  animation: hero-tab 15s infinite both;
-  animation-delay: calc(var(--step) * 3s - 15s);
+.cycle-tab {
+  color: rgb(18 20 22 / 0.62);
+  animation-name: cycle-tab;
 }
 
-.hero-tab::after {
-  content: "";
-  position: absolute;
-  inset: auto 0.75rem 0.4rem;
-  height: 2px;
-  background: var(--color-ink);
-  transform-origin: left;
-  transform: scaleX(0);
-  animation: hero-progress 15s infinite both;
-  animation-delay: calc(var(--step) * 3s - 15s);
+.cycle-caption {
+  opacity: 0;
+  visibility: hidden;
+  animation-name: cycle-caption;
 }
 
-.hero-cycle:hover .hero-step,
-.hero-cycle:hover .hero-tab,
-.hero-cycle:hover .hero-tab::after {
+.cycle:hover :is(.cycle-scene, .cycle-tab, .cycle-caption) {
   animation-play-state: paused;
 }
 
-/* Lines that ink in as they scroll into view. */
-@supports (animation-timeline: view()) {
-  @keyframes ink-in {
+.cycle:has(.cycle-input:checked) :is(.cycle-scene, .cycle-tab, .cycle-caption) {
+  animation: none;
+}
+
+.cycle:has([data-pick="0"]:checked) [data-show="0"],
+.cycle:has([data-pick="1"]:checked) [data-show="1"],
+.cycle:has([data-pick="2"]:checked) [data-show="2"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cycle:has([data-pick="0"]:checked) .cycle-tab[data-show="0"],
+.cycle:has([data-pick="1"]:checked) .cycle-tab[data-show="1"],
+.cycle:has([data-pick="2"]:checked) .cycle-tab[data-show="2"] {
+  color: var(--tone-ink);
+  background: var(--tone-soft);
+}
+
+/* At the top of the page the header lies flat; as you scroll it lifts into
+   a floating bar. Browsers without scroll timelines show the bar. */
+@supports (animation-timeline: scroll()) {
+  @keyframes header-lift {
     from {
-      color: transparent;
-      -webkit-text-stroke-color: rgb(255 255 255 / 0.55);
-    }
-    to {
-      color: #fff;
-      -webkit-text-stroke-color: transparent;
+      max-width: 100%;
+      margin-top: 0;
+      background-color: transparent;
+      box-shadow:
+        0 0 0 1px transparent,
+        0 12px 32px -18px transparent;
+      backdrop-filter: none;
     }
   }
 
-  .ink-in {
-    -webkit-text-stroke: 1px transparent;
-    animation: ink-in linear both;
-    animation-timeline: view();
-    animation-range: entry 30% cover 45%;
+  .header-bar {
+    animation: header-lift linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 120px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .marketing-scroll,
-  .hero-step,
-  .hero-tab,
-  .hero-tab::after,
-  .ink-in {
+  .ghost-float,
+  .cycle-scene,
+  .cycle-tab,
+  .cycle-caption {
     animation: none;
   }
 
-  .hero-step:first-child {
+  .cycle:not(:has(.cycle-input:checked)) [data-show="0"] {
     opacity: 1;
+    visibility: visible;
+  }
+
+  .cycle:not(:has(.cycle-input:checked)) .cycle-tab[data-show="0"] {
+    color: var(--tone-ink);
+    background: var(--tone-soft);
   }
 }
 

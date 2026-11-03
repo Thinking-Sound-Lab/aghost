@@ -42,7 +42,7 @@ export default function Page() {
           className="grid content-start gap-5 p-8 text-white sm:p-10"
         >
           <Mail aria-hidden="true" className="size-9" />
-          <h2 className="text-4xl font-medium tracking-[-0.045em]">
+          <h2 className="text-4xl font-normal tracking-[-0.03em]">
             Drop us a note
           </h2>
           <a
@@ -85,7 +85,7 @@ export default function Page() {
         </div>
       </section>
       <section className={`${section} text-center`}>
-        <h2 className="text-4xl font-medium tracking-[-0.045em] sm:text-5xl">
+        <h2 className="text-4xl font-normal tracking-[-0.03em] sm:text-5xl">
           A few answers are already here
         </h2>
         <p className="mt-4 text-lg text-ink/65">

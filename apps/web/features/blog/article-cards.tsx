@@ -111,7 +111,7 @@ export function Byline({
 }
 
 const cardLink =
-  "group overflow-hidden border border-ink/10 bg-white/55 transition-colors outline-none hover:border-ink/35 focus-visible:ring-2 focus-visible:ring-ink"
+  "group overflow-hidden rounded-[24px] bg-white p-2 shadow-[0_0_0_1px_rgb(18_20_22/0.06),0_1px_2px_rgb(18_20_22/0.03),0_30px_60px_-40px_rgb(17_24_39/0.25)] transition-shadow outline-none hover:shadow-[0_0_0_1px_rgb(18_20_22/0.14),0_30px_60px_-40px_rgb(17_24_39/0.35)] focus-visible:ring-2 focus-visible:ring-ink"
 
 /** Posts as a grid of cards: cover, title, byline, and summary. */
 export function ArticleGrid({
@@ -159,7 +159,7 @@ export function FeaturedArticle({ article }: { article: Article }) {
           <span aria-hidden="true" className="size-1.5 bg-current" />
           Featured post
         </p>
-        <h2 className="line-clamp-3 text-3xl leading-tight font-medium tracking-[-0.035em]">
+        <h2 className="line-clamp-3 text-3xl leading-tight font-normal tracking-[-0.03em]">
           {article.title}
         </h2>
         <p className="line-clamp-3 text-ink/65">{article.description}</p>

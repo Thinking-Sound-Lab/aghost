@@ -48,7 +48,7 @@ export default function Page() {
           className={`${card} grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-center`}
         >
           <div className="grid gap-4">
-            <h2 className="text-3xl font-medium tracking-[-0.04em] sm:text-4xl">
+            <h2 className="text-3xl font-normal tracking-[-0.03em] sm:text-4xl">
               Before you connect
             </h2>
             <p className="max-w-3xl text-lg text-ink/65">

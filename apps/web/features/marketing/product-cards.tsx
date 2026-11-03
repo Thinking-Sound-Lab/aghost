@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Check, Heart, MessageCircle, Repeat2 } from "lucide-react"
+import { Heart, MessageCircle, Repeat2 } from "lucide-react"
 import { PLATFORM_RULES, type Platform } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Monogram } from "@/components/brand"
@@ -27,7 +27,7 @@ function Panel({
   return (
     <div
       className={cn(
-        "border border-ink/10 bg-white p-5 text-ink shadow-[0_18px_40px_-24px_rgb(22_37_43/0.45)]",
+        "rounded-[16px] bg-white p-5 text-ink shadow-[0_0_0_1px_rgb(18_20_22/0.06),0_24px_48px_-28px_rgb(17_24_39/0.45)]",
         className
       )}
     >
@@ -76,7 +76,7 @@ export function ComposerCard({ className }: { className?: string }) {
           {PLATFORM_ORDER.map((platform) => (
             <span
               key={platform}
-              className="grid size-7 place-items-center bg-sage text-ink"
+              className="grid size-7 place-items-center rounded-[8px] bg-sage text-ink"
             >
               <PlatformIcon platform={platform} size={13} />
             </span>
@@ -150,7 +150,7 @@ export function ScheduleCard({ className }: { className?: string }) {
   return (
     <Panel className={className}>
       <div className="flex items-center gap-4">
-        <span className="grid w-12 overflow-hidden border border-ink/10 text-center">
+        <span className="grid w-12 overflow-hidden rounded-[10px] border border-ink/10 text-center">
           <span className="bg-sage py-0.5 text-[9px] font-semibold tracking-wider text-ink/60 uppercase">
             Oct
           </span>
@@ -172,33 +172,6 @@ export function ScheduleCard({ className }: { className?: string }) {
           </li>
         ))}
       </ul>
-    </Panel>
-  )
-}
-
-/** Someone comments the keyword, and the link arrives in their DMs. */
-export function ReplyCard({ className }: { className?: string }) {
-  return (
-    <Panel className={cn("grid gap-3", className)}>
-      <Label>Instagram · comment to DM</Label>
-      <div className="flex items-start gap-2.5">
-        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#f2c6b4] text-[11px] font-semibold">
-          M
-        </span>
-        <p className="text-sm">
-          <b className="font-semibold">maya.lee</b> LOOK 🙌
-        </p>
-      </div>
-      <div className="ml-9 grid w-fit max-w-[16rem] gap-2 rounded-2xl rounded-tl-sm bg-sage px-3.5 py-3 text-sm">
-        Hi Maya! Here’s the spring lookbook ✨
-        <span className="rounded-lg bg-white py-1.5 text-center text-[13px] font-medium">
-          Open the lookbook
-        </span>
-      </div>
-      <p className="flex items-center gap-1.5 text-xs text-ink/55">
-        <Check className="size-3.5" />
-        Sent in 2 seconds · public reply posted
-      </p>
     </Panel>
   )
 }
@@ -244,36 +217,11 @@ export function ResultsCard({ className }: { className?: string }) {
                 {row.value}
               </b>
             </div>
-            <span className="h-1.5 bg-sage">
+            <span className="h-1.5 overflow-hidden rounded-full bg-sage">
               <span
-                className="block h-full bg-ink"
+                className="block h-full rounded-full bg-ink"
                 style={{ width: `${row.share}%` }}
               />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  )
-}
-
-/** Accounts on each platform, connected through its own login. */
-export function ChannelsCard({ className }: { className?: string }) {
-  return (
-    <Panel className={className}>
-      <Label>Social set · 6 channels</Label>
-      <ul className="mt-4 grid gap-3">
-        {PLATFORM_ORDER.map((platform) => (
-          <li key={platform} className="flex items-center gap-3 text-sm">
-            <span className="grid size-8 place-items-center bg-sage">
-              <PlatformIcon platform={platform} size={15} />
-            </span>
-            <span className="min-w-0 flex-1">
-              {PLATFORM_RULES[platform].name}
-            </span>
-            <span className="flex items-center gap-1 text-xs text-ink/55">
-              <Check className="size-3.5" />
-              Connected
             </span>
           </li>
         ))}

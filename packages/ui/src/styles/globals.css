@@ -48,6 +48,9 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-sans: var(--font-sans);
+  /* Loaded by the public site only, for its headlines, subtitles and accents. */
+  --font-display: var(--font-instrument-sans), var(--font-sans);
+  --font-serif: var(--font-source-serif), Georgia, serif;
 }
 
 /* The brand palette. The mascot's green leads; its orbs are the accents. */
@@ -59,12 +62,14 @@
   --color-brand-red: #ff3b18;
   --color-brand-gray: #687280;
   --color-brand-offwhite: #f6f7f8;
-  /* The public site's editorial palette: slate ink on a warm canvas. */
-  --color-canvas: #f7f7f4;
-  --color-ink: #16252b;
-  --color-sage: #e6eeec;
-  --color-mist: #c3d9ec;
-  --color-pine: #13282f;
+  /* The public site's palette: near-black ink on a cool, pale canvas. */
+  --color-canvas: #f6f7f9;
+  /* Around the canvas sheet, and under the footer. */
+  --color-frame: #eceef1;
+  --color-ink: #121416;
+  --color-sage: #eef1f4;
+  --color-mist: #dde5ee;
+  --color-pine: #16181b;
 }
 
 :root,

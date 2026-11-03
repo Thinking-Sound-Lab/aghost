@@ -121,7 +121,7 @@ export default function Page() {
           {connectionSteps.map((step, index) => (
             <li key={step.title} className={`${card} grid content-start gap-4`}>
               <Pill>Step {index + 1}</Pill>
-              <h3 className="text-2xl font-medium tracking-[-0.035em]">
+              <h3 className="text-2xl font-normal tracking-[-0.03em]">
                 {step.title}
               </h3>
               <p className="text-ink/65">{step.text}</p>
@@ -146,7 +146,7 @@ export default function Page() {
                 className="grid content-start gap-4"
               >
                 <Terminal aria-hidden="true" className="size-8" />
-                <h3 className="text-3xl font-medium tracking-[-0.04em]">
+                <h3 className="text-3xl font-normal tracking-[-0.03em]">
                   {agent}
                 </h3>
                 <p className="opacity-85">
@@ -177,7 +177,7 @@ export default function Page() {
               key={example.title}
               className={`${card} grid content-start gap-5`}
             >
-              <h3 className="text-2xl font-medium tracking-[-0.035em]">
+              <h3 className="text-2xl font-normal tracking-[-0.03em]">
                 {example.title}
               </h3>
               <blockquote className="border-l-2 border-ink pl-4 text-ink/80">
@@ -231,7 +231,7 @@ export default function Page() {
             <Code2 aria-hidden="true" className="size-10" />
             <h2
               id="rest-heading"
-              className="text-4xl font-medium tracking-[-0.045em] sm:text-5xl"
+              className="text-4xl font-normal tracking-[-0.03em] sm:text-5xl"
             >
               There’s an API, too
             </h2>
