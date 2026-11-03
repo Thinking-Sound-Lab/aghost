@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import type { FollowUp, OpeningDm, ProductCard } from "@workspace/api/contract"
+import { confirmLabelOf } from "@/lib/automation-draft"
 
 // A stand-in commenter, so personalised messages read naturally.
 const SAMPLE = { first_name: "Alex", name: "Alex Rivera", username: "alex" }
@@ -45,6 +46,7 @@ export function InstagramPreview({
   keyword,
   commentReply,
   openingDm,
+  notFollowingMessage = null,
   dmMessage,
   buttons,
   productCarousel = null,
@@ -56,6 +58,7 @@ export function InstagramPreview({
   keyword: string | null
   commentReply: string | null
   openingDm: OpeningDm | null
+  notFollowingMessage?: string | null
   dmMessage: string
   buttons: string[]
   productCarousel?: ProductCard[] | null
@@ -85,6 +88,7 @@ export function InstagramPreview({
           <DmScreen
             account={account}
             openingDm={openingDm}
+            notFollowingMessage={notFollowingMessage}
             dmMessage={dmMessage}
             buttons={buttons}
             productCarousel={productCarousel}
@@ -218,6 +222,7 @@ function Media({ post }: { post: Post }) {
 function DmScreen({
   account,
   openingDm,
+  notFollowingMessage,
   dmMessage,
   buttons,
   productCarousel,
@@ -225,6 +230,7 @@ function DmScreen({
 }: {
   account: Account
   openingDm: OpeningDm | null
+  notFollowingMessage: string | null
   dmMessage: string
   buttons: string[]
   productCarousel: ProductCard[] | null
@@ -248,9 +254,18 @@ function DmScreen({
             <Received account={account} text={openingDm.message}>
               {[openingDm.buttonLabel]}
             </Received>
-            <p className="ml-auto max-w-[75%] rounded-[18px] bg-linear-to-br from-[#a033ff] to-[#5b5bf8] px-3 py-2 text-[13px]">
-              {openingDm.buttonLabel || "…"}
+            <Tap label={confirmLabelOf(openingDm)} />
+          </>
+        )}
+        {notFollowingMessage !== null && (
+          <>
+            <p className="pt-3 text-center text-[10px] text-white/50">
+              If they don’t follow you yet
             </p>
+            <Received account={account} text={notFollowingMessage}>
+              {[confirmLabelOf(openingDm)]}
+            </Received>
+            <Tap label={confirmLabelOf(openingDm)} />
           </>
         )}
         {productCarousel ? (
@@ -343,6 +358,15 @@ function ProductImage({ card }: { card: ProductCard }) {
         <ImageIcon className="size-7 text-white/30" aria-hidden="true" />
       )}
     </div>
+  )
+}
+
+/** The commenter tapping a button, shown as the message it sends. */
+function Tap({ label }: { label: string }) {
+  return (
+    <p className="ml-auto max-w-[75%] rounded-[18px] bg-linear-to-br from-[#a033ff] to-[#5b5bf8] px-3 py-2 text-[13px]">
+      {label}
+    </p>
   )
 }
 

@@ -1,4 +1,16 @@
-import type { CreateAutomationInput } from "@workspace/api/contract"
+import type { CreateAutomationInput, OpeningDm } from "@workspace/api/contract"
+
+/** Sent to commenters who don't follow yet, with the follow-confirmation button. */
+export const DEFAULT_NOT_FOLLOWING_MESSAGE =
+  "Follow me first, then tap the button below and I'll send you the link."
+
+/**
+ * The button that confirms a follow: the opening DM's, or the sender's default
+ * when there is none.
+ */
+export function confirmLabelOf(openingDm: OpeningDm | null): string {
+  return openingDm ? openingDm.buttonLabel || "…" : "I'm following"
+}
 
 /** Both formats keep their unsaved content; only the selected one is sent. */
 export type AutomationDraft = CreateAutomationInput & {

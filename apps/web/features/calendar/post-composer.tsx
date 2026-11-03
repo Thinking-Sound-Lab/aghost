@@ -796,6 +796,9 @@ export function PostComposer({
                 keyword={keywordsOf(composer.keywords)[0] ?? null}
                 commentReply={composer.response.commentReply}
                 openingDm={composer.response.openingDm}
+                notFollowingMessage={
+                  composer.response.notFollowingMessage ?? null
+                }
                 dmMessage={composer.response.dmMessage}
                 buttons={composer.response.dmButtons.map(
                   (button) => button.label

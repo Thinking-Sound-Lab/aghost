@@ -23,6 +23,7 @@ export type AutomationRecord = {
   dmButtons: DmButton[]
   commentReply: string | null
   requireFollow: boolean
+  notFollowingMessage: string | null
   productCarousel: ProductCard[] | null
   followUp: FollowUp | null
   createdAt: string
@@ -41,6 +42,7 @@ export type AutomationConfig = Pick<
   | "dmButtons"
   | "commentReply"
   | "requireFollow"
+  | "notFollowingMessage"
   | "productCarousel"
   | "followUp"
 >

@@ -13,6 +13,8 @@ export const AUTOMATION_LIMITS = {
   commentReplyMaxLength: 300,
   // The opening DM is sent with its button as a button template.
   openingDmMaxLength: 640,
+  // Longer not-following messages would go out without their button.
+  notFollowingMessageMaxLength: 640,
   maxCarouselCards: 10,
   carouselTextMaxLength: 80,
   followUpMinDelayMinutes: 30,
@@ -194,6 +196,19 @@ const automationResponseShape = {
     )
     .nullable(),
   requireFollow: z.boolean(),
+  // Sent with the follow-confirmation button to commenters known not to follow,
+  // which needs requireFollow. Null leaves them without a reply. Omitted by
+  // older clients; updates preserve the stored value while requireFollow stays.
+  notFollowingMessage: z
+    .string()
+    .trim()
+    .min(1, "Write the message for people who don't follow you")
+    .max(
+      AUTOMATION_LIMITS.notFollowingMessageMaxLength,
+      atMost(AUTOMATION_LIMITS.notFollowingMessageMaxLength)
+    )
+    .nullable()
+    .optional(),
   // Omitted by older clients. Updates preserve the stored values; null clears.
   productCarousel: productCarouselSchema.nullable().optional(),
   followUp: followUpSchema.nullable().optional(),
@@ -235,22 +250,43 @@ function checkMessageFitsButtons(
   }
 }
 
+type FollowRule = {
+  requireFollow: boolean
+  notFollowingMessage?: string | null
+}
+
+function checkNotFollowingNeedsFollowRule(
+  ctx: z.core.ParsePayload<FollowRule>
+): void {
+  const { requireFollow, notFollowingMessage } = ctx.value
+
+  if (!requireFollow && notFollowingMessage) {
+    ctx.issues.push({
+      code: "custom",
+      input: notFollowingMessage,
+      path: ["notFollowingMessage"],
+      message:
+        "Only an automation for followers can message people who don't follow you.",
+    })
+  }
+}
+
 export const createAutomationSchema = z
   .object({
     ...automationConfigShape,
     instagramAccountId: z.uuid("Choose an Instagram account"),
     status: z.enum(AUTOMATION_STATUSES),
   })
-  .check(checkMessageFitsButtons)
+  .check(checkMessageFitsButtons, checkNotFollowingNeedsFollowRule)
 
 export const updateAutomationSchema = z
   .object({ ...automationConfigShape, status: z.enum(AUTOMATION_STATUSES) })
-  .check(checkMessageFitsButtons)
+  .check(checkMessageFitsButtons, checkNotFollowingNeedsFollowRule)
 
 /** An automation created together with the scheduled post it answers on. */
 export const postAutomationSchema = z
   .object({ ...automationResponseShape, status: z.enum(AUTOMATION_STATUSES) })
-  .check(checkMessageFitsButtons)
+  .check(checkMessageFitsButtons, checkNotFollowingNeedsFollowRule)
 
 export const setAutomationStatusSchema = z.object({
   status: z.enum(AUTOMATION_STATUSES),
@@ -302,6 +338,7 @@ export type Automation = {
   dmButtons: DmButton[]
   commentReply: string | null
   requireFollow: boolean
+  notFollowingMessage: string | null
   productCarousel: ProductCard[] | null
   followUp: FollowUp | null
   createdAt: string

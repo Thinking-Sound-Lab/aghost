@@ -125,6 +125,7 @@ function emptyResponse(): ResponseDraft {
     dmButtons: [{ label: "", url: "" }],
     commentReply: null,
     requireFollow: false,
+    notFollowingMessage: null,
     productCarousel: null,
     dmFormat: "text",
     followUp: null,

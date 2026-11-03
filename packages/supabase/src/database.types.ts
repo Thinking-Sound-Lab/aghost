@@ -70,6 +70,7 @@ export type Database = {
           keywords: string[]
           match_mode: string
           name: string
+          not_following_message: string | null
           opening_dm_button: string | null
           opening_dm_message: string | null
           platform_post_id: string | null
@@ -97,6 +98,7 @@ export type Database = {
           keywords?: string[]
           match_mode: string
           name: string
+          not_following_message?: string | null
           opening_dm_button?: string | null
           opening_dm_message?: string | null
           platform_post_id?: string | null
@@ -123,6 +125,7 @@ export type Database = {
           keywords?: string[]
           match_mode?: string
           name?: string
+          not_following_message?: string | null
           opening_dm_button?: string | null
           opening_dm_message?: string | null
           platform_post_id?: string | null

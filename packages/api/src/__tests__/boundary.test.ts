@@ -60,6 +60,35 @@ describe("automation input boundary", () => {
     }
   })
 
+  it("keeps the not-following message to followers-only automations that fit a button template", () => {
+    const followers = { ...input, requireFollow: true }
+    expect(
+      createAutomationSchema.parse({
+        ...followers,
+        notFollowingMessage: " Follow me first ",
+      }).notFollowingMessage
+    ).toBe("Follow me first")
+    expect(
+      createAutomationSchema.parse(followers).notFollowingMessage
+    ).toBeUndefined()
+    expect(
+      createAutomationSchema.parse({ ...input, notFollowingMessage: null })
+        .notFollowingMessage
+    ).toBeNull()
+    for (const notFollowingMessage of ["a".repeat(641), " "]) {
+      expect(
+        createAutomationSchema.safeParse({ ...followers, notFollowingMessage })
+          .success
+      ).toBe(false)
+    }
+    expect(
+      createAutomationSchema.safeParse({
+        ...input,
+        notFollowingMessage: "Follow me first",
+      }).error?.issues
+    ).toMatchObject([{ path: ["notFollowingMessage"] }])
+  })
+
   it.each([
     "javascript:alert(1)",
     "http://example.com",

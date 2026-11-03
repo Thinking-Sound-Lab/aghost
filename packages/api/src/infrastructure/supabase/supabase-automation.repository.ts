@@ -41,6 +41,7 @@ type AutomationConfigColumns = Pick<
   | "dm_buttons"
   | "comment_reply"
   | "require_follow"
+  | "not_following_message"
   | "product_carousel"
   | "follow_up"
 >
@@ -125,6 +126,7 @@ function toRecord(row: AutomationRow): AutomationRecord {
     dmButtons: dmButtonsSchema.parse(row.dm_buttons),
     commentReply: row.comment_reply,
     requireFollow: row.require_follow,
+    notFollowingMessage: row.not_following_message,
     productCarousel: row.product_carousel
       ? productCarouselSchema.parse(row.product_carousel)
       : null,
@@ -156,6 +158,7 @@ function toConfigColumns(config: AutomationConfig): AutomationConfigColumns {
     dm_buttons: config.dmButtons,
     comment_reply: config.commentReply,
     require_follow: config.requireFollow,
+    not_following_message: config.notFollowingMessage,
     product_carousel: config.productCarousel,
     follow_up: config.followUp,
   }

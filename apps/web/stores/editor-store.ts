@@ -11,7 +11,11 @@ import {
 import { ApiClientError } from "@workspace/api/client"
 import { keywordsOf } from "@/features/automations/automation-fields"
 import { api } from "@/lib/api"
-import { responseForSave, type AutomationDraft } from "@/lib/automation-draft"
+import {
+  DEFAULT_NOT_FOLLOWING_MESSAGE,
+  responseForSave,
+  type AutomationDraft,
+} from "@/lib/automation-draft"
 import { accountsIn, currentSet } from "./social-set-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
@@ -65,6 +69,7 @@ function emptyDraft(): AutomationDraft {
     dmButtons: [{ label: "", url: "" }],
     commentReply: null,
     requireFollow: false,
+    notFollowingMessage: null,
     productCarousel: null,
     dmFormat: "text",
     followUp: null,
@@ -124,6 +129,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         if (get().revision !== revision) return
         const draft: AutomationDraft = {
           ...item,
+          // A followers-only automation saved before non-followers could be
+          // asked to follow offers the message, which is sent once saved.
+          notFollowingMessage: item.requireFollow
+            ? (item.notFollowingMessage ?? DEFAULT_NOT_FOLLOWING_MESSAGE)
+            : null,
           productCarousel: item.productCarousel ?? null,
           dmFormat: item.productCarousel ? "carousel" : "text",
           followUp: item.followUp ?? null,
