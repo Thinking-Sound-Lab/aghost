@@ -193,8 +193,9 @@ export async function loadCatalog(client: DodoClient): Promise<DodoCatalog> {
 }
 
 /**
- * Creates or corrects the product for every plan and interval. A price change
- * applies to new subscriptions; Dodo keeps existing ones at their price.
+ * Creates or corrects the product for every plan and interval, including the
+ * name and description Dodo shows at checkout. A price change applies to new
+ * subscriptions; Dodo keeps existing ones at their price.
  */
 export async function syncCatalog(
   client: DodoClient,
@@ -224,7 +225,11 @@ export async function syncCatalog(
       log(`Created ${spec.name}: ${productId}`)
     } else {
       productId = existing.product_id
-      if (priceDifference(existing, entry)) {
+      if (
+        priceDifference(existing, entry) ||
+        existing.name !== spec.name ||
+        existing.description !== spec.description
+      ) {
         await request(`update ${spec.name}`, () =>
           client.products.update(productId, spec)
         )

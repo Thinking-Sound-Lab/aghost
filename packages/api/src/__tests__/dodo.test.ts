@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { BILLING_INTERVALS, PLAN_IDS } from "../contract/billing"
 import { DodoBillingProvider } from "../infrastructure/dodo/dodo-billing.provider"
-import { loadCatalog, syncCatalog } from "../infrastructure/dodo/dodo-catalog"
+import {
+  loadCatalog,
+  productSpec,
+  syncCatalog,
+} from "../infrastructure/dodo/dodo-catalog"
 import { dodoFixture } from "./dodo-fixture"
 
 describe("Dodo SDK billing integration", () => {
@@ -302,6 +306,19 @@ describe("Dodo SDK billing integration", () => {
     expect(
       fixture.requests.filter((request) => request.method !== "GET")
     ).toHaveLength(mutations)
+  })
+
+  it("updates a product whose description is out of date even when its price matches", async () => {
+    const fixture = dodoFixture()
+    fixture.products.get("pdt_business_monthly")!.description =
+      "5 Instagram accounts, with unlimited automations, DMs and contacts."
+    await syncCatalog(fixture.client, () => {})
+    expect(
+      fixture.requests.filter((request) => request.method === "PATCH")
+    ).toMatchObject([{ path: "/products/pdt_business_monthly" }])
+    expect(fixture.products.get("pdt_business_monthly")!.description).toBe(
+      productSpec("business", "monthly").description
+    )
   })
 
   it("archives any remaining localized rules on a base-only product", async () => {
