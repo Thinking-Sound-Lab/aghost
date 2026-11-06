@@ -11,7 +11,8 @@ import { price } from "@/features/billing/plan-cards"
 // llms.txt all read it, so what crawlers are told matches what visitors see.
 
 /** The platforms a post can go to, in the order the site names them. */
-const platformNames = "Instagram, Facebook, LinkedIn, X, Threads and YouTube"
+export const platformNames =
+  "Instagram, Facebook, LinkedIn, X, Threads and YouTube"
 
 export const productSummary = `aghost schedules posts to ${platformNames}, turns Instagram comments into DMs, and tracks every channel. Run it from the dashboard or an AI agent over MCP or REST.`
 

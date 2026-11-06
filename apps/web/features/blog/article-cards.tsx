@@ -21,7 +21,6 @@ const covers: Record<ArticleSlug, { lines: [string, string]; tone: Tone }> = {
     tone: "sky",
   },
   "instagram-auto-reply": { lines: ["Instagram", "auto reply"], tone: "gold" },
-  "aghost-vs-manychat": { lines: ["aghost", "vs ManyChat"], tone: "dusk" },
   "instagram-dm-limits": {
     lines: ["DM limits", "7 days · 24 h"],
     tone: "mist",
@@ -30,7 +29,6 @@ const covers: Record<ArticleSlug, { lines: [string, string]; tone: Tone }> = {
     lines: ["6 best", "DM tools"],
     tone: "sky",
   },
-  "aghost-vs-chatfuel": { lines: ["aghost", "vs Chatfuel"], tone: "dusk" },
 }
 
 /** Sized from its own width, so it reads the same as a card or a hero. */

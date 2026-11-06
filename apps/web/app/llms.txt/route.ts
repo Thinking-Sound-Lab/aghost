@@ -13,6 +13,7 @@ import {
   agentPlatformPath,
   agentPlatforms,
 } from "@/features/marketing/agent-platforms"
+import { comparisonPath, comparisons } from "@/features/marketing/comparisons"
 
 export const dynamic = "force-static"
 
@@ -61,7 +62,11 @@ ${faqs.map((faq) => `- ${faq.question} ${faq.answer}`).join("\n")}
 - [Setup skill](${site.url}/api/mcp/skill.md): How to connect Claude Code, Codex, Cursor, or another agent over MCP or REST
 ${agentPlatforms.map((page) => `- [${page.heading}](${new URL(agentPlatformPath(page), site.url).href}): ${page.description}`).join("\n")}
 
-## Guides and comparisons
+## Comparisons
+
+${comparisons.map((comparison) => `- [aghost vs ${comparison.name}](${new URL(comparisonPath(comparison), site.url).href}): ${comparison.summary}`).join("\n")}
+
+## Guides
 
 ${articles.map((article) => `- [${article.title}](${new URL(articlePath(article), site.url).href}): ${article.description}`).join("\n")}
 

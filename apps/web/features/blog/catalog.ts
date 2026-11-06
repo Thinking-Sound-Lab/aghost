@@ -19,7 +19,7 @@ const catalog = [
     category: "How to",
     publishedAt: "2026-10-17",
     updatedAt: "2026-10-17",
-    related: ["instagram-auto-reply", "aghost-vs-chatfuel"],
+    related: ["instagram-auto-reply", "best-instagram-dm-automation-tools"],
   },
   {
     slug: "instagram-auto-reply",
@@ -30,20 +30,6 @@ const catalog = [
     publishedAt: "2026-10-12",
     updatedAt: "2026-10-13",
     related: ["instagram-dm-limits", "best-instagram-dm-automation-tools"],
-  },
-  {
-    slug: "aghost-vs-manychat",
-    title: "aghost vs ManyChat: Instagram automation compared",
-    description:
-      "Compare aghost and ManyChat for Instagram comment-to-DM, scheduling, product cards, follow-ups, AI-agent access, and flat versus contact-based pricing.",
-    category: "Comparisons",
-    publishedAt: "2026-10-18",
-    updatedAt: "2026-10-18",
-    related: [
-      "instagram-auto-reply",
-      "best-instagram-dm-automation-tools",
-      "aghost-vs-chatfuel",
-    ],
   },
   {
     slug: "instagram-dm-limits",
@@ -63,21 +49,7 @@ const catalog = [
     category: "Comparisons",
     publishedAt: "2026-10-12",
     updatedAt: "2026-10-12",
-    related: ["aghost-vs-manychat", "instagram-dm-limits"],
-  },
-  {
-    slug: "aghost-vs-chatfuel",
-    title: "aghost vs Chatfuel: Instagram automation compared",
-    description:
-      "Compare aghost and Chatfuel for Instagram comment-to-DM, AI-agent access, customer conversations, pricing, and campaign setup.",
-    category: "Comparisons",
-    publishedAt: "2026-10-17",
-    updatedAt: "2026-10-17",
-    related: [
-      "aghost-vs-manychat",
-      "instagram-auto-reply",
-      "how-to-schedule-instagram-posts",
-    ],
+    related: ["instagram-auto-reply", "instagram-dm-limits"],
   },
 ] as const satisfies readonly ArticleMetadata[]
 

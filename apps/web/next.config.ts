@@ -30,21 +30,33 @@ const nextConfig: NextConfig = {
   devIndicators: { position: "bottom-right" },
   // PostHog's endpoints end with a slash, which a redirect would drop.
   skipTrailingSlashRedirect: true,
+  // Comparisons moved from the blog to /compare; every old address goes
+  // straight to its new page rather than through another redirect.
   async redirects() {
     return [
       {
+        source: "/blog/aghost-vs-manychat",
+        destination: "/compare/aghost-vs-manychat",
+        permanent: true,
+      },
+      {
+        source: "/blog/aghost-vs-chatfuel",
+        destination: "/compare/aghost-vs-chatfuel",
+        permanent: true,
+      },
+      {
         source: "/blog/manychat-alternatives",
-        destination: "/blog/aghost-vs-manychat",
+        destination: "/compare/aghost-vs-manychat",
         permanent: true,
       },
       {
         source: "/blog/manychat-pricing",
-        destination: "/blog/aghost-vs-manychat#pricing",
+        destination: "/compare/aghost-vs-manychat#pricing",
         permanent: true,
       },
       {
         source: "/blog/manychat-vs-chatfuel",
-        destination: "/blog/aghost-vs-chatfuel",
+        destination: "/compare/aghost-vs-chatfuel",
         permanent: true,
       },
     ]

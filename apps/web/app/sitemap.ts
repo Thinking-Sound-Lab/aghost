@@ -6,11 +6,16 @@ import {
   agentPlatformPath,
   agentPlatforms,
 } from "@/features/marketing/agent-platforms"
+import { comparisonPath, comparisons } from "@/features/marketing/comparisons"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     ...publicPages.map((page) => ({
       url: new URL(page.href, site.url).href,
+    })),
+    ...comparisons.map((comparison) => ({
+      url: new URL(comparisonPath(comparison), site.url).href,
+      lastModified: comparison.checked,
     })),
     ...agentPlatforms.map((page) => ({
       url: new URL(agentPlatformPath(page), site.url).href,
