@@ -21,6 +21,14 @@ export function price(amount: number, currency: BillingCurrency): string {
   }).format(amount / 100)
 }
 
+/** The smallest yearly discount across plans, rounded down to a whole percent. */
+const yearlySaving = Math.min(
+  ...PLAN_IDS.map((id) => {
+    const { monthly, yearly } = PLANS[id].prices.USD
+    return Math.floor((1 - yearly / (monthly * 12)) * 100)
+  })
+)
+
 export function BillingIntervalToggle({
   value,
   onChange,
@@ -50,7 +58,18 @@ export function BillingIntervalToggle({
             value === interval && "bg-muted font-medium text-foreground"
           )}
         >
-          {interval === "monthly" ? "Monthly" : "Yearly"}
+          {interval === "monthly" ? (
+            "Monthly"
+          ) : (
+            <>
+              Yearly{" "}
+              {yearlySaving > 0 && (
+                <span className="inline-block rounded-full bg-brand/15 px-1.5 py-0.5 text-xs leading-4 font-medium text-foreground">
+                  Save {yearlySaving}%
+                </span>
+              )}
+            </>
+          )}
         </button>
       ))}
     </div>
@@ -143,8 +162,13 @@ export function PlanCards({
               id === "growth" && "border-brand bg-brand/5"
             )}
           >
-            <p className="plan-card-purpose mb-4 text-xs font-medium text-muted-foreground">
+            <p className="plan-card-purpose mb-4 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
               {purposes[id]}
+              {id === "growth" && (
+                <span className="-my-0.5 rounded-full bg-brand/15 px-2 py-0.5 text-foreground">
+                  Recommended
+                </span>
+              )}
             </p>
             <PlanHeading className="text-lg font-semibold">
               {plan.name}
