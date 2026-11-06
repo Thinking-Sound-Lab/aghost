@@ -2,10 +2,8 @@ import type { CSSProperties, ReactNode } from "react"
 import Link from "next/link"
 import { Instrument_Sans, Source_Serif_4 } from "next/font/google"
 import { ArrowRight, type LucideIcon } from "lucide-react"
-import { PLANS } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { Monogram, ghostPath } from "@/components/brand"
-import { price } from "@/features/billing/plan-cards"
 import { contactHref } from "./contact"
 import { Brand, MarketingHeader } from "./header"
 import {
@@ -54,9 +52,6 @@ export const card =
   "rounded-[24px] bg-white p-8 shadow-[0_0_0_1px_rgb(18_20_22/0.06),0_1px_2px_rgb(18_20_22/0.03),0_30px_60px_-40px_rgb(17_24_39/0.25)]"
 export const prose =
   "grid content-start gap-5 text-lg text-ink/70 [&_h2]:text-3xl [&_h2]:font-normal [&_h2]:tracking-[-0.03em] [&_h2]:text-ink sm:[&_h2]:text-4xl [&_h3]:text-2xl [&_h3]:font-normal [&_h3]:tracking-[-0.025em] [&_h3]:text-ink"
-
-/** The cheapest plan's monthly price, quoted next to sign-up buttons. */
-export const startingPrice = price(PLANS.pro.prices.USD.monthly, "USD")
 
 export function GetStarted({
   className,
