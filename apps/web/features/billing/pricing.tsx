@@ -2,7 +2,11 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { billingPath, type BillingInterval } from "@workspace/api/contract"
+import {
+  billingPath,
+  TRIAL_DAYS,
+  type BillingInterval,
+} from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
 import { planCardsStyle } from "@/features/marketing/plans"
 import {
@@ -21,7 +25,7 @@ export function Pricing() {
       <PageIntro
         category="Pricing"
         title="Simple, flat pricing"
-        description="Pay per social set: one account on each of six platforms. Every plan includes Instagram DM automation, analytics and API access. No caps on DMs."
+        description={`Pay per social set: one account on each of six platforms. Every plan includes Instagram DM automation, analytics and API access. No caps on DMs. Try any plan free for ${TRIAL_DAYS} days.`}
       />
       <div className="mx-auto grid max-w-7xl gap-8 px-5 sm:px-8 lg:px-12">
         <BillingIntervalToggle
@@ -32,6 +36,7 @@ export function Pricing() {
         <PlanCards
           currency="USD"
           interval={interval}
+          trial
           className={planCardsStyle}
           action={(plan) => (
             <Link
@@ -41,7 +46,7 @@ export function Pricing() {
                 "w-full"
               )}
             >
-              Choose {plan.name}
+              Try {plan.name} free
             </Link>
           )}
         />

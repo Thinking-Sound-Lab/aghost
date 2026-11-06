@@ -42,6 +42,7 @@ import {
 import {
   AUTOMATION_LIMITS,
   PLATFORM_RULES,
+  TRIAL_DAYS,
   type Platform,
 } from "@workspace/api/contract"
 import { cn } from "@workspace/ui/lib/utils"
@@ -835,7 +836,8 @@ function Pricing() {
         title="Simple, flat pricing"
         description={
           <>
-            Pay per social set. <Highlight>Every plan</Highlight> includes all
+            Pay per social set. Try{" "}
+            <Highlight>any plan free for {TRIAL_DAYS} days</Highlight>, with all
             six platforms, analytics and API access.
           </>
         }

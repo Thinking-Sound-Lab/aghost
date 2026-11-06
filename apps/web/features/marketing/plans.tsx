@@ -28,6 +28,7 @@ export function LandingPlans() {
       <PlanCards
         currency="USD"
         interval={interval}
+        trial
         className={planCardsStyle}
         action={(plan) => (
           <Link
@@ -37,7 +38,7 @@ export function LandingPlans() {
               "w-full"
             )}
           >
-            Choose {plan.name}
+            Try {plan.name} free
           </Link>
         )}
       />

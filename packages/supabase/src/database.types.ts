@@ -625,6 +625,7 @@ export type Database = {
           plan: string | null
           status: string | null
           subscription_created_at: string | null
+          trial_ends_at: string | null
           updated_at: string
           workspace_id: string
         }
@@ -645,6 +646,7 @@ export type Database = {
           plan?: string | null
           status?: string | null
           subscription_created_at?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
           workspace_id: string
         }
@@ -664,6 +666,7 @@ export type Database = {
           plan?: string | null
           status?: string | null
           subscription_created_at?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
           workspace_id?: string
         }

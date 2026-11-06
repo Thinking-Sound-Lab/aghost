@@ -13,6 +13,7 @@ import {
   compareLinks,
   legalLinks,
   resourceLinks,
+  startTrial,
 } from "./navigation"
 import "./marketing.css"
 
@@ -60,7 +61,7 @@ export const startingPrice = price(PLANS.pro.prices.USD.monthly, "USD")
 export function GetStarted({
   className,
   href = "/login",
-  children = "Get started",
+  children = startTrial,
 }: {
   className?: string
   /** Where sign-up leads, such as billing with a plan already chosen. */

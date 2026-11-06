@@ -17,6 +17,11 @@ export type SubscriptionSnapshot = {
   currency: BillingCurrency
   currentPeriodEnd: string
   cancelAtPeriodEnd: boolean
+  /**
+   * Until the trial's first charge succeeds, when the trial ends:
+   * `currentPeriodEnd`. The stored copy is kept while that charge is on hold.
+   */
+  trialEndsAt: string | null
   /** When the provider created the subscription. */
   createdAt: string
 }
@@ -40,6 +45,14 @@ type ReservedCheckout = ChoosePlanInput & {
 export type CheckoutStatus = {
   createdAt: string
   payment: "unpaid" | "pending" | "succeeded" | "failed" | "cancelled"
+}
+
+/**
+ * Whether the subscription ever began, after which the workspace gets no free
+ * trial. A pending one is still being paid for, and a failed one never began.
+ */
+export function hasStarted(subscription: SubscriptionSnapshot): boolean {
+  return !["pending", "failed"].includes(subscription.status)
 }
 
 /**

@@ -29,6 +29,7 @@ const subscriptionSchema = z.object({
   current_period_end: z.string(),
   cancel_at_period_end: z.boolean(),
   subscription_created_at: z.string(),
+  trial_ends_at: z.string().nullable(),
 })
 
 function toRecord(row: BillingRow): BillingRecord {
@@ -70,6 +71,7 @@ function toRecord(row: BillingRow): BillingRecord {
       currency: subscription.currency,
       currentPeriodEnd: subscription.current_period_end,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      trialEndsAt: subscription.trial_ends_at,
       createdAt: subscription.subscription_created_at,
     },
     checkout,
@@ -149,6 +151,7 @@ export class SupabaseBillingRepository implements BillingRepository {
           current_period_end: subscription.currentPeriodEnd,
           cancel_at_period_end: subscription.cancelAtPeriodEnd,
           subscription_created_at: subscription.createdAt,
+          trial_ends_at: subscription.trialEndsAt,
         })
         .eq("workspace_id", workspaceId)
         .eq("dodo_customer_id", subscription.providerCustomerId)

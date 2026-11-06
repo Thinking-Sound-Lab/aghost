@@ -2,6 +2,7 @@ import {
   isEntitled,
   PLANS,
   socialSetCount,
+  TRIAL_DAYS,
   type BillingState,
   type ChoosePlanInput,
   type PlanChangeResult,
@@ -16,7 +17,7 @@ import {
 import { actorOf, type ProductAnalytics } from "../analytics/analytics"
 import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
-import { supersedes, type SubscriptionSnapshot } from "./billing"
+import { hasStarted, supersedes, type SubscriptionSnapshot } from "./billing"
 import {
   priceUsd,
   subscriptionEvents,
@@ -82,8 +83,10 @@ export class BillingService {
         currency: snapshot.currency,
         currentPeriodEnd: snapshot.currentPeriodEnd,
         cancelAtPeriodEnd: snapshot.cancelAtPeriodEnd,
+        trialEndsAt: snapshot.trialEndsAt,
       },
       socialSets,
+      trialAvailable: !snapshot,
     }
   }
 
@@ -106,10 +109,8 @@ export class BillingService {
     let record = await this.billing.findByWorkspace(workspace.id)
     // A completed checkout may precede its webhook. Reconcile the customer's
     // subscriptions before letting them buy again.
-    if (record) {
-      await this.sync(workspace)
-      record = await this.billing.findByWorkspace(workspace.id)
-    }
+    const subscriptions = record ? await this.reconcile(workspace) : []
+    if (record) record = await this.billing.findByWorkspace(workspace.id)
 
     if (
       record?.subscription &&
@@ -174,6 +175,9 @@ export class BillingService {
       providerProductId,
       plan: choice.plan,
       interval: choice.interval,
+      // One trial per workspace: none once any subscription has begun,
+      // including one that has ended or was bought before trials.
+      trialDays: subscriptions.some(hasStarted) ? 0 : TRIAL_DAYS,
       returnUrl: this.pages.checkoutReturn,
       cancelUrl: this.pages.checkoutCancel,
     })
@@ -269,10 +273,16 @@ export class BillingService {
    * right after checkout, before its webhook arrives.
    */
   async sync(workspace: WorkspaceRecord): Promise<BillingState> {
-    return this.operations.run(workspace.id, () => this.reconcile(workspace))
+    return this.operations.run(workspace.id, async () => {
+      await this.reconcile(workspace)
+      return this.getState(workspace)
+    })
   }
 
-  private async reconcile(workspace: WorkspaceRecord): Promise<BillingState> {
+  /** Applies the provider's subscriptions and returns them. */
+  private async reconcile(
+    workspace: WorkspaceRecord
+  ): Promise<SubscriptionSnapshot[]> {
     const record = await this.billing.findByWorkspace(workspace.id)
 
     if (record) {
@@ -287,13 +297,12 @@ export class BillingService {
 
       if (latest) await this.apply(workspace, latest)
       else await this.enforce(workspace, record.subscription)
-    } else {
-      // Includes workspaces created before billing existed. The rollout
-      // reconciliation command calls sync for all running workspaces.
-      await this.enforce(workspace, null)
+      return subscriptions
     }
-
-    return this.getState(workspace)
+    // Includes workspaces created before billing existed. The rollout
+    // reconciliation command calls sync for all running workspaces.
+    await this.enforce(workspace, null)
+    return []
   }
 
   /**
@@ -330,10 +339,19 @@ export class BillingService {
 
   private async apply(
     workspace: WorkspaceOwner,
-    snapshot: SubscriptionSnapshot
+    reported: SubscriptionSnapshot
   ): Promise<void> {
     const record = await this.billing.findByWorkspace(workspace.id)
     const current = record?.subscription
+    // A trial whose first charge failed loses access, but keeps its stored
+    // trial end until it is paid, so that payment is reported as conversion.
+    // It comes from the stored row: losing access never waits on Dodo.
+    const snapshot =
+      current?.providerSubscriptionId === reported.providerSubscriptionId &&
+      current.trialEndsAt &&
+      !isEntitled(reported.status)
+        ? { ...reported, trialEndsAt: current.trialEndsAt }
+        : reported
     const replaces =
       !current ||
       current.providerSubscriptionId === snapshot.providerSubscriptionId ||
