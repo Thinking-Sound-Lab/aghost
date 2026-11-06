@@ -37,6 +37,7 @@ function subscription(
     currency: "USD",
     currentPeriodEnd: "2026-11-11T00:00:00Z",
     cancelAtPeriodEnd: false,
+    trialEndsAt: null,
     createdAt: "2026-10-11T00:00:00Z",
     ...overrides,
   }
@@ -327,6 +328,10 @@ describe("billing", () => {
     expect(vi.mocked(dodo.createCheckout).mock.calls[0]![0]).not.toHaveProperty(
       "country"
     )
+    // A workspace's first checkout starts a free trial.
+    expect(dodo.createCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ trialDays: 7 })
+    )
     expect(recorded.events.map(({ event }) => event)).toEqual([
       expect.objectContaining({ name: "checkout_started", resumed: false }),
       expect.objectContaining({ name: "checkout_started", resumed: true }),
@@ -537,6 +542,61 @@ describe("billing", () => {
     expect(dodo.createCheckout).not.toHaveBeenCalled()
   })
 
+  it("gives no second trial once any subscription has begun", async () => {
+    const payer = { email: "maya@example.com", name: "Maya" }
+    const choice = { plan: "growth", interval: "monthly" } as const
+    const trialDays = async (subscriptions: SubscriptionSnapshot[]) => {
+      const dodo = provider({ listSubscriptions: async () => subscriptions })
+      const { billing } = service(
+        memoryRepository({
+          workspaceId: workspace.id,
+          providerCustomerId: "cus_1",
+          subscription: null,
+        }),
+        dodo
+      )
+      await billing.startCheckout(workspace, payer, choice)
+      return vi.mocked(dodo.createCheckout).mock.calls[0]![0].trialDays
+    }
+
+    // A customer whose only attempt failed never had a plan.
+    expect(await trialDays([])).toBe(7)
+    expect(await trialDays([subscription({ status: "failed" })])).toBe(7)
+    // An ended trial or plan, even behind a newer failed attempt.
+    expect(
+      await trialDays([
+        subscription({ status: "cancelled" }),
+        subscription({
+          providerSubscriptionId: "sub_2",
+          status: "failed",
+          createdAt: "2026-10-20T00:00:00Z",
+        }),
+      ])
+    ).toBe(0)
+    expect(await trialDays([subscription({ status: "expired" })])).toBe(0)
+  })
+
+  it("shows the trial to a workspace without a plan and when it ends to one in it", async () => {
+    const empty = await service(
+      memoryRepository(null),
+      provider()
+    ).billing.getState(workspace)
+    expect(empty).toMatchObject({ trialAvailable: true, subscription: null })
+
+    const trialing = await service(
+      memoryRepository({
+        workspaceId: workspace.id,
+        providerCustomerId: "cus_1",
+        subscription: subscription({ trialEndsAt: "2026-11-10T00:00:00Z" }),
+      }),
+      provider()
+    ).billing.getState(workspace)
+    expect(trialing).toMatchObject({
+      trialAvailable: false,
+      subscription: { status: "active", trialEndsAt: "2026-11-10T00:00:00Z" },
+    })
+  })
+
   it("asks customers with an unsettled payment to manage their subscription", async () => {
     const dodo = provider()
     const { billing } = service(
@@ -694,6 +754,39 @@ describe("billing", () => {
     }
   )
 
+  it("locks a trial whose first charge failed and reports its later payment as conversion", async () => {
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: subscription({ trialEndsAt: "2026-10-18T00:00:00Z" }),
+    })
+    let reported = subscription({ status: "on_hold" })
+    const { billing, pauseAll, cancelAll, recorded } = service(
+      repository,
+      provider({ getSubscription: vi.fn(async () => reported) })
+    )
+
+    await billing.refreshSubscription("sub_1")
+    expect(repository.record!.subscription).toMatchObject({
+      status: "on_hold",
+      trialEndsAt: "2026-10-18T00:00:00Z",
+    })
+    expect(pauseAll).toHaveBeenCalled()
+    expect(cancelAll).toHaveBeenCalled()
+
+    reported = subscription({ currentPeriodEnd: "2026-11-18T00:00:00Z" })
+    await billing.refreshSubscription("sub_1")
+    expect(repository.record!.subscription).toMatchObject({
+      status: "active",
+      trialEndsAt: null,
+    })
+    expect(recorded.events.map(({ event }) => event.name)).toEqual([
+      "subscription_ended",
+      "subscription_started",
+      "subscription_trial_converted",
+    ])
+  })
+
   it("ignores subscriptions of customers it does not know", async () => {
     const { billing, pauseAll } = service(
       memoryRepository(null),
@@ -796,6 +889,7 @@ describe("billing", () => {
           billing_interval: "yearly",
           subscription_status: "active",
           mrr_usd: 31,
+          in_trial: false,
           cancel_at_period_end: false,
         },
       },
@@ -834,6 +928,7 @@ describe("subscription analytics", () => {
         status: "active",
         price_usd: 276,
         mrr_usd: 23,
+        in_trial: false,
         previous_status: null,
       },
     ])
@@ -877,6 +972,52 @@ describe("subscription analytics", () => {
     expect(
       names(subscription({ cancelAtPeriodEnd: true }), subscription())
     ).toEqual(["subscription_cancellation_withdrawn"])
+  })
+
+  it("starts a trial without revenue and reports its first payment once", () => {
+    const trial = subscription({ trialEndsAt: "2026-10-18T00:00:00Z" })
+    expect(
+      subscriptionEvents(subscription({ status: "pending" }), trial)
+    ).toEqual([
+      expect.objectContaining({
+        name: "subscription_started",
+        in_trial: true,
+        mrr_usd: 0,
+      }),
+    ])
+    // The first payment moves the period on, but is not a renewal.
+    expect(
+      subscriptionEvents(
+        trial,
+        subscription({ currentPeriodEnd: "2026-12-11T00:00:00Z" })
+      )
+    ).toEqual([
+      expect.objectContaining({
+        name: "subscription_trial_converted",
+        in_trial: false,
+        mrr_usd: 29,
+      }),
+    ])
+    expect(
+      names(trial, subscription({ ...trial, cancelAtPeriodEnd: true }))
+    ).toEqual(["subscription_cancellation_scheduled"])
+  })
+
+  it("reports a conversion when a failed first charge is paid later", () => {
+    const trial = subscription({ trialEndsAt: "2026-10-18T00:00:00Z" })
+    const held = subscription({ ...trial, status: "on_hold" })
+    // On hold, the subscription is no longer in its trial.
+    expect(subscriptionEvents(trial, held)).toEqual([
+      expect.objectContaining({ name: "subscription_ended", in_trial: false }),
+    ])
+    expect(names(held, subscription())).toEqual([
+      "subscription_started",
+      "subscription_trial_converted",
+    ])
+    // A paid plan put on hold by a later renewal converts nothing.
+    expect(names(subscription({ status: "on_hold" }), subscription())).toEqual([
+      "subscription_started",
+    ])
   })
 
   it("reports a missed payment and the end of the plan", () => {

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Monogram } from "@/components/brand"
-import { marketingLinks } from "./navigation"
+import { marketingLinks, startTrial } from "./navigation"
 
 export function Brand({ onClick }: { onClick?: () => void }) {
   return (
@@ -80,7 +80,9 @@ export function MarketingHeader() {
               focus
             )}
           >
-            Get started
+            {/* The full label leaves no room for the menu button on phones. */}
+            <span className="sm:hidden">Start for $0</span>
+            <span className="max-sm:hidden">{startTrial}</span>
           </Link>
           <button
             ref={menuButton}

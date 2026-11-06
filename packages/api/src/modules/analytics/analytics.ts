@@ -58,11 +58,13 @@ export type SubscriptionShape = {
   /** The plan's list price for one billing period. */
   price_usd: number
   /**
-   * Monthly recurring revenue at the plan's current list price: zero once the
-   * plan has ended. A subscription kept on an older price after a catalog
-   * change is still counted at the new one.
+   * Monthly recurring revenue at the plan's current list price: zero during
+   * the free trial and once the plan has ended. A subscription kept on an
+   * older price after a catalog change is still counted at the new one.
    */
   mrr_usd: number
+  /** The subscription is in its free trial and has not been charged yet. */
+  in_trial: boolean
 }
 
 type Events = {
@@ -146,6 +148,8 @@ type Events = {
     previous_status: SubscriptionStatus | null
   }
   subscription_renewed: SubscriptionShape
+  /** The free trial ended with the first payment. */
+  subscription_trial_converted: SubscriptionShape
   subscription_plan_changed: SubscriptionShape & {
     from_plan: PlanId
     from_billing_interval: BillingInterval
@@ -173,6 +177,7 @@ export type WorkspaceTraits = {
   billing_interval?: BillingInterval
   subscription_status?: SubscriptionStatus
   mrr_usd?: number
+  in_trial?: boolean
   cancel_at_period_end?: boolean
 }
 

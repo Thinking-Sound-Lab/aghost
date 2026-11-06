@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { TRIAL_DAYS } from "@workspace/api/contract"
 import type { PolicySection } from "./legal-page"
 import { contactEmail, contactHref } from "./contact"
 
@@ -129,6 +130,12 @@ export const termsSections: PolicySection[] = [
           shown on the <Link href="/pricing">Pricing page</Link> and at
           checkout. Prices are in US dollars and include tax. Yearly billing is
           paid upfront.
+        </p>
+        <p>
+          A workspace's first plan starts with a {TRIAL_DAYS}-day free trial. A
+          card is required at checkout and is charged the plan's price when the
+          trial ends, unless you cancel before then. Each workspace gets one
+          trial.
         </p>
         <p>
           Dodo Payments provides hosted checkout and billing. Subscriptions

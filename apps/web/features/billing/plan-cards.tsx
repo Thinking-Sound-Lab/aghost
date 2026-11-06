@@ -5,6 +5,7 @@ import {
   PLAN_IDS,
   PLANS,
   socialSetCount,
+  TRIAL_DAYS,
   type BillingCurrency,
   type BillingInterval,
   type Plan,
@@ -105,14 +106,25 @@ function benefits(plan: Plan): string[] {
   ]
 }
 
+function terms(interval: BillingInterval, trial: boolean): string {
+  const billed = interval === "yearly" ? "billed yearly" : "billed monthly"
+  if (trial) return `${TRIAL_DAYS} days free, then ${billed}. Taxes included`
+  return interval === "yearly"
+    ? "Taxes included, billed yearly"
+    : "Taxes included"
+}
+
 export function PlanCards({
   currency,
   interval,
+  trial,
   action,
   className,
 }: {
   currency: BillingCurrency
   interval: BillingInterval
+  /** Whether choosing a plan starts with the free trial. */
+  trial: boolean
   action: (plan: Plan) => ReactNode
   className?: string
 }) {
@@ -144,8 +156,7 @@ export function PlanCards({
               </span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Taxes included
-              {interval === "yearly" && ", billed yearly"}
+              {terms(interval, trial)}
             </p>
             <div className="plan-card-action mt-6">{action(plan)}</div>
             <ul className="mt-6 grid content-start gap-3 border-t pt-6 text-sm">
@@ -187,6 +198,10 @@ export function PricingTerms() {
         Instagram scheduling, MCP, REST API and dashboard access on every plan.
         Contacts and DMs never change your price. Instagram's publishing and
         messaging limits and fair use apply.
+      </p>
+      <p>
+        New workspaces get a {TRIAL_DAYS}-day free trial of any plan. Your card
+        is charged when it ends unless you cancel first.
       </p>
       <p>All plans are billed in US dollars. Taxes are included.</p>
     </div>

@@ -18,13 +18,19 @@ export function priceUsd(plan: PlanId, interval: BillingInterval): number {
 
 /**
  * Monthly recurring revenue in US dollars at the plan's list price: zero
- * without a working plan. Stored subscriptions do not keep their own price.
+ * during the free trial and without a working plan. Stored subscriptions do
+ * not keep their own price.
  */
 function mrrUsd(subscription: SubscriptionSnapshot): number {
-  if (!isEntitled(subscription.status)) return 0
+  if (!isEntitled(subscription.status) || subscription.trialEndsAt) return 0
   const price = priceUsd(subscription.plan, subscription.interval)
   const monthly = subscription.interval === "yearly" ? price / 12 : price
   return Math.round(monthly * 100) / 100
+}
+
+/** In the free trial, not on hold after it. */
+function inTrial(subscription: SubscriptionSnapshot): boolean {
+  return isEntitled(subscription.status) && subscription.trialEndsAt !== null
 }
 
 function shapeOf(subscription: SubscriptionSnapshot): SubscriptionShape {
@@ -35,6 +41,7 @@ function shapeOf(subscription: SubscriptionSnapshot): SubscriptionShape {
     status: subscription.status,
     price_usd: priceUsd(subscription.plan, subscription.interval),
     mrr_usd: mrrUsd(subscription),
+    in_trial: inTrial(subscription),
   }
 }
 
@@ -50,6 +57,17 @@ export function subscriptionEvents(
   const shape = shapeOf(current)
   const was = previous !== null && isEntitled(previous.status)
   const is = isEntitled(current.status)
+  // The first payment after the trial starts a period, but renews nothing.
+  // It can follow the trial directly or a hold after a failed first charge.
+  const converted =
+    previous !== null &&
+    is &&
+    previous.providerSubscriptionId === current.providerSubscriptionId &&
+    previous.trialEndsAt !== null &&
+    current.trialEndsAt === null
+  const conversion: ProductEvent[] = converted
+    ? [{ name: "subscription_trial_converted", ...shape }]
+    : []
 
   if (!was && is)
     return [
@@ -58,6 +76,7 @@ export function subscriptionEvents(
         ...shape,
         previous_status: previous?.status ?? null,
       },
+      ...conversion,
     ]
   if (!previous) return []
   if (was && !is)
@@ -88,9 +107,11 @@ export function subscriptionEvents(
     })
   else if (
     previous.providerSubscriptionId === current.providerSubscriptionId &&
+    !converted &&
     Date.parse(current.currentPeriodEnd) > Date.parse(previous.currentPeriodEnd)
   )
     events.push({ name: "subscription_renewed", ...shape })
+  events.push(...conversion)
 
   if (!previous.cancelAtPeriodEnd && current.cancelAtPeriodEnd)
     events.push({ name: "subscription_cancellation_scheduled", ...shape })
@@ -109,6 +130,7 @@ export function subscriptionTraits(
     billing_interval: subscription.interval,
     subscription_status: subscription.status,
     mrr_usd: mrrUsd(subscription),
+    in_trial: inTrial(subscription),
     cancel_at_period_end: subscription.cancelAtPeriodEnd,
   }
 }
