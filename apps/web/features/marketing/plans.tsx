@@ -29,6 +29,7 @@ export function LandingPlans() {
         currency="USD"
         interval={interval}
         trial
+        planHeading="h3"
         className={planCardsStyle}
         action={(plan) => (
           <Link

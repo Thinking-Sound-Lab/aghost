@@ -31,7 +31,6 @@ import {
   Send,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   Tag,
   Terminal,
   Type,
@@ -103,7 +102,7 @@ function Hero() {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="sky rounded-[28px] pb-6 sm:pb-12"
+      className="sky mx-2 rounded-[28px] pb-6 sm:mx-4 sm:pb-12 lg:mx-8"
     >
       {ghosts.map((ghost) => (
         <Ghost
@@ -162,15 +161,7 @@ function Hero() {
             </span>
           </a>
         </div>
-        <p className="mt-7 flex flex-wrap items-center justify-center gap-2 text-[15px] text-ink/60">
-          <Sparkles aria-hidden="true" className="size-4 text-violet-500" />
-          Switching from ManyChat?
-          <Link href="/blog/aghost-vs-manychat" className={textLink}>
-            See how we compare
-          </Link>
-          <ArrowRight aria-hidden="true" className="size-3.5" />
-        </p>
-        <div className="mt-5 flex items-center gap-3 text-sm text-ink/55">
+        <div className="mt-8 flex items-center gap-3 text-sm text-ink/55">
           Publishes to
           <ul className="flex items-center gap-3 text-ink/80">
             {PLATFORM_ORDER.map((platform) => (
@@ -276,7 +267,7 @@ function SceneCycle({
             className="cycle-caption text-[15px] leading-6 text-ink/60"
             style={{ "--i": index } as CSSProperties}
           >
-            <b className="font-medium text-ink">{scene.caption[0]}</b>{" "}
+            <strong className="font-medium text-ink">{scene.caption[0]}</strong>{" "}
             {scene.caption[1]}
           </p>
         ))}
@@ -307,7 +298,7 @@ function FeatureGrid({
             <feature.icon aria-hidden="true" className="size-4" />
           </span>
           <p className="text-[15px] leading-6 text-pretty text-ink/60">
-            <b className="font-medium text-ink">{feature.title}.</b>{" "}
+            <strong className="font-medium text-ink">{feature.title}.</strong>{" "}
             {feature.text}
           </p>
         </li>
@@ -362,13 +353,28 @@ function FeatureSection({
   )
 }
 
+/** A link to the guide that covers a section in depth. */
+function GuideLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <p className="mt-12 text-center text-[15px]">
+      <Link
+        href={href}
+        className={cn(textLink, "inline-flex items-center gap-1.5")}
+      >
+        {children}
+        <ArrowRight aria-hidden="true" className="size-3.5" />
+      </Link>
+    </p>
+  )
+}
+
 function Publishing() {
   return (
     <FeatureSection
       id="publishing"
       tone="blue"
       icon={Send}
-      eyebrow="Publishing"
+      eyebrow="Social media scheduling"
       title="Write it once. Post it everywhere."
       description={
         <>
@@ -438,7 +444,11 @@ function Publishing() {
           text: "Attach a DM automation while you schedule the post.",
         },
       ]}
-    />
+    >
+      <GuideLink href="/blog/how-to-schedule-instagram-posts">
+        How to schedule Instagram posts, Reels and Stories
+      </GuideLink>
+    </FeatureSection>
   )
 }
 
@@ -448,8 +458,8 @@ function Automation() {
       id="automation"
       tone="violet"
       icon={MessageCircle}
-      eyebrow="DM automation"
-      title="Turn comments into conversations."
+      eyebrow="Instagram DM automation"
+      title="Turn Instagram comments into DMs."
       description={
         <>
           Attach an automation to a post or reel.{" "}
@@ -516,7 +526,11 @@ function Automation() {
           text: "Unlimited automations, contacts and DMs on every plan.",
         },
       ]}
-    />
+    >
+      <GuideLink href="/instagram-dm-automation">
+        Read the Instagram DM automation guide
+      </GuideLink>
+    </FeatureSection>
   )
 }
 
@@ -527,7 +541,7 @@ function Analytics() {
       tone="orange"
       icon={ChartNoAxesColumn}
       eyebrow="Analytics and inbox"
-      title="Know what worked."
+      title="Know what worked on every channel."
       description={
         <>
           Reach, views and engagement for <Highlight>every channel</Highlight>,
@@ -599,7 +613,7 @@ function Agents() {
       id="agents"
       tone="green"
       icon={Bot}
-      eyebrow="AI agents"
+      eyebrow="AI agents and MCP"
       title="Your agent can post, reply and report."
       description={
         <>
@@ -892,45 +906,6 @@ function Faq() {
   )
 }
 
-/** For people moving over from a chatbot builder. */
-function Compare() {
-  return (
-    <section
-      aria-labelledby="compare-heading"
-      className={cn(container, "mt-24")}
-    >
-      <div
-        className={cn(
-          card,
-          "mx-auto grid max-w-[70rem] items-center gap-8 sm:p-12 lg:grid-cols-[1.5fr_1fr]"
-        )}
-      >
-        <div>
-          <h2
-            id="compare-heading"
-            className="text-[clamp(2rem,3.6vw,2.75rem)] leading-[1.05] font-normal tracking-[-0.03em] text-balance"
-          >
-            Coming from ManyChat?
-          </h2>
-          <p className="mt-4 max-w-lg font-serif text-lg leading-[1.55] font-light text-ink/65">
-            Flat pricing, scheduling to six platforms, and an MCP server for
-            your agent. See the side by side.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3 lg:justify-end">
-          <Link href="/blog/aghost-vs-manychat" className={outlineButton}>
-            aghost vs ManyChat
-            <ArrowRight aria-hidden="true" className="size-4" />
-          </Link>
-          <Link href="/blog/aghost-vs-chatfuel" className={outlineButton}>
-            vs Chatfuel
-          </Link>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 export function Landing() {
   return (
     <MarketingPage>
@@ -944,7 +919,6 @@ export function Landing() {
       <Platforms />
       <Pricing />
       <Faq />
-      <Compare />
       <MarketingCta />
     </MarketingPage>
   )

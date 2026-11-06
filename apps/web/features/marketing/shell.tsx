@@ -220,9 +220,9 @@ function FooterLinks({
 }) {
   return (
     <nav aria-label={title} className="grid content-start gap-3">
-      <h2 className="mb-1 text-lg font-medium tracking-[-0.01em] text-ink">
+      <p className="mb-1 font-display text-lg font-medium tracking-[-0.01em] text-ink">
         {title}
-      </h2>
+      </p>
       {links.map((link) =>
         link.href.startsWith("/api/") ? (
           <a
@@ -255,8 +255,9 @@ function MarketingFooter() {
           <div className="grid content-start gap-5">
             <Brand />
             <p className="max-w-xs text-[15px] leading-6 text-ink/60">
-              Post everywhere. Answer every comment. Run it from your dashboard
-              or your AI agent.
+              aghost is social media scheduling for six platforms and Instagram
+              comment-to-DM automation, run from your dashboard or your AI
+              agent.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-10 text-[15px] sm:grid-cols-3 xl:grid-cols-5">
@@ -330,7 +331,7 @@ export function MarketingPage({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <MarketingHeader />
-      <div className="mx-2 rounded-b-[32px] bg-canvas pt-[4.75rem] pb-28 shadow-[0_0_0_1px_rgb(18_20_22/0.05)] sm:mx-4 lg:mx-8">
+      <div className="rounded-b-[32px] bg-canvas pt-[4.75rem] pb-28 shadow-[0_1px_0_rgb(18_20_22/0.05)]">
         <main id="main-content">{children}</main>
       </div>
       <MarketingFooter />

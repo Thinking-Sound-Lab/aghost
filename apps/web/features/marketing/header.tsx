@@ -46,8 +46,11 @@ export function MarketingHeader() {
         }
       }}
     >
-      <div className="header-bar pointer-events-auto mx-auto mt-3 flex h-16 max-w-6xl items-center gap-3 rounded-[18px] bg-white/85 px-3 shadow-[0_0_0_1px_rgb(18_20_22/0.07),0_12px_32px_-18px_rgb(17_24_39/0.3)] backdrop-blur-md sm:gap-6 sm:px-5">
-        <Brand onClick={() => setOpen(false)} />
+      <div className="header-bar pointer-events-auto mx-auto mt-3 flex h-16 max-w-6xl items-center gap-3 rounded-[18px] bg-white/85 px-3 shadow-[0_0_0_1px_rgb(18_20_22/0.07),0_12px_32px_-18px_rgb(17_24_39/0.3)] backdrop-blur-md sm:gap-6 sm:px-5 lg:grid lg:grid-cols-[1fr_auto_1fr]">
+        {/* Equal side columns keep the menu centred on the page. */}
+        <div className="lg:justify-self-start">
+          <Brand onClick={() => setOpen(false)} />
+        </div>
         <nav
           aria-label="Main"
           className="mx-auto hidden items-center gap-7 text-[15px] lg:flex"
@@ -63,7 +66,7 @@ export function MarketingHeader() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+        <div className="ml-auto flex items-center gap-2 lg:ml-0 lg:justify-self-end">
           <Link
             href="/login"
             className={cn(

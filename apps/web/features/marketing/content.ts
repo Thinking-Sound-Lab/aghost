@@ -2,6 +2,7 @@ import {
   AUTOMATION_LIMITS,
   PLAN_IDS,
   PLANS,
+  TRIAL_DAYS,
   socialSetCount,
 } from "@workspace/api/contract"
 import { price } from "@/features/billing/plan-cards"
@@ -151,6 +152,10 @@ export const faqs = [
   {
     question: "How much does aghost cost?",
     answer: `${planPrices.join(", ")}. Every plan includes all six platforms, analytics, MCP and REST, and unlimited DMs and contacts. Prices in USD, taxes included.`,
+  },
+  {
+    question: "Is there a free trial?",
+    answer: `Yes. New workspaces get ${TRIAL_DAYS} days free on any plan. Your card is charged when the trial ends unless you cancel first.`,
   },
   {
     question: "What is a social set?",

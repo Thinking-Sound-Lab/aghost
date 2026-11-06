@@ -5,6 +5,7 @@ import {
   productSummary,
   steps,
 } from "@/features/marketing/content"
+import { TRIAL_DAYS } from "@workspace/api/contract"
 import { site } from "@/lib/site"
 import { publicPages } from "@/features/marketing/navigation"
 import { articles, articlePath } from "@/features/blog/catalog"
@@ -20,13 +21,13 @@ const body = `# ${site.name}
 
 ${productSummary}
 
-aghost schedules posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. Comment automations need an Instagram Business or Creator account. Every feature needs an active plan, and MCP and REST API access are included on every plan. Agents schedule to every platform too, over MCP or REST.
+aghost schedules posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and handles Instagram engagement: comment-triggered DMs, optional public replies, follower rules, inbox conversations, and automation stats. Comment automations need an Instagram Business or Creator account. Every feature needs an active plan, new workspaces get a ${TRIAL_DAYS}-day free trial of any plan, and MCP and REST API access are included on every plan. Agents schedule to every platform too, over MCP or REST.
 
 ## Product information
 
 - [Instagram DM automation guide](${site.url}/instagram-dm-automation): What comment-to-DM automation is, how to set it up, and how it fits into social media management
 - [Features](${site.url}/features): Cross-posting to six platforms, platform previews, AI agents, comment automations, analytics, and inbox tools
-- [Pricing](${site.url}/pricing): Current monthly and yearly plans in USD
+- [Pricing](${site.url}/pricing): Current monthly and yearly plans in USD, with a ${TRIAL_DAYS}-day free trial
 - [Contact](${site.url}/contact): Support and privacy requests
 
 ## Agent access

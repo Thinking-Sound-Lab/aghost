@@ -1,16 +1,18 @@
 import type { Metadata } from "next"
-import { PLAN_IDS, PLANS } from "@workspace/api/contract"
-import { faqs, features } from "@/features/marketing/content"
+import { faqs } from "@/features/marketing/content"
 import { contactEmail } from "@/features/marketing/contact"
 import { Landing } from "@/features/marketing/landing"
+import {
+  applicationSchema,
+  jsonLd,
+  organizationRef as organization,
+} from "@/features/marketing/structured-data"
 import { openGraph, site } from "@/lib/site"
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: { ...openGraph, url: "/" },
 }
-
-const organization = { "@id": `${site.url}/#organization` }
 
 // Describes what the page shows, for search engines and AI assistants.
 const structuredData = {
@@ -33,24 +35,7 @@ const structuredData = {
       inLanguage: "en",
       publisher: organization,
     },
-    {
-      "@type": "WebApplication",
-      "@id": `${site.url}/#app`,
-      name: site.name,
-      url: site.url,
-      description: site.description,
-      applicationCategory: "BusinessApplication",
-      operatingSystem: "Web",
-      featureList: features.map((feature) => feature.title),
-      offers: {
-        "@type": "AggregateOffer",
-        priceCurrency: "USD",
-        lowPrice: PLANS.pro.prices.USD.monthly / 100,
-        highPrice: PLANS.business.prices.USD.monthly / 100,
-        offerCount: PLAN_IDS.length,
-      },
-      publisher: organization,
-    },
+    applicationSchema(),
     {
       "@type": "FAQPage",
       "@id": `${site.url}/#faq`,
@@ -69,7 +54,7 @@ export default function Page() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+          __html: jsonLd(structuredData),
         }}
       />
       <Landing />
