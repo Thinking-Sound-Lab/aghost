@@ -344,10 +344,13 @@ export function PageIntro({
   title,
   description,
   category,
+  parent,
 }: {
   title: string
   description: string
   category: string
+  /** A page between Home and this one in the breadcrumb. */
+  parent?: { href: string; label: string }
 }) {
   return (
     <div className="mx-auto max-w-7xl px-5 pt-16 pb-14 sm:px-8 sm:pt-24 lg:px-12">
@@ -356,6 +359,14 @@ export function PageIntro({
           Home
         </Link>
         <span aria-hidden="true">/</span>
+        {parent && (
+          <>
+            <Link href={parent.href} className="hover:text-ink">
+              {parent.label}
+            </Link>
+            <span aria-hidden="true">/</span>
+          </>
+        )}
         <span aria-current="page" className="text-ink/80">
           {category}
         </span>

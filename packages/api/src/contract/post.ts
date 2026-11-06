@@ -64,7 +64,7 @@ export function isReelMedia(media: PostMedia[]): boolean {
 /** A video's frame in pixels and its length, as its file reports them. */
 export type VideoShape = { width: number; height: number; seconds: number }
 
-const YOUTUBE_SHORT_MAX_SECONDS = 180
+export const YOUTUBE_SHORT_MAX_SECONDS = 180
 
 /** YouTube publishes a vertical or square video up to 3 minutes long as a Short. */
 export function isYouTubeShort(video: VideoShape): boolean {
@@ -75,7 +75,7 @@ export function isYouTubeShort(video: VideoShape): boolean {
 
 // From Meta's Reels publishing guide. Zernio does not check them, so a video
 // outside them fails when it publishes.
-const FACEBOOK_REEL_SECONDS = { min: 3, max: 90 }
+export const FACEBOOK_REEL_SECONDS = { min: 3, max: 90 }
 
 /** Where a video can't be a Facebook Reel, or null when it fits. */
 export function facebookReelProblem(video: VideoShape): string | null {

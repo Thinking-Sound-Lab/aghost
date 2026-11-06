@@ -9,6 +9,10 @@ import { TRIAL_DAYS } from "@workspace/api/contract"
 import { site } from "@/lib/site"
 import { publicPages } from "@/features/marketing/navigation"
 import { articles, articlePath } from "@/features/blog/catalog"
+import {
+  agentPlatformPath,
+  agentPlatforms,
+} from "@/features/marketing/agent-platforms"
 
 export const dynamic = "force-static"
 
@@ -55,6 +59,7 @@ ${faqs.map((faq) => `- ${faq.question} ${faq.answer}`).join("\n")}
 ## Agents
 
 - [Setup skill](${site.url}/api/mcp/skill.md): How to connect Claude Code, Codex, Cursor, or another agent over MCP or REST
+${agentPlatforms.map((page) => `- [${page.heading}](${new URL(agentPlatformPath(page), site.url).href}): ${page.description}`).join("\n")}
 
 ## Guides and comparisons
 
