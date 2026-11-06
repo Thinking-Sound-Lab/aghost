@@ -28,8 +28,11 @@ export const resourceLinks = [
 ]
 
 export const compareLinks = [
-  { href: "/blog/aghost-vs-manychat", label: "aghost vs ManyChat" },
-  { href: "/blog/aghost-vs-chatfuel", label: "aghost vs Chatfuel" },
+  { href: "/compare", label: "All comparisons" },
+  { href: "/compare/aghost-vs-manychat", label: "aghost vs ManyChat" },
+  { href: "/compare/aghost-vs-buffer", label: "aghost vs Buffer" },
+  { href: "/compare/aghost-vs-hootsuite", label: "aghost vs Hootsuite" },
+  { href: "/compare/aghost-vs-later", label: "aghost vs Later" },
   {
     href: "/blog/best-instagram-dm-automation-tools",
     label: "Best DM automation tools",
@@ -67,6 +70,12 @@ export const publicPages = [
     label: "Blog",
     description:
       "Instagram scheduling and DM guides, messaging limits, and tool comparisons",
+  },
+  {
+    href: "/compare",
+    label: "Compare",
+    description:
+      "How aghost compares with ManyChat, Chatfuel, LinkDM, Buffer, Hootsuite and Later",
   },
   {
     href: "/agents",

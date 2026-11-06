@@ -125,7 +125,7 @@ export const bestInstagramDmAutomationTools: ArticleContent = {
             Test the full path you plan to build, including branching and data
             capture. Then model the bill for an ordinary campaign and a busy
             month. Our{" "}
-            <Link href="/blog/aghost-vs-manychat">
+            <Link href="/compare/aghost-vs-manychat">
               aghost vs ManyChat comparison
             </Link>{" "}
             explains the workflow differences and how their billing models

@@ -16,10 +16,10 @@ import {
 } from "@/features/blog/catalog"
 import { getArticleContent } from "@/features/blog/content"
 import { LaunchVideoPlayer } from "@/features/marketing/launch-video"
+import { startTrial } from "@/features/marketing/navigation"
 import {
   MarketingCta,
   MarketingPage,
-  startingPrice,
   textLink,
 } from "@/features/marketing/shell"
 import { openGraph, site } from "@/lib/site"
@@ -219,7 +219,7 @@ export default async function Page({ params }: Props) {
               href="/login"
               className="mt-1 inline-flex h-11 w-full items-center justify-center rounded-[12px] bg-ink text-[15px] font-medium text-white transition-colors outline-none hover:bg-ink/85 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
-              Start for {startingPrice}/month
+              {startTrial}
             </Link>
             <Link href="/#how-it-works" className={`${textLink} text-sm`}>
               See how it works

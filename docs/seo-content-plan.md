@@ -55,6 +55,60 @@ Cost: $0.0105 total ($0.008 US, $0.0025 India). Evidence is saved locally in
 `60533d8350344ec6ac63c380d7550b27`; India
 `ef15ad727be54d0e838b5ed1784bb76f`.
 
+November 7 update: comparisons moved out of the blog into `/compare`, a hub
+with one head-to-head page per competitor: ManyChat, Chatfuel and LinkDM for
+DM automation, and Buffer, Hootsuite and Later for scheduling. The two blog
+comparisons permanently redirect to their `/compare` pages, and the older
+ManyChat redirects now point there directly. Every competitor fact lives in
+`apps/web/features/marketing/comparisons.ts`, with its sources and one checked
+date for all six. aghost's prices and limits come from the plan and automation
+contracts. The listicle `/blog/best-instagram-dm-automation-tools` stays in
+the blog because it answers a broader evaluation query.
+
+Serpstat US volumes from this pass (call `aa452e71e83c452e85ce5ff70421403f`,
+$0.012). Brand terms show how well known a competitor is; they are not demand
+for an aghost comparison:
+
+| Query                                    | US volume |
+| ---------------------------------------- | --------: |
+| manychat pricing                         |     2,400 |
+| hootsuite alternatives                   |       880 |
+| hootsuite alternative                    |       720 |
+| buffer alternative / buffer alternatives | 390 / 390 |
+| manychat alternative                     |       390 |
+| later alternatives                       |       170 |
+| buffer vs later / later vs buffer        | 210 / 210 |
+| manychat competitors                     |        90 |
+| chatfuel vs manychat                     |        90 |
+| chatfuel alternative                     |        30 |
+| linkdm (brand)                           |     3,600 |
+| inro (brand, not yet compared)           |     1,600 |
+
+Facts checked on November 7, 2026 against each vendor's own pages, fetched
+through treg's `web.extract` because ManyChat returns 403 to direct requests:
+
+- ManyChat pricing: Free 25 active contacts; on annual billing Essential $14
+  (250), Pro $29 (2,500), Business $69 (7,500), Advanced $139 (25,000), with
+  extra contacts at $0.082 / $0.038 / $0.018 / $0.0028. The ManyChat page
+  computes its cost-by-contacts table from these.
+- Chatfuel: Business $20/month or $18 billed yearly with $20 of usage, AI
+  replies metered, and an official MCP server at `chatfuel.com/mcp`.
+- LinkDM: Free 1 account and 1,000 DMs; Pro $19 (3 accounts, 25,000 DMs);
+  Platinum+ $99; triggers on stories, Lives and ads.
+- Buffer: $5 / $10 per channel a month billed yearly, Free for 3 channels, 12
+  networks, and an official MCP server at `mcp.buffer.com/mcp`.
+- Hootsuite: $99 / $199 / $399 per user a month billed annually, and official
+  MCP servers for Perch, Nest, Lumen and Parliament.
+- Later: $18.75 / $37.50 / $82.50 a month billed yearly for 1 / 2 / 6 social
+  sets; its pricing page lists no API, MCP server or DM automation.
+
+MCP is not unique to aghost: Buffer, Hootsuite and Chatfuel run official
+servers. The pages instead say what aghost's one connection covers: posts on
+six platforms plus Instagram automations and the inbox. Where a vendor page is
+silent, the copy says "not listed on its pricing page", never "doesn't have".
+aghost's gaps are stated: no free plan, no TikTok or Pinterest, no story, DM,
+Live or ad triggers, no flow builder or customer-facing AI.
+
 ## Competing articles examined
 
 ### Instagram scheduling addition: October 17, 2026
@@ -192,8 +246,8 @@ in this research pass.
 
 - Comment-to-DM troubleshooting focused on automation, distinct from general
   Instagram app failures.
-- aghost vs LinkDM, once keyword data and Search Console impressions help
-  prioritize it alongside the existing direct comparisons.
+- aghost vs Inro (US 1,600/month for the brand), the largest DM tool not yet
+  compared.
 - A free-plan comparison with allowances rechecked on the publication date.
 - Lead-magnet campaign examples for coaches, affiliates, and product launches.
 
