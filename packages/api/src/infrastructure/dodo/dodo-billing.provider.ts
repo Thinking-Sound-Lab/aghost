@@ -207,15 +207,7 @@ export class DodoBillingProvider implements BillingProvider {
   ): Promise<SubscriptionSnapshot | null> {
     const entry = await this.subscriptionProduct(subscription.product_id)
     const snapshot = entry && toSnapshot(entry, subscription)
-    if (!snapshot) return snapshot
-    // A trial whose first charge failed is on hold until the customer pays.
-    // It stays marked as a trial so that payment is reported as conversion.
-    const entitled = isEntitled(snapshot.status)
-    if (
-      !entitled &&
-      !(snapshot.status === "on_hold" && subscription.trial_period_days > 0)
-    )
-      return snapshot
+    if (!snapshot || !isEntitled(snapshot.status)) return snapshot
 
     // Active can mean only that a payment authorization was completed. The
     // first debit can still be processing. Require a successful payment from
@@ -259,10 +251,9 @@ export class DodoBillingProvider implements BillingProvider {
           : "unpaid"
       }
     )
-    if (payment === "trial")
-      return { ...snapshot, trialEndsAt: snapshot.currentPeriodEnd }
-    return payment === "unpaid" && entitled
-      ? { ...snapshot, status: "pending" }
+    if (payment === "unpaid") return { ...snapshot, status: "pending" }
+    return payment === "trial"
+      ? { ...snapshot, trialEndsAt: snapshot.currentPeriodEnd }
       : snapshot
   }
 

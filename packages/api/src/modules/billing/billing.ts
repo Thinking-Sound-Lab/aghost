@@ -19,7 +19,7 @@ export type SubscriptionSnapshot = {
   cancelAtPeriodEnd: boolean
   /**
    * Until the trial's first charge succeeds, when the trial ends:
-   * `currentPeriodEnd`. Also kept while that charge is on hold.
+   * `currentPeriodEnd`. The stored copy is kept while that charge is on hold.
    */
   trialEndsAt: string | null
   /** When the provider created the subscription. */

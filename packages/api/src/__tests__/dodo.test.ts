@@ -135,31 +135,24 @@ describe("Dodo SDK billing integration", () => {
     })
   })
 
-  it("keeps a trial whose first charge failed marked until it is paid", async () => {
+  it("reports a held trial without reading its payments", async () => {
     const fixture = dodoFixture()
     const provider = new DodoBillingProvider(() => fixture.client)
     fixture.state.subscription = fixture.subscription({
       status: "on_hold",
       trial_period_days: 7,
-      next_billing_date: "2026-10-18T00:00:00Z",
     })
-    fixture.state.payments = [
-      fixture.payment({ payment_id: "pay_authorization", total_amount: 0 }),
-    ]
     expect(await provider.getSubscription("sub_1")).toMatchObject({
       status: "on_hold",
-      trialEndsAt: "2026-10-18T00:00:00Z",
+      trialEndsAt: null,
     })
+    expect(
+      fixture.requests.some((request) => request.path.startsWith("/payments"))
+    ).toBe(false)
     // A change while on hold is charged, not treated as during the trial.
     await provider.changePlan("sub_1", "growth", "monthly")
     expect(fixture.requests.at(-1)!.body).toMatchObject({
       proration_billing_mode: "prorated_immediately",
-    })
-    fixture.state.subscription = fixture.subscription({ trial_period_days: 7 })
-    fixture.state.payments.push(fixture.payment())
-    expect(await provider.getSubscription("sub_1")).toMatchObject({
-      status: "active",
-      trialEndsAt: null,
     })
   })
 

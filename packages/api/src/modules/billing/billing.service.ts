@@ -339,10 +339,19 @@ export class BillingService {
 
   private async apply(
     workspace: WorkspaceOwner,
-    snapshot: SubscriptionSnapshot
+    reported: SubscriptionSnapshot
   ): Promise<void> {
     const record = await this.billing.findByWorkspace(workspace.id)
     const current = record?.subscription
+    // A trial whose first charge failed loses access, but keeps its stored
+    // trial end until it is paid, so that payment is reported as conversion.
+    // It comes from the stored row: losing access never waits on Dodo.
+    const snapshot =
+      current?.providerSubscriptionId === reported.providerSubscriptionId &&
+      current.trialEndsAt &&
+      !isEntitled(reported.status)
+        ? { ...reported, trialEndsAt: current.trialEndsAt }
+        : reported
     const replaces =
       !current ||
       current.providerSubscriptionId === snapshot.providerSubscriptionId ||

@@ -754,6 +754,39 @@ describe("billing", () => {
     }
   )
 
+  it("locks a trial whose first charge failed and reports its later payment as conversion", async () => {
+    const repository = memoryRepository({
+      workspaceId: workspace.id,
+      providerCustomerId: "cus_1",
+      subscription: subscription({ trialEndsAt: "2026-10-18T00:00:00Z" }),
+    })
+    let reported = subscription({ status: "on_hold" })
+    const { billing, pauseAll, cancelAll, recorded } = service(
+      repository,
+      provider({ getSubscription: vi.fn(async () => reported) })
+    )
+
+    await billing.refreshSubscription("sub_1")
+    expect(repository.record!.subscription).toMatchObject({
+      status: "on_hold",
+      trialEndsAt: "2026-10-18T00:00:00Z",
+    })
+    expect(pauseAll).toHaveBeenCalled()
+    expect(cancelAll).toHaveBeenCalled()
+
+    reported = subscription({ currentPeriodEnd: "2026-11-18T00:00:00Z" })
+    await billing.refreshSubscription("sub_1")
+    expect(repository.record!.subscription).toMatchObject({
+      status: "active",
+      trialEndsAt: null,
+    })
+    expect(recorded.events.map(({ event }) => event.name)).toEqual([
+      "subscription_ended",
+      "subscription_started",
+      "subscription_trial_converted",
+    ])
+  })
+
   it("ignores subscriptions of customers it does not know", async () => {
     const { billing, pauseAll } = service(
       memoryRepository(null),
