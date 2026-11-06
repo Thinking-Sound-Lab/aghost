@@ -208,7 +208,7 @@ const platforms: AgentPlatform[] = [
       },
       {
         question: "How does a video become a Facebook Reel?",
-        answer: `Ask for a Reel. A Reel needs one vertical video of ${FACEBOOK_REEL_SECONDS.min} to ${FACEBOOK_REEL_SECONDS.max} seconds; otherwise the video publishes as a feed post.`,
+        answer: `Ask for a Reel. It needs one vertical video of ${FACEBOOK_REEL_SECONDS.min} to ${FACEBOOK_REEL_SECONDS.max} seconds, or it fails when it publishes. Without the Reel setting, a video publishes as a feed post.`,
       },
       {
         question: "Can my agent answer Facebook comments or Messenger?",
