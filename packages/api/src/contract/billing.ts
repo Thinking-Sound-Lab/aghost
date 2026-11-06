@@ -97,7 +97,10 @@ type Subscription = {
   currentPeriodEnd: string
   /** The plan ends at `currentPeriodEnd` instead of renewing. */
   cancelAtPeriodEnd: boolean
-  /** During the free trial, when it ends and the first payment is taken. */
+  /**
+   * Until the trial's first payment succeeds, when the trial ends. Also set
+   * while that payment is on hold, so read it only with an entitled status.
+   */
   trialEndsAt: string | null
 }
 

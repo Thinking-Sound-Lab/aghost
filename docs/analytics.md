@@ -34,7 +34,7 @@ An empty `POSTHOG_KEY` leaves analytics off: the browser loads no PostHog code a
 | `billing_portal_opened`               | The owner opens Manage billing                                     |                                                                                      |
 | `subscription_started`                | The workspace gains a plan, first time or again                    | subscription properties, `previous_status`                                           |
 | `subscription_renewed`                | A paid period renews                                               | subscription properties                                                              |
-| `subscription_trial_converted`        | The free trial ends with the first payment                         | subscription properties                                                              |
+| `subscription_trial_converted`        | The free trial's first payment succeeds, even after a hold         | subscription properties                                                              |
 | `subscription_plan_changed`           | The plan or interval changes                                       | subscription properties, `from_plan`, `from_billing_interval`, `previous_mrr_usd`    |
 | `subscription_cancellation_scheduled` | The plan is set to end at the period's end                         | subscription properties                                                              |
 | `subscription_cancellation_withdrawn` | A scheduled cancellation is undone                                 | subscription properties                                                              |

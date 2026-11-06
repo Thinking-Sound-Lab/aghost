@@ -191,9 +191,10 @@ export class DodoBillingProvider implements BillingProvider {
         product_id: catalog.productId(plan, interval),
         quantity: 1,
         // During the trial, the new plan is first charged when it ends.
-        proration_billing_mode: current?.trialEndsAt
-          ? "do_not_bill"
-          : "prorated_immediately",
+        proration_billing_mode:
+          current && isEntitled(current.status) && current.trialEndsAt
+            ? "do_not_bill"
+            : "prorated_immediately",
         // A declined charge leaves the subscription on the plan it had.
         on_payment_failure: "prevent_change",
       })
@@ -206,7 +207,15 @@ export class DodoBillingProvider implements BillingProvider {
   ): Promise<SubscriptionSnapshot | null> {
     const entry = await this.subscriptionProduct(subscription.product_id)
     const snapshot = entry && toSnapshot(entry, subscription)
-    if (!snapshot || !isEntitled(snapshot.status)) return snapshot
+    if (!snapshot) return snapshot
+    // A trial whose first charge failed is on hold until the customer pays.
+    // It stays marked as a trial so that payment is reported as conversion.
+    const entitled = isEntitled(snapshot.status)
+    if (
+      !entitled &&
+      !(snapshot.status === "on_hold" && subscription.trial_period_days > 0)
+    )
+      return snapshot
 
     // Active can mean only that a payment authorization was completed. The
     // first debit can still be processing. Require a successful payment from
@@ -250,9 +259,10 @@ export class DodoBillingProvider implements BillingProvider {
           : "unpaid"
       }
     )
-    if (payment === "unpaid") return { ...snapshot, status: "pending" }
-    return payment === "trial"
-      ? { ...snapshot, trialEndsAt: snapshot.currentPeriodEnd }
+    if (payment === "trial")
+      return { ...snapshot, trialEndsAt: snapshot.currentPeriodEnd }
+    return payment === "unpaid" && entitled
+      ? { ...snapshot, status: "pending" }
       : snapshot
   }
 

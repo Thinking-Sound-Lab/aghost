@@ -970,6 +970,23 @@ describe("subscription analytics", () => {
     ).toEqual(["subscription_cancellation_scheduled"])
   })
 
+  it("reports a conversion when a failed first charge is paid later", () => {
+    const trial = subscription({ trialEndsAt: "2026-10-18T00:00:00Z" })
+    const held = subscription({ ...trial, status: "on_hold" })
+    // On hold, the subscription is no longer in its trial.
+    expect(subscriptionEvents(trial, held)).toEqual([
+      expect.objectContaining({ name: "subscription_ended", in_trial: false }),
+    ])
+    expect(names(held, subscription())).toEqual([
+      "subscription_started",
+      "subscription_trial_converted",
+    ])
+    // A paid plan put on hold by a later renewal converts nothing.
+    expect(names(subscription({ status: "on_hold" }), subscription())).toEqual([
+      "subscription_started",
+    ])
+  })
+
   it("reports a missed payment and the end of the plan", () => {
     expect(names(subscription(), subscription({ status: "past_due" }))).toEqual(
       ["subscription_status_changed"]

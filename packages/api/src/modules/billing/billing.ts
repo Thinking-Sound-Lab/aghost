@@ -17,7 +17,10 @@ export type SubscriptionSnapshot = {
   currency: BillingCurrency
   currentPeriodEnd: string
   cancelAtPeriodEnd: boolean
-  /** During the free trial, when it ends; `currentPeriodEnd` until then. */
+  /**
+   * Until the trial's first charge succeeds, when the trial ends:
+   * `currentPeriodEnd`. Also kept while that charge is on hold.
+   */
   trialEndsAt: string | null
   /** When the provider created the subscription. */
   createdAt: string
