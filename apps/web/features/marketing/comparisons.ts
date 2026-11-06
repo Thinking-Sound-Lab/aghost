@@ -561,7 +561,7 @@ export const comparisons: Comparison[] = [
         title: "Scheduling and AI agents",
         paragraphs: [
           `Buffer reaches more networks, including TikTok, Pinterest, Bluesky, Mastodon, Google Business Profile and Substack. aghost covers ${platformNames}, with a caption per channel and a preview of each post. If you post to TikTok or Pinterest, Buffer fits better.`,
-          "Both have an official MCP server. Buffer's lets an AI assistant read your channels, schedule and edit posts, capture ideas and pull analytics. aghost's does the same on its six platforms and adds Instagram automations, their stats and the inbox.",
+          "Both have an official MCP server. Buffer's lets an AI assistant read your channels, schedule and edit posts, capture ideas and pull analytics. aghost's reads your accounts, schedules and edits posts and pulls analytics on its six platforms, and adds Instagram automations, their stats and the inbox. It has no tool for saving ideas.",
         ],
       },
     ],
