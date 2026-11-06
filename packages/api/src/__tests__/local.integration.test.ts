@@ -15,7 +15,7 @@ import { createApi } from "../container"
 import type { ApiApp } from "../http/app"
 import type { Automation, CreateAutomationInput } from "../contract/automation"
 import type { Account } from "../contract/account"
-import { PLANS } from "../contract/billing"
+import { PLANS, TRIAL_DAYS } from "../contract/billing"
 import { PLATFORMS } from "../contract/platform"
 import { recordingAnalytics } from "./analytics-fixture"
 import {
@@ -934,7 +934,15 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(
       dodo.requests.find((request) => request.path === "/customers")!.body
     ).toMatchObject({ email, metadata: { aghost_workspace_id: workspace.id } })
-    dodo.state.subscription = dodo.subscription()
+    // The workspace's first checkout starts a free trial.
+    expect(
+      dodo.requests.find((request) => request.path === "/checkouts")!.body
+    ).toMatchObject({ subscription_data: { trial_period_days: TRIAL_DAYS } })
+    const trialEndsAt = "2026-11-18T00:00:00Z"
+    dodo.state.subscription = dodo.subscription({
+      trial_period_days: TRIAL_DAYS,
+      next_billing_date: trialEndsAt,
+    })
 
     async function billingEvent(type: string, signature?: string) {
       const body = JSON.stringify({
@@ -966,11 +974,40 @@ describe("local API, provider SDK, and PostgreSQL integration", () => {
     expect(
       (await customer.request("/accounts/connect", "POST", {})).statusCode
     ).toBe(402)
-    dodo.state.payments = [dodo.payment()]
+    // Authorizing the card opens the workspace for the trial.
+    dodo.state.payments = [
+      dodo.payment({ payment_id: "pay_authorization", total_amount: 0 }),
+    ]
+    expect((await billingEvent("payment.succeeded")).statusCode).toBe(200)
+    const trial = await (await customer.request("/billing")).json()
+    expect(trial).toMatchObject({
+      trialAvailable: false,
+      subscription: { status: "active" },
+    })
+    expect(Date.parse(trial.subscription.trialEndsAt)).toBe(
+      Date.parse(trialEndsAt)
+    )
+    expect((await customer.request("/workspace")).statusCode).toBe(200)
+    const storedTrialEnd = async () =>
+      (
+        await admin
+          .from("workspace_billing")
+          .select("trial_ends_at")
+          .eq("workspace_id", workspace.id)
+          .single()
+      ).data!.trial_ends_at
+    expect(Date.parse((await storedTrialEnd())!)).toBe(Date.parse(trialEndsAt))
+    // The first payment when the trial ends.
+    dodo.state.subscription = dodo.subscription({
+      trial_period_days: TRIAL_DAYS,
+      next_billing_date: "2026-12-18T00:00:00Z",
+    })
+    dodo.state.payments.push(dodo.payment())
     expect((await billingEvent("payment.succeeded")).statusCode).toBe(200)
     expect(
-      (await (await customer.request("/billing")).json()).subscription.status
-    ).toBe("active")
+      (await (await customer.request("/billing")).json()).subscription
+    ).toMatchObject({ status: "active", trialEndsAt: null })
+    expect(await storedTrialEnd()).toBeNull()
     expect((await customer.request("/workspace")).statusCode).toBe(200)
     expect(
       (
