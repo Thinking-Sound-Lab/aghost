@@ -130,7 +130,7 @@ export default async function Page({ params }: Props) {
             <span aria-hidden="true">/</span>
             <span aria-current="page">{article.category}</span>
           </nav>
-          <h1 className="mt-6 text-4xl leading-[1.05] font-medium tracking-[-0.045em] text-balance sm:text-5xl lg:text-[3.5rem]">
+          <h1 className="mt-6 text-4xl leading-[1.05] font-normal tracking-[-0.03em] text-balance sm:text-5xl lg:text-[3.5rem]">
             {article.title}
           </h1>
           <p className="mt-5 max-w-3xl text-lg text-ink/65">
@@ -188,11 +188,11 @@ export default async function Page({ params }: Props) {
           </div>
         </article>
         <aside className="grid content-start gap-4 lg:sticky lg:top-28 lg:self-start">
-          <div className="grid gap-4 border border-ink/10 bg-sage p-6">
+          <div className="grid gap-4 rounded-[24px] bg-white p-6 shadow-[0_0_0_1px_rgb(18_20_22/0.06),0_30px_60px_-40px_rgb(17_24_39/0.25)]">
             <span className="grid size-12 place-items-center rounded-full bg-ink text-white">
               <Monogram className="size-8" />
             </span>
-            <p className="text-2xl leading-tight font-medium tracking-[-0.035em]">
+            <p className="font-display text-2xl leading-tight font-normal tracking-[-0.03em]">
               Post everywhere. Answer every comment.
             </p>
             <p className="text-sm text-ink/70">
@@ -217,7 +217,7 @@ export default async function Page({ params }: Props) {
             </ul>
             <Link
               href="/login"
-              className="mt-1 inline-flex h-11 w-full items-center justify-center bg-ink text-[15px] font-medium text-white transition-colors outline-none hover:bg-ink/85 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-sage"
+              className="mt-1 inline-flex h-11 w-full items-center justify-center rounded-[12px] bg-ink text-[15px] font-medium text-white transition-colors outline-none hover:bg-ink/85 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               Start for {startingPrice}/month
             </Link>
@@ -225,7 +225,7 @@ export default async function Page({ params }: Props) {
               See how it works
             </Link>
           </div>
-          <div className="overflow-hidden border border-ink/10 bg-white/55">
+          <div className="overflow-hidden rounded-[24px] bg-white shadow-[0_0_0_1px_rgb(18_20_22/0.06),0_30px_60px_-40px_rgb(17_24_39/0.25)]">
             <p className="px-4 py-3 text-sm font-medium">
               See aghost in action
             </p>
@@ -239,7 +239,7 @@ export default async function Page({ params }: Props) {
       >
         <h2
           id="related-articles"
-          className="text-[clamp(2rem,3.6vw,3rem)] font-medium tracking-[-0.045em]"
+          className="text-[clamp(2rem,3.6vw,3rem)] font-normal tracking-[-0.03em]"
         >
           Keep reading
         </h2>

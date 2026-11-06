@@ -80,7 +80,7 @@ export default function Page() {
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {values.map((value) => (
             <div key={value.title} className={`${card} grid gap-3`}>
-              <h3 className="text-2xl font-medium tracking-[-0.035em]">
+              <h3 className="text-2xl font-normal tracking-[-0.03em]">
                 {value.title}
               </h3>
               <p className="text-ink/65">{value.text}</p>
@@ -89,7 +89,7 @@ export default function Page() {
         </div>
       </section>
       <section className={`${section} grid gap-8 lg:grid-cols-[1fr_2fr]`}>
-        <h2 className="text-4xl font-medium tracking-[-0.045em]">
+        <h2 className="text-4xl font-normal tracking-[-0.03em]">
           Know what you’re connecting
         </h2>
         <div className={prose}>

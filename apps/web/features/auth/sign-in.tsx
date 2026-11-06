@@ -95,13 +95,13 @@ export function SignIn({
       <main className="grid w-full gap-3 lg:h-[calc(100svh-1.5rem)] lg:grid-cols-[minmax(0,36rem)_1fr]">
         <section
           aria-labelledby="sign-in-heading"
-          className="flex min-h-[calc(100svh-1.5rem)] items-center border border-ink/10 bg-white/60 px-8 py-12 sm:px-16 lg:min-h-0"
+          className="flex min-h-[calc(100svh-1.5rem)] items-center rounded-[28px] bg-white px-8 py-12 shadow-[0_0_0_1px_rgb(18_20_22/0.06)] sm:px-16 lg:min-h-0"
         >
           <div className="mx-auto w-full max-w-md">
             <Brand />
             <h1
               id="sign-in-heading"
-              className="mt-10 text-4xl font-medium tracking-[-0.045em] sm:text-5xl"
+              className="mt-10 text-4xl font-normal tracking-[-0.03em] sm:text-5xl"
             >
               Log in or sign up
             </h1>
@@ -110,7 +110,7 @@ export function SignIn({
             {/* A full navigation: the API sends the browser to Google and back. */}
             <a
               href={`${api.auth.googleSignInUrl}${returnTo ? `?${new URLSearchParams(returnTo)}` : ""}`}
-              className="mt-3 flex h-13 items-center justify-center gap-3 border border-ink/15 bg-white px-6 text-base font-medium text-ink transition-colors outline-none hover:border-ink/40 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
+              className="mt-3 flex h-13 items-center justify-center gap-3 rounded-[12px] border border-[#d3dce6] bg-white px-6 text-base font-medium text-ink transition-colors outline-none hover:border-ink/40 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
             >
               <Google size={21} />
               Google
@@ -144,7 +144,7 @@ export function SignIn({
           >
             <h2
               id="sign-in-wall-heading"
-              className="mx-auto mb-10 max-w-3xl px-6 text-center text-4xl font-medium tracking-[-0.045em] text-balance xl:text-5xl"
+              className="mx-auto mb-10 max-w-3xl px-6 text-center text-4xl font-normal tracking-[-0.03em] text-balance xl:text-5xl"
             >
               Post everywhere. Answer every comment.
             </h2>

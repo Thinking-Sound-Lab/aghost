@@ -118,6 +118,7 @@ export function PlanCards({
   currency,
   interval,
   trial,
+  planHeading: PlanHeading = "h2",
   action,
   className,
 }: {
@@ -125,6 +126,8 @@ export function PlanCards({
   interval: BillingInterval
   /** Whether choosing a plan starts with the free trial. */
   trial: boolean
+  /** h3 where the cards sit under a section's own h2. */
+  planHeading?: "h2" | "h3"
   action: (plan: Plan) => ReactNode
   className?: string
 }) {
@@ -143,7 +146,9 @@ export function PlanCards({
             <p className="plan-card-purpose mb-4 text-xs font-medium text-muted-foreground">
               {purposes[id]}
             </p>
-            <h2 className="text-lg font-semibold">{plan.name}</h2>
+            <PlanHeading className="text-lg font-semibold">
+              {plan.name}
+            </PlanHeading>
             <p className="mt-1 min-h-10 text-sm text-muted-foreground">
               {descriptions[id]}
             </p>

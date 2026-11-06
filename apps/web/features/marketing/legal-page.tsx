@@ -19,7 +19,7 @@ export function LegalPage({
         <Link href="/" className="text-sm text-ink/55 hover:text-ink">
           Back to home
         </Link>
-        <h1 className="mt-6 text-5xl font-medium tracking-[-0.05em] sm:text-6xl">
+        <h1 className="mt-6 text-5xl font-normal tracking-[-0.03em] sm:text-6xl">
           {title}
         </h1>
         <p className="mt-4 text-sm text-ink/55">

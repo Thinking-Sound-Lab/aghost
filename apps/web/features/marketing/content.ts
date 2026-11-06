@@ -2,6 +2,7 @@ import {
   AUTOMATION_LIMITS,
   PLAN_IDS,
   PLANS,
+  TRIAL_DAYS,
   socialSetCount,
 } from "@workspace/api/contract"
 import { price } from "@/features/billing/plan-cards"
@@ -27,26 +28,6 @@ const schedulingFeature = {
   title: "Plan the month in one calendar",
   text: "Posts, reels, carousels and stories, with Trial Reels and DM automations ready before they publish.",
 }
-
-/** Who signs up, and what each of them gets out of it. */
-export const audiences = [
-  {
-    title: "Creators",
-    text: "Post one reel everywhere. Send your link to everyone who comments.",
-  },
-  {
-    title: "Brands and shops",
-    text: "One launch calendar for every channel. Product links in every DM.",
-  },
-  {
-    title: "Agencies",
-    text: "Up to 10 social sets, one per client, with analytics for each.",
-  },
-  {
-    title: "Developers",
-    text: "One API key for MCP and REST: schedule, automate, read analytics.",
-  },
-]
 
 const planPrices = PLAN_IDS.map((id) => {
   const plan = PLANS[id]
@@ -171,6 +152,10 @@ export const faqs = [
   {
     question: "How much does aghost cost?",
     answer: `${planPrices.join(", ")}. Every plan includes all six platforms, analytics, MCP and REST, and unlimited DMs and contacts. Prices in USD, taxes included.`,
+  },
+  {
+    question: "Is there a free trial?",
+    answer: `Yes. New workspaces get ${TRIAL_DAYS} days free on any plan. Your card is charged when the trial ends unless you cancel first.`,
   },
   {
     question: "What is a social set?",

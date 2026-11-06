@@ -16,7 +16,7 @@ import {
 } from "./illustrations"
 import { ComposerCard, PreviewCard, ScheduleCard } from "./product-cards"
 import { CalendarPreview } from "./scheduling"
-import { Painting, Pill } from "./shell"
+import { Painting, Pill, card as panel } from "./shell"
 
 type Tone = "sky" | "dusk" | "mist" | "gold"
 
@@ -110,18 +110,21 @@ function feature(label: string) {
 /** The features as a grid of bordered cells, each with a painted picture. */
 export function FeatureBoard() {
   return (
-    <ul className="mx-auto grid max-w-7xl border-t border-l border-ink/10 lg:grid-cols-2">
+    <ul className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-2">
       {cards.map((card) => {
         const { title, text } = feature(card.label)
         return (
           <li
             key={card.label}
             id={card.id}
-            className="grid min-w-0 scroll-mt-24 content-start gap-8 border-r border-b border-ink/10 p-6 sm:p-10"
+            className={cn(
+              panel,
+              "grid min-w-0 scroll-mt-24 content-start gap-8 p-6 sm:p-10"
+            )}
           >
             <div className="grid content-start gap-4">
               <Pill>{card.label}</Pill>
-              <h3 className="text-[clamp(1.75rem,2.6vw,2.25rem)] leading-tight font-medium tracking-[-0.04em]">
+              <h3 className="text-[clamp(1.75rem,2.6vw,2.25rem)] leading-tight font-normal tracking-[-0.03em]">
                 {title}
               </h3>
               <p className="max-w-xl text-lg text-ink/65">{text}</p>

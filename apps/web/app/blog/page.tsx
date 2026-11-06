@@ -66,7 +66,7 @@ export default function Page() {
         <Pill>Blog</Pill>
         <h1
           id="blog-heading"
-          className="max-w-4xl text-[clamp(2.75rem,6vw,4.75rem)] leading-[1.02] font-medium tracking-[-0.05em] text-balance"
+          className="max-w-4xl text-[clamp(2.75rem,6vw,4.75rem)] leading-[1.02] font-normal tracking-[-0.03em] text-balance"
         >
           Guides for scheduling, DMs and AI agents
         </h1>
@@ -76,7 +76,7 @@ export default function Page() {
       </section>
       <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
         {featured && <FeaturedArticle article={featured} />}
-        <h2 className="mt-24 text-[clamp(2rem,3.6vw,3rem)] font-medium tracking-[-0.045em]">
+        <h2 className="mt-24 text-[clamp(2rem,3.6vw,3rem)] font-normal tracking-[-0.03em]">
           All posts
         </h2>
         <ArticleGrid articles={rest} className="mt-10" />

@@ -166,7 +166,7 @@ export default function Page() {
           {steps.map((step, index) => (
             <li key={step.title} className={`${card} grid content-start gap-4`}>
               <Pill>Step {index + 1}</Pill>
-              <h3 className="text-2xl font-medium tracking-[-0.035em]">
+              <h3 className="text-2xl font-normal tracking-[-0.03em]">
                 {step.title}
               </h3>
               <p className="text-ink/65">{step.text}</p>

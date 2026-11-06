@@ -27,6 +27,16 @@ export const resourceLinks = [
   { href: "/api/mcp/skill.md", label: "Agent setup skill" },
 ]
 
+export const compareLinks = [
+  { href: "/blog/aghost-vs-manychat", label: "aghost vs ManyChat" },
+  { href: "/blog/aghost-vs-chatfuel", label: "aghost vs Chatfuel" },
+  {
+    href: "/blog/best-instagram-dm-automation-tools",
+    label: "Best DM automation tools",
+  },
+  { href: "/blog/instagram-dm-limits", label: "Instagram DM limits" },
+]
+
 export const legalLinks = [
   { href: "/terms-of-service", label: "Terms of Service" },
   { href: "/privacy-policy", label: "Privacy Policy" },
