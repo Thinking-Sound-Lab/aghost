@@ -127,7 +127,7 @@ function Hero() {
         </Link>
         <nav
           aria-label="Product areas"
-          className="mt-6 inline-flex max-w-full gap-0.5 overflow-x-auto rounded-full bg-white/45 p-1 shadow-[0_0_0_1px_rgb(255_255_255/0.6),0_10px_30px_-18px_rgb(60_40_120/0.5)] backdrop-blur-md [scrollbar-width:none]"
+          className="mt-6 inline-flex max-w-full gap-0.5 overflow-x-auto rounded-full bg-white/45 p-1 shadow-[0_0_0_1px_rgb(255_255_255/0.6),0_10px_30px_-18px_rgb(60_40_120/0.5)] backdrop-blur-md [scrollbar-width:none] max-sm:hidden"
         >
           {areas.map((area) => (
             <a
@@ -161,6 +161,10 @@ function Hero() {
             </span>
           </a>
         </div>
+        <p className="mt-4 text-sm text-ink/60">
+          {TRIAL_DAYS} days free on any plan. Cancel before it ends and you pay
+          nothing.
+        </p>
         <div className="mt-8 flex items-center gap-3 text-sm text-ink/70">
           Publishes to
           <ul className="flex items-center gap-3 text-ink/80">
@@ -847,10 +851,10 @@ function Pricing() {
         tone="cyan"
         icon={Tag}
         eyebrow="Pricing"
-        title="Simple, flat pricing"
+        title="Flat pricing. Unlimited DMs."
         description={
           <>
-            Pay per social set. Try{" "}
+            Pay per social set, never per contact or message. Try{" "}
             <Highlight>any plan free for {TRIAL_DAYS} days</Highlight>, with all
             six platforms, analytics and API access.
           </>

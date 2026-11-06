@@ -135,19 +135,12 @@ export const features = [
   },
 ]
 
+// Ordered by what stops people buying: cost, the trial, account safety and
+// how aghost compares, then the details.
 export const faqs = [
   {
     question: "What is aghost?",
     answer: productSummary,
-  },
-  {
-    question: "Which platforms can I post to?",
-    answer: `${platformNames}. A social set holds one account on each, such as one brand; plans include 1, 2 or 10 sets.`,
-  },
-  {
-    question: "Can I write a different caption for each platform?",
-    answer:
-      "Yes. Every channel shares one caption until you give it its own. YouTube posts also get a title.",
   },
   {
     question: "How much does aghost cost?",
@@ -158,9 +151,56 @@ export const faqs = [
     answer: `Yes. New workspaces get ${TRIAL_DAYS} days free on any plan. Your card is charged when the trial ends unless you cancel first.`,
   },
   {
+    question: "Will Instagram flag my account?",
+    answer:
+      "aghost follows Instagram's rules: one private reply per comment within seven days, and more messages only after the person responds.",
+  },
+  {
+    question: "How is aghost different from ManyChat?",
+    answer:
+      "ManyChat is a multi-channel chatbot builder. aghost combines scheduling to six platforms with Instagram DM automation, run by you or your AI agent.",
+  },
+  {
+    question: "How is aghost different from Buffer?",
+    answer:
+      "aghost also schedules to six platforms, and adds Instagram DM automation, an inbox and API access for AI agents.",
+  },
+  {
+    question: "Which platforms can I post to?",
+    answer: `${platformNames}. A social set holds one account on each, such as one brand; plans include 1, 2 or 10 sets.`,
+  },
+  {
+    question: "Do I need a business or creator account?",
+    answer:
+      "For DM automation, yes. Switching is free in Instagram's settings.",
+  },
+  {
     question: "What is a social set?",
     answer:
       "One account on each platform, such as one brand's Instagram, LinkedIn and YouTube. Switch between sets to run several brands or clients from one workspace.",
+  },
+  {
+    question: "Can I write a different caption for each platform?",
+    answer:
+      "Yes. Every channel shares one caption until you give it its own. YouTube posts also get a title.",
+  },
+  {
+    question: "What is comment-to-DM automation?",
+    answer:
+      "An automatic DM to anyone who comments on your post, usually with a link, since links in Instagram captions aren't clickable.",
+  },
+  {
+    question: "Can I set up the DM before the post goes live?",
+    answer: "Yes. Attach the automation while you schedule the post or reel.",
+  },
+  {
+    question: "Why does the first DM have a button?",
+    answer:
+      "Instagram allows one automatic message per comment. A tap opens a 24-hour window, so your link can follow. The button is optional.",
+  },
+  {
+    question: "Can I send the link only to my followers?",
+    answer: "Yes. Everyone else is asked to follow first, then gets the link.",
   },
   {
     question: "Which AI agents work with aghost?",
@@ -176,43 +216,5 @@ export const faqs = [
     question: "What can't an agent do?",
     answer:
       "Create API keys, change settings, or connect and disconnect accounts. You can revoke a key at any time.",
-  },
-  {
-    question: "What is comment-to-DM automation?",
-    answer:
-      "An automatic DM to anyone who comments on your post, usually with a link, since links in Instagram captions aren't clickable.",
-  },
-  {
-    question: "Can I set up the DM before the post goes live?",
-    answer: "Yes. Attach the automation while you schedule the post or reel.",
-  },
-  {
-    question: "Will Instagram flag my account?",
-    answer:
-      "aghost follows Instagram's rules: one private reply per comment within seven days, and more messages only after the person responds.",
-  },
-  {
-    question: "Do I need a business or creator account?",
-    answer:
-      "For DM automation, yes. Switching is free in Instagram's settings.",
-  },
-  {
-    question: "Why does the first DM have a button?",
-    answer:
-      "Instagram allows one automatic message per comment. A tap opens a 24-hour window, so your link can follow. The button is optional.",
-  },
-  {
-    question: "Can I send the link only to my followers?",
-    answer: "Yes. Everyone else is asked to follow first, then gets the link.",
-  },
-  {
-    question: "How is aghost different from ManyChat?",
-    answer:
-      "ManyChat is a multi-channel chatbot builder. aghost combines scheduling to six platforms with Instagram DM automation, run by you or your AI agent.",
-  },
-  {
-    question: "How is aghost different from Buffer?",
-    answer:
-      "aghost also schedules to six platforms, and adds Instagram DM automation, an inbox and API access for AI agents.",
   },
 ]
