@@ -1,6 +1,10 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, Check, Code2, Terminal } from "lucide-react"
+import {
+  agentPlatformPath,
+  agentPlatforms,
+} from "@/features/marketing/agent-platforms"
 import { agentAbilities, agentClients } from "@/features/marketing/content"
 import { McpConfigApp } from "@/features/marketing/agent-apps"
 import { RestScene } from "@/features/marketing/illustrations"
@@ -115,7 +119,7 @@ export default function Page() {
         <SectionHeading
           id="connection-heading"
           title="Connect once. Then ask."
-          description="The MCP connection uses HTTP and an API key in the Authorization header. Use a client that supports Bearer tokens or custom headers."
+          description="Apps with MCP sign-in, such as Claude, need only the URL. Other clients send an API key in the Authorization header."
         />
         <ol className="mt-12 grid gap-4 md:grid-cols-3">
           {connectionSteps.map((step, index) => (
@@ -128,6 +132,29 @@ export default function Page() {
             </li>
           ))}
         </ol>
+      </section>
+      <section
+        id="platforms"
+        aria-labelledby="platforms-heading"
+        className={`${section} scroll-mt-24`}
+      >
+        <SectionHeading
+          id="platforms-heading"
+          title="One MCP server, six platforms"
+          description="What your agent can post, and what it can read, on each one."
+        />
+        <ul className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {agentPlatforms.map((page) => (
+            <li key={page.slug} className={`${card} grid content-start gap-4`}>
+              <h3 className="text-2xl font-normal tracking-[-0.03em]">
+                <Link href={agentPlatformPath(page)} className={textLink}>
+                  {page.heading}
+                </Link>
+              </h3>
+              <p className="text-ink/65">{page.description}</p>
+            </li>
+          ))}
+        </ul>
       </section>
       <section aria-labelledby="clients-heading" className={section}>
         <SectionHeading

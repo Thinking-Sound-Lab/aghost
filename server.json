@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Thinking-Sound-Lab/aghost",
+  "title": "aghost",
+  "description": "Schedule posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and automate Instagram DMs",
+  "version": "1.0.0",
+  "websiteUrl": "https://aghost.app/agents",
+  "repository": {
+    "url": "https://github.com/Thinking-Sound-Lab/aghost",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://aghost.app/icon.png",
+      "mimeType": "image/png",
+      "sizes": ["192x192"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://aghost.app/api/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Not needed when your client signs in with OAuth. Otherwise \"Bearer <API key>\", from Settings → API in aghost",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
