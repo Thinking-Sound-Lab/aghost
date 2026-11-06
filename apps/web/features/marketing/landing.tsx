@@ -161,7 +161,7 @@ function Hero() {
             </span>
           </a>
         </div>
-        <div className="mt-8 flex items-center gap-3 text-sm text-ink/55">
+        <div className="mt-8 flex items-center gap-3 text-sm text-ink/70">
           Publishes to
           <ul className="flex items-center gap-3 text-ink/80">
             {PLATFORM_ORDER.map((platform) => (

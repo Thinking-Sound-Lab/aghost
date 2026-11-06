@@ -107,7 +107,7 @@ export function MarketingHeader() {
         <nav
           id="marketing-mobile-nav"
           aria-label="Mobile"
-          className="pointer-events-auto mx-auto mt-2 grid max-w-6xl gap-1 rounded-[18px] bg-white p-3 text-lg shadow-[0_0_0_1px_rgb(18_20_22/0.07),0_20px_40px_-20px_rgb(17_24_39/0.35)] lg:hidden"
+          className="pointer-events-auto mx-auto mt-2 grid max-h-[calc(100svh-6rem)] max-w-6xl gap-1 overflow-y-auto overscroll-contain rounded-[18px] bg-white p-3 text-lg shadow-[0_0_0_1px_rgb(18_20_22/0.07),0_20px_40px_-20px_rgb(17_24_39/0.35)] lg:hidden"
         >
           {[
             { href: "/", label: "Home" },

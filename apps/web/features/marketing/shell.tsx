@@ -228,7 +228,7 @@ function FooterLinks({
           <a
             key={link.href}
             href={link.href}
-            className="text-ink/55 transition-colors hover:text-ink"
+            className="text-ink/70 transition-colors hover:text-ink"
           >
             {link.label}
           </a>
@@ -236,7 +236,7 @@ function FooterLinks({
           <Link
             key={link.href}
             href={link.href}
-            className="text-ink/55 transition-colors hover:text-ink"
+            className="text-ink/70 transition-colors hover:text-ink"
           >
             {link.label}
           </Link>
@@ -254,7 +254,7 @@ function MarketingFooter() {
         <div className="grid gap-12 lg:grid-cols-[1fr_3fr]">
           <div className="grid content-start gap-5">
             <Brand />
-            <p className="max-w-xs text-[15px] leading-6 text-ink/60">
+            <p className="max-w-xs text-[15px] leading-6 text-ink/70">
               aghost is social media scheduling for six platforms and Instagram
               comment-to-DM automation, run from your dashboard or your AI
               agent.
@@ -283,7 +283,7 @@ function MarketingFooter() {
             />
           </div>
         </div>
-        <div className="mt-20 flex flex-wrap items-center justify-between gap-4 border-t border-ink/10 pt-8 text-sm text-ink/50">
+        <div className="mt-20 flex flex-wrap items-center justify-between gap-4 border-t border-ink/10 pt-8 text-sm text-ink/65">
           <p>© 2026 aghost. All rights reserved.</p>
           <nav aria-label="Legal" className="flex flex-wrap gap-x-6 gap-y-2">
             {legalLinks.map((link) => (
@@ -351,7 +351,7 @@ export function PageIntro({
 }) {
   return (
     <div className="mx-auto max-w-7xl px-5 pt-16 pb-14 sm:px-8 sm:pt-24 lg:px-12">
-      <nav aria-label="Breadcrumb" className="flex gap-2 text-sm text-ink/50">
+      <nav aria-label="Breadcrumb" className="flex gap-2 text-sm text-ink/65">
         <Link href="/" className="hover:text-ink">
           Home
         </Link>
