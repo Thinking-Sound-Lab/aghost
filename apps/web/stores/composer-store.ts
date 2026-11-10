@@ -109,6 +109,8 @@ type ComposerState = {
   publishing: Record<string, boolean>
   /** What each TikTok creator allows, by account id and media type. */
   tiktokCreators: Record<string, TikTokCreator>
+  /** Creator reads in flight or failed, by the same key. */
+  tiktokCreatorReads: Record<string, "loading" | "failed">
   /** Set once a post went to several accounts; the draft is then done. */
   scheduled: ScheduledPost[] | null
   /** Whether the post gets an automation that answers its comments. */
@@ -228,6 +230,31 @@ export function tiktokCreatorFor(
   return creators[creatorKey(id, media)] ?? null
 }
 
+/** Whether reading what the TikTok creator allows failed, for a retry. */
+export function tiktokCreatorFailed(
+  reads: Record<string, "loading" | "failed">,
+  id: string,
+  media: PostMedia[]
+): boolean {
+  return reads[creatorKey(id, media)] === "failed"
+}
+
+/** The interactions to switch off because the creator turned them off in TikTok. */
+function forbiddenOf(
+  settings: TikTokDraft,
+  creator: TikTokCreator
+): Partial<TikTokDraft> | null {
+  const patch = {
+    ...(settings.allowComment && !creator.comments && { allowComment: false }),
+    ...(settings.allowDuet && !creator.duets && { allowDuet: false }),
+    ...(settings.allowStitch && !creator.stitches && { allowStitch: false }),
+  }
+  return Object.keys(patch).length > 0 ? patch : null
+}
+
+// Reads in flight, so the settings panel and a save share one request.
+const creatorReads = new Map<string, Promise<void>>()
+
 /** A TikTok copy's settings, or null until the owner chooses its audience. */
 function tiktokSettingsOf(draft: Draft, id: string): TikTokSettings | null {
   const settings = draft.tiktok[id]
@@ -344,6 +371,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   uploads: [],
   publishing: {},
   tiktokCreators: {},
+  tiktokCreatorReads: {},
   scheduled: null,
   automationOn: false,
   response: emptyResponse(),
@@ -366,6 +394,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       uploads: [],
       publishing: {},
       tiktokCreators: {},
+      tiktokCreatorReads: {},
       scheduled: null,
       automationOn: false,
       response: emptyResponse(),
@@ -518,30 +547,43 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   loadTikTokCreator: async (id) => {
     const { revision, draft } = get()
     const key = creatorKey(id, draft.media)
-    if (key in get().tiktokCreators) return
-    try {
-      const creator = await api.accounts.tiktokCreator(id, {
-        mediaType: tiktokMediaType(draft.media),
-      })
-      if (get().revision !== revision) return
-      set({ tiktokCreators: { ...get().tiktokCreators, [key]: creator } })
-      // An interaction the creator turned off in TikTok can't be on.
+    // An interaction the creator turned off in TikTok can't be on, whether
+    // the options were just read or already known.
+    const restrict = () => {
+      const creator = get().tiktokCreators[key]
       const settings = get().draft.tiktok[id]
-      if (
-        settings &&
-        creatorKey(id, get().draft.media) === key &&
-        ((settings.allowComment && !creator.comments) ||
-          (settings.allowDuet && !creator.duets) ||
-          (settings.allowStitch && !creator.stitches))
-      )
-        get().setTikTok(id, {
-          allowComment: settings.allowComment && creator.comments,
-          allowDuet: settings.allowDuet && creator.duets,
-          allowStitch: settings.allowStitch && creator.stitches,
-        })
-    } catch (error) {
-      if (get().revision === revision) set({ error: errorMessage(error) })
+      if (!creator || !settings || creatorKey(id, get().draft.media) !== key)
+        return
+      const forbidden = forbiddenOf(settings, creator)
+      if (forbidden) get().setTikTok(id, forbidden)
     }
+    if (key in get().tiktokCreators) return restrict()
+    const read = `${revision}:${key}`
+    const pending = creatorReads.get(read)
+    if (pending) return pending
+    const reads = (status: "loading" | "failed" | null) => {
+      const { [key]: _previous, ...rest } = get().tiktokCreatorReads
+      return status ? { ...rest, [key]: status } : rest
+    }
+    const request = (async () => {
+      set({ tiktokCreatorReads: reads("loading") })
+      try {
+        const creator = await api.accounts.tiktokCreator(id, {
+          mediaType: tiktokMediaType(draft.media),
+        })
+        if (get().revision !== revision) return
+        set({
+          tiktokCreators: { ...get().tiktokCreators, [key]: creator },
+          tiktokCreatorReads: reads(null),
+        })
+        restrict()
+      } catch (error) {
+        if (get().revision !== revision) return
+        set({ tiktokCreatorReads: reads("failed"), error: errorMessage(error) })
+      }
+    })().finally(() => creatorReads.delete(read))
+    creatorReads.set(read, request)
+    return request
   },
   addFiles: async (files) => {
     const { draft, uploads, revision, pending } = get()
@@ -627,6 +669,20 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     for (const account of added) await get().toggleAccount(account.id)
   },
   save: async () => {
+    if (get().pending || get().scheduled) return null
+    // Every TikTok copy is checked against its own creator's video limit,
+    // not only the one whose panel was opened.
+    const tiktok = accountsOf(get().draft).filter(
+      (account) => account.platform === "tiktok"
+    )
+    if (tiktok.length > 0) {
+      const { revision } = get()
+      await Promise.all(
+        tiktok.map((account) => get().loadTikTokCreator(account.id))
+      )
+      // The owner left the draft while its options were read; nothing was sent.
+      if (get().revision !== revision) return null
+    }
     const state = get()
     if (state.pending || state.scheduled) return null
     if (state.uploads.length > 0) {

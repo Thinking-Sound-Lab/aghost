@@ -7,7 +7,7 @@ import type {
 } from "@workspace/api/contract"
 import { api } from "@/lib/api"
 import { localInput } from "@/features/calendar/schedule-time"
-import { useComposerStore } from "./composer-store"
+import { tiktokCreatorFailed, useComposerStore } from "./composer-store"
 import { useVideoStore } from "./video-store"
 import { useWorkspaceStore } from "./workspace-store"
 import { useCalendarStore } from "./calendar-store"
@@ -314,10 +314,19 @@ describe("cross-posting from the composer", () => {
         disclosure: "none",
       },
     })
+    // The account's options can't be read; the owner can still choose, and
+    // try again.
+    vi.mocked(api.accounts.tiktokCreator).mockRejectedValueOnce(
+      new Error("Zernio unavailable")
+    )
     expect(await useComposerStore.getState().save()).toBeNull()
     expect(useComposerStore.getState().fields).toEqual({
       "targets.1.tiktok.privacyLevel": "Choose who can see the TikTok post",
     })
+    const { tiktokCreatorReads, draft: current } = useComposerStore.getState()
+    expect(
+      tiktokCreatorFailed(tiktokCreatorReads, tiktok.id, current.media)
+    ).toBe(true)
 
     const video: PostMedia = {
       url: "https://media.example/clip.mp4",
@@ -336,24 +345,31 @@ describe("cross-posting from the composer", () => {
       stitches: true,
       maxVideoSeconds: 60,
     })
-    await useComposerStore.getState().loadTikTokCreator(tiktok.id)
-    expect(api.accounts.tiktokCreator).toHaveBeenCalledExactlyOnceWith(
-      tiktok.id,
-      { mediaType: "video" }
-    )
-    // The creator turned comments off in TikTok.
-    expect(
-      useComposerStore.getState().draft.tiktok[tiktok.id]?.allowComment
-    ).toBe(false)
     useVideoStore
       .getState()
       .loaded(video.url, { width: 1080, height: 1920, seconds: 90 })
+    // Saving reads the account's video options even though its TikTok panel
+    // was never opened.
     expect(await useComposerStore.getState().save()).toBeNull()
+    expect(api.accounts.tiktokCreator).toHaveBeenLastCalledWith(tiktok.id, {
+      mediaType: "video",
+    })
     expect(useComposerStore.getState().fields).toEqual({
       "targets.1.tiktok.privacyLevel": "TikTok publishes videos to everyone",
       "targets.1.media": "A TikTok video is 3 seconds to 1 minute long",
       "targets.1.tiktok.disclosure": "Choose what the post promotes",
     })
+    // The creator turned comments off in TikTok, which known options apply
+    // again without another request.
+    expect(
+      useComposerStore.getState().draft.tiktok[tiktok.id]?.allowComment
+    ).toBe(false)
+    useComposerStore.getState().setTikTok(tiktok.id, { allowComment: true })
+    await useComposerStore.getState().loadTikTokCreator(tiktok.id)
+    expect(
+      useComposerStore.getState().draft.tiktok[tiktok.id]?.allowComment
+    ).toBe(false)
+    expect(api.accounts.tiktokCreator).toHaveBeenCalledTimes(2)
 
     useComposerStore.getState().setTikTok(tiktok.id, {
       privacyLevel: "everyone",

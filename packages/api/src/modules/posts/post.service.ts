@@ -538,8 +538,18 @@ export class PostService {
     post: ScheduledPostRecord
   ): Promise<ScheduledPostRecord> {
     if (Date.parse(post.scheduledFor) > Date.now()) return post
-    if (isSettled(post.status) && !awaitsLink(post)) return post
+    if (!isSettled(post.status)) return this.readState(workspace, post)
+    if (!awaitsLink(post)) return post
+    // Only the link is missing, so a failed read keeps the stored post
+    // rather than failing the calendar.
+    return this.readState(workspace, post).catch(() => post)
+  }
 
+  /** Reads how far publishing got and stores what changed. */
+  private async readState(
+    workspace: WorkspaceOwner,
+    post: ScheduledPostRecord
+  ): Promise<ScheduledPostRecord> {
     const state = await this.provider.getState(
       post.providerPostId,
       post.platform

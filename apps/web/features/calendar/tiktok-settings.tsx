@@ -8,11 +8,13 @@ import {
   type TikTokDisclosure,
   type TikTokPrivacyLevel,
 } from "@workspace/api/contract"
+import { Button } from "@workspace/ui/components/button"
 import { NativeSelect } from "@workspace/ui/components/native-select"
 import { Switch } from "@workspace/ui/components/switch"
 import { Field } from "@/components/interface"
 import { Card } from "@/features/automations/automation-fields"
 import {
+  tiktokCreatorFailed,
   tiktokCreatorFor,
   tiktokMediaType,
   useComposerStore,
@@ -74,6 +76,11 @@ export function TikTokSettings({
     account.id,
     draft.media
   )
+  const failed = tiktokCreatorFailed(
+    composer.tiktokCreatorReads,
+    account.id,
+    draft.media
+  )
   const loadTikTokCreator = composer.loadTikTokCreator
   useEffect(() => {
     if (editable) void loadTikTokCreator(account.id)
@@ -81,8 +88,9 @@ export function TikTokSettings({
   if (!settings) return null
 
   const locked = !editable || busy
-  // Choices wait for the creator's options, so none has to be undone.
-  const waiting = editable && !creator
+  // Choices wait for the creator's options, so none has to be undone. If
+  // they can't be read, the owner chooses anyway and the server checks.
+  const waiting = editable && !creator && !failed
   const set = (patch: Partial<TikTokDraft>) =>
     composer.setTikTok(account.id, patch)
   const error = (field: string) => fields[`${prefix}tiktok.${field}`]
@@ -176,6 +184,20 @@ export function TikTokSettings({
             )}
           </span>
         </Field>
+        {failed && editable && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            Couldn’t read what this TikTok account allows.
+            <Button
+              type="button"
+              variant="secondary"
+              size="xs"
+              disabled={busy}
+              onClick={() => void loadTikTokCreator(account.id)}
+            >
+              Try again
+            </Button>
+          </p>
+        )}
         <div className="grid gap-2.5">
           {interactions.map((item) => (
             <div
@@ -198,7 +220,8 @@ export function TikTokSettings({
               <Switch
                 aria-label={item.label}
                 checked={item.on}
-                disabled={locked || waiting || !item.allowed}
+                // One left on from before can still be switched off.
+                disabled={locked || waiting || (!item.allowed && !item.on)}
                 onCheckedChange={item.toggle}
               />
             </div>

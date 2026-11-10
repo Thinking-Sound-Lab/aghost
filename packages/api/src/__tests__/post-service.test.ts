@@ -111,7 +111,7 @@ function setup(
     operations,
     recorded.source("webhook")
   )
-  return { service, rows, remove, deleteAutomations, recorded, plan }
+  return { service, rows, remove, deleteAutomations, recorded, plan, provider }
 }
 
 describe("scheduled posts outside the owner's requests", () => {
@@ -226,6 +226,26 @@ describe("TikTok links", () => {
     // TikTok never links some posts, such as private ones.
     expect(rows.get("old")?.permalink).toBeNull()
     expect(recorded.events).toEqual([])
+  })
+
+  it("keeps showing a published TikTok post when its link can't be read", async () => {
+    const { service, provider } = setup([
+      {
+        ...stored("recent", "published", -1),
+        platform: "tiktok",
+        publishedAt: new Date(Date.now() - 3_600_000).toISOString(),
+      },
+    ])
+    provider.getState = async () => {
+      throw new Error("Zernio unavailable")
+    }
+    const posts = await service.list(workspace, {
+      from: new Date(Date.now() - 86_400_000).toISOString(),
+      to: new Date().toISOString(),
+    })
+    expect(posts.map((post) => [post.id, post.status])).toEqual([
+      ["recent", "published"],
+    ])
   })
 })
 
