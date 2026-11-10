@@ -190,11 +190,7 @@ export const TIKTOK_PRIVACY_LEVELS = [
 ] as const
 
 /** Whether a TikTok post promotes the creator's own brand or a paid partner. */
-const TIKTOK_DISCLOSURES = [
-  "none",
-  "your_brand",
-  "branded_content",
-] as const
+const TIKTOK_DISCLOSURES = ["none", "your_brand", "branded_content"] as const
 
 export type TikTokPrivacyLevel = (typeof TIKTOK_PRIVACY_LEVELS)[number]
 export type TikTokDisclosure = (typeof TIKTOK_DISCLOSURES)[number]
