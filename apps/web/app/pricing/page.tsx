@@ -4,7 +4,7 @@ import { Pricing } from "@/features/billing/pricing"
 import { applicationSchema, jsonLd } from "@/features/marketing/structured-data"
 import { openGraph, site } from "@/lib/site"
 
-const description = `Flat USD plans by social set: one account on each of six platforms. Instagram DM automation, analytics, MCP and REST, unlimited DMs. ${TRIAL_DAYS}-day free trial.`
+const description = `Flat USD plans by social set: one account on each of seven platforms. Instagram DM automation, analytics, MCP and REST, unlimited DMs. ${TRIAL_DAYS}-day free trial.`
 
 export const metadata: Metadata = {
   title: "Pricing",

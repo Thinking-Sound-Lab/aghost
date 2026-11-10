@@ -86,6 +86,27 @@ export function facebookReelProblem(video: VideoShape): string | null {
     : `A Facebook Reel is a vertical video of ${FACEBOOK_REEL_SECONDS.min} to ${FACEBOOK_REEL_SECONDS.max} seconds`
 }
 
+// From Zernio's TikTok guide. A creator's own limit can be shorter, so the
+// composer asks TikTok for it.
+export const TIKTOK_VIDEO_SECONDS = { min: 3, max: 600 }
+
+/** Where a video doesn't fit TikTok, or null when it fits. */
+export function tiktokVideoProblem(
+  video: VideoShape,
+  maxSeconds: number = TIKTOK_VIDEO_SECONDS.max
+): string | null {
+  return video.seconds >= TIKTOK_VIDEO_SECONDS.min &&
+    video.seconds <= maxSeconds
+    ? null
+    : `A TikTok video is ${TIKTOK_VIDEO_SECONDS.min} seconds to ${durationLabel(maxSeconds)} long`
+}
+
+function durationLabel(seconds: number): string {
+  if (seconds % 60 !== 0) return `${seconds} seconds`
+  const minutes = seconds / 60
+  return minutes === 1 ? "1 minute" : `${minutes} minutes`
+}
+
 const MAX_BYTES: Record<MediaType, number> = {
   image: POST_LIMITS.imageMaxBytes,
   video: POST_LIMITS.videoMaxBytes,
@@ -160,6 +181,84 @@ export const facebookSchema = z.object({
 
 export type FacebookSettings = z.infer<typeof facebookSchema>
 
+/** Who can see a TikTok post: everyone, mutual followers, followers or only the creator. */
+export const TIKTOK_PRIVACY_LEVELS = [
+  "everyone",
+  "friends",
+  "followers",
+  "only_me",
+] as const
+
+/** Whether a TikTok post promotes the creator's own brand or a paid partner. */
+const TIKTOK_DISCLOSURES = [
+  "none",
+  "your_brand",
+  "branded_content",
+] as const
+
+export type TikTokPrivacyLevel = (typeof TIKTOK_PRIVACY_LEVELS)[number]
+export type TikTokDisclosure = (typeof TIKTOK_DISCLOSURES)[number]
+
+/**
+ * A TikTok post's audience and interactions. TikTok forbids defaulting them,
+ * so the owner chooses each one.
+ */
+export const tiktokSchema = z.object({
+  privacyLevel: z
+    .enum(TIKTOK_PRIVACY_LEVELS, {
+      error: "Choose who can see the TikTok post",
+    })
+    .describe(
+      "Who can see the post: everyone, friends (mutual followers), followers or only_me. It must be a level get_tiktok_creator lists for the account. Videos are public: everyone. Ask the owner; TikTok has no default."
+    ),
+  allowComment: z
+    .boolean()
+    .describe(
+      "Whether people can comment. Ask the owner; false when the creator turned comments off in TikTok."
+    ),
+  allowDuet: z
+    .boolean()
+    .describe(
+      "Whether people can duet the video. Ask the owner; photo posts ignore it."
+    ),
+  allowStitch: z
+    .boolean()
+    .describe(
+      "Whether people can stitch the video. Ask the owner; photo posts ignore it."
+    ),
+  disclosure: z
+    .enum(TIKTOK_DISCLOSURES)
+    .default("none")
+    .describe(
+      "your_brand: it promotes the creator's own business and is labelled promotional content. branded_content: a paid partnership, labelled as one, and never only_me."
+    ),
+})
+
+export type TikTokSettings = z.infer<typeof tiktokSchema>
+
+/** What a TikTok creator allows a post to be, as TikTok reports it now. */
+export type TikTokCreator = {
+  /** The audiences this creator's posts of the asked media type can have. */
+  privacyLevels: TikTokPrivacyLevel[]
+  /** Interactions the creator allows; one turned off in TikTok stays off. */
+  comments: boolean
+  /** Always false for photo posts, which have no duets or stitches. */
+  duets: boolean
+  stitches: boolean
+  maxVideoSeconds: number
+}
+
+export const tiktokCreatorQuerySchema = z.object({
+  mediaType: z
+    .enum(MEDIA_TYPES)
+    .default("video")
+    .describe(
+      "The post's media: video, or image for a photo post. A creator's options differ between them."
+    ),
+})
+
+export type TikTokCreatorQuery = z.infer<typeof tiktokCreatorQuerySchema>
+
 type PostShape = {
   kind: PostKind
   caption: string
@@ -191,6 +290,7 @@ export type PlatformPost = {
   trialReel: TrialReel | null
   youtube: YouTubeSettings | null
   facebook: FacebookSettings | null
+  tiktok: TikTokSettings | null
   hasAutomation: boolean
 }
 
@@ -214,6 +314,10 @@ export function platformProblems(
   }
   if (platform !== "facebook" && post.facebook)
     problems.facebook = "Facebook settings are for Facebook"
+  if (platform !== "tiktok" && post.tiktok)
+    problems.tiktok = "TikTok settings are for TikTok"
+  if (platform === "tiktok")
+    Object.assign(problems, tiktokProblems(post.tiktok, videos > 0))
   if ((post.caption?.length ?? 0) > rules.captionMaxLength)
     problems.caption = `${name} takes up to ${rules.captionMaxLength.toLocaleString("en")} characters`
   if (rules.videoOnly && (post.media.length !== 1 || videos !== 1))
@@ -237,6 +341,24 @@ export function platformProblems(
   if (rules.titleMaxLength === null && post.youtube)
     problems.youtube = `${name} videos have no title`
   return problems
+}
+
+function tiktokProblems(
+  settings: TikTokSettings | null,
+  video: boolean
+): Record<string, string> {
+  if (!settings)
+    return { "tiktok.privacyLevel": "Choose who can see the TikTok post" }
+  // TikTok's Business app, which every new connection goes through, publishes
+  // videos to everyone; only a draft finished in the app can be private.
+  if (video && settings.privacyLevel !== "everyone")
+    return { "tiktok.privacyLevel": "TikTok publishes videos to everyone" }
+  if (
+    settings.disclosure === "branded_content" &&
+    settings.privacyLevel === "only_me"
+  )
+    return { "tiktok.disclosure": "Branded content on TikTok can't be private" }
+  return {}
 }
 
 export const schedulePostSchema = z
@@ -271,6 +393,12 @@ export const updateScheduledPostSchema = z
       .describe(
         "A Facebook post's format, which can't change once scheduled. Omit to keep it; other platforms have none."
       ),
+    tiktok: tiktokSchema
+      .nullable()
+      .optional()
+      .describe(
+        "A TikTok post's audience, interactions and disclosure. Omit to keep them; other platforms have none."
+      ),
     automation: postAutomationSchema.nullable().default(null),
   })
   .check(checkKind)
@@ -283,6 +411,8 @@ const postTargetSchema = z.object({
   youtube: youtubeSchema.nullable().default(null),
   // Null on a Facebook account publishes a feed post.
   facebook: facebookSchema.nullable().default(null),
+  // Required on a TikTok account.
+  tiktok: tiktokSchema.nullable().default(null),
 })
 
 /** The same post scheduled on several accounts, each publishing its own copy. */
@@ -422,6 +552,8 @@ export type ScheduledPost = {
   youtube: YouTubeSettings | null
   /** Whether a Facebook post is a reel; null on other platforms. */
   facebook: FacebookSettings | null
+  /** A TikTok post's audience, interactions and disclosure; null on other platforms. */
+  tiktok: TikTokSettings | null
   status: ScheduledPostStatus
   /** The platform's id for the post, once it is published. */
   platformPostId: string | null

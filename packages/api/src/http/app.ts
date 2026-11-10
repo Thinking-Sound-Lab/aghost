@@ -30,6 +30,7 @@ import {
   crossPostSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
+  tiktokCreatorQuerySchema,
   updateScheduledPostSchema,
 } from "../contract/post"
 import { sendMessageSchema } from "../contract/inbox"
@@ -511,6 +512,17 @@ export function createApp({
             ),
           }
         })
+        routes.get<IdParams>(
+          "/accounts/:id/tiktok-creator",
+          async (request) => {
+            const { services, workspace } = request.identity
+            return services.posts.tiktokCreator(
+              workspace,
+              validate(z.uuid(), request.params.id),
+              validate(tiktokCreatorQuerySchema, request.query)
+            )
+          }
+        )
         routes.get<IdParams>("/accounts/:id/posts", async (request) => {
           const { services, workspace } = request.identity
           return services.accounts.listRecentPosts(

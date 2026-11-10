@@ -8,6 +8,7 @@ export const PLATFORMS = [
   "twitter",
   "threads",
   "youtube",
+  "tiktok",
 ] as const
 
 export type Platform = (typeof PLATFORMS)[number]
@@ -49,8 +50,9 @@ type PlatformRules = {
   primaryMetric: ChannelMetric
 }
 
-// Limits from each platform's Zernio guide. LinkedIn takes 20 photos, but a
-// post here holds 10. X allows 25,000 characters only on paid accounts.
+// Limits from each platform's Zernio guide. LinkedIn takes 20 photos and
+// TikTok 35, but a post here holds 10. X allows 25,000 characters only on paid
+// accounts.
 export const PLATFORM_RULES: Record<Platform, PlatformRules> = {
   instagram: {
     name: "Instagram",
@@ -125,6 +127,29 @@ export const PLATFORM_RULES: Record<Platform, PlatformRules> = {
     metrics: ["views", "likes", "comments", "shares"],
     primaryMetric: "views",
   },
+  tiktok: {
+    name: "TikTok",
+    captionMaxLength: 2_200,
+    maxMedia: 10,
+    needsMedia: true,
+    mixesMedia: false,
+    videoOnly: false,
+    instagramFeatures: false,
+    titleMaxLength: null,
+    // Reach, saves and clicks come from accounts connected through TikTok's
+    // Business app, which every new connection is, 24 to 48 hours after a
+    // post publishes. Clicks are on the profile's links.
+    metrics: [
+      "reach",
+      "views",
+      "likes",
+      "comments",
+      "shares",
+      "saves",
+      "clicks",
+    ],
+    primaryMetric: "views",
+  },
 }
 
 /** The longest caption any platform takes. */
@@ -138,7 +163,7 @@ export function accountLabel(account: {
   username: string
   displayName: string | null
 }): string {
-  const handles = ["instagram", "twitter", "threads"]
+  const handles = ["instagram", "twitter", "threads", "tiktok"]
   return handles.includes(account.platform)
     ? `@${account.username}`
     : (account.displayName ?? account.username)

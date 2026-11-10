@@ -14,7 +14,7 @@ import {
 import { openGraph } from "@/lib/site"
 
 const description =
-  "Cross-post to six platforms, preview every post, turn Instagram comments into DMs and track every channel."
+  "Cross-post to seven platforms, preview every post, turn Instagram comments into DMs and track every channel."
 export const metadata: Metadata = {
   title: "Social media scheduling and DM automation features",
   description,
@@ -52,7 +52,7 @@ export default function Page() {
               Before you connect
             </h2>
             <p className="max-w-3xl text-lg text-ink/65">
-              Every plan includes all six platforms, analytics and API access.
+              Every plan includes all seven platforms, analytics and API access.
               DM automation needs an Instagram Business or Creator account.
             </p>
             <Link

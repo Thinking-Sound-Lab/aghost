@@ -104,9 +104,9 @@ through treg's `web.extract` because ManyChat returns 403 to direct requests:
 
 MCP is not unique to aghost: Buffer, Hootsuite and Chatfuel run official
 servers. The pages instead say what aghost's one connection covers: posts on
-six platforms plus Instagram automations and the inbox. Where a vendor page is
+seven platforms plus Instagram automations and the inbox. Where a vendor page is
 silent, the copy says "not listed on its pricing page", never "doesn't have".
-aghost's gaps are stated: no free plan, no TikTok or Pinterest, no story, DM,
+aghost's gaps are stated: no free plan, no Pinterest, no story, DM,
 Live or ad triggers, no flow builder or customer-facing AI.
 
 ## Competing articles examined

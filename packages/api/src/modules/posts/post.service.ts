@@ -19,6 +19,8 @@ import {
   type ParsedSchedulePostInput,
   type ParsedUpdateScheduledPostInput,
   type ScheduledPostRange,
+  type TikTokCreator,
+  type TikTokCreatorQuery,
 } from "../../contract/post"
 import {
   AccountDisconnectedError,
@@ -39,6 +41,7 @@ import type { AutomationRecord } from "../automations/automation"
 import type { WorkspaceOwner, WorkspaceRecord } from "../workspaces/workspace"
 import type { WorkspaceOperations } from "../workspaces/workspace-operations"
 import {
+  awaitsLink,
   isSettled,
   type PostContent,
   type PublishingState,
@@ -122,6 +125,23 @@ export class PostService {
     return this.provider.canPublish(account.providerAccountId)
   }
 
+  /** What the TikTok creator allows a post with this media to be. */
+  async tiktokCreator(
+    workspace: WorkspaceRecord,
+    accountId: string,
+    query: TikTokCreatorQuery
+  ): Promise<TikTokCreator> {
+    const account = await this.getAccount(workspace.id, accountId)
+    if (account.platform !== "tiktok")
+      throw new ValidationError({ accountId: "Choose a TikTok account" })
+    if (account.status !== "connected")
+      throw new AccountDisconnectedError(accountLabel(account))
+    return this.provider.getTikTokCreator(
+      account.providerAccountId,
+      query.mediaType
+    )
+  }
+
   async createUpload(input: CreateMediaUploadInput): Promise<MediaUpload> {
     const target = await this.provider.createUpload(input)
     return {
@@ -155,7 +175,12 @@ export class PostService {
           instagramAccountId:
             "Choose an Instagram account. Posts on other platforms are scheduled with cross_post.",
         })
-      const content = contentOf({ ...input, youtube: null, facebook: null })
+      const content = contentOf({
+        ...input,
+        youtube: null,
+        facebook: null,
+        tiktok: null,
+      })
       assertFits(account, content, input.automation !== null, "")
       assertAhead(content.scheduledFor)
       await this.assertCanPublish(account)
@@ -182,7 +207,12 @@ export class PostService {
   ): Promise<ScheduledPostRecord[]> {
     return this.operations.run(workspace.id, async () => {
       await this.plan.assertCanUseWorkspace(workspace)
-      const shared = contentOf({ ...input, youtube: null, facebook: null })
+      const shared = contentOf({
+        ...input,
+        youtube: null,
+        facebook: null,
+        tiktok: null,
+      })
       const copies = await Promise.all(
         input.targets.map(async (target) => {
           const account = await this.getAccount(workspace.id, target.accountId)
@@ -196,6 +226,7 @@ export class PostService {
             trialReel: instagram ? shared.trialReel : null,
             youtube: target.youtube,
             facebook: facebookOf(account.platform, target.facebook),
+            tiktok: target.tiktok,
           }
           return {
             account,
@@ -218,6 +249,19 @@ export class PostService {
       if (Object.keys(problems).length > 0) throw new ValidationError(problems)
       assertAhead(shared.scheduledFor)
       for (const copy of copies) await this.assertCanPublish(copy.account)
+      const refused = Object.assign(
+        {},
+        ...(await Promise.all(
+          copies.map((copy, index) =>
+            this.creatorProblems(
+              copy.account,
+              copy.content,
+              `targets.${index}.`
+            )
+          )
+        ))
+      )
+      if (Object.keys(refused).length > 0) throw new ValidationError(refused)
 
       const posts: ScheduledPostRecord[] = []
       try {
@@ -321,6 +365,7 @@ export class PostService {
           input.facebook === undefined
             ? current.facebook
             : facebookOf(current.platform, input.facebook),
+        tiktok: input.tiktok === undefined ? current.tiktok : input.tiktok,
       })
       // Validate the effective settings too: an older client may omit
       // trialReel while replacing the video with a photo or carousel.
@@ -346,6 +391,8 @@ export class PostService {
             "A Facebook post can't become a reel or a reel a post. Delete it and schedule a new one.",
         })
       await this.assertCanPublish(account)
+      const refused = await this.creatorProblems(account, content, "")
+      if (Object.keys(refused).length > 0) throw new ValidationError(refused)
 
       await this.provider.reschedule(current.providerPostId, account, content)
       let updated: ScheduledPostRecord
@@ -490,8 +537,8 @@ export class PostService {
     workspace: WorkspaceOwner,
     post: ScheduledPostRecord
   ): Promise<ScheduledPostRecord> {
-    if (isSettled(post.status) || Date.parse(post.scheduledFor) > Date.now())
-      return post
+    if (Date.parse(post.scheduledFor) > Date.now()) return post
+    if (isSettled(post.status) && !awaitsLink(post)) return post
 
     const state = await this.provider.getState(
       post.providerPostId,
@@ -505,7 +552,7 @@ export class PostService {
       post.status,
       state
     )
-    if (stored && state.status === "published")
+    if (stored && state.status === "published" && post.status !== "published")
       this.record(workspace, {
         name: "scheduled_post_published",
         post_id: post.id,
@@ -524,6 +571,39 @@ export class PostService {
       throw new AccountDisconnectedError(accountLabel(account))
     if (!(await this.provider.canPublish(account.providerAccountId)))
       throw new PublishingNotAllowedError(accountLabel(account))
+  }
+
+  /**
+   * Where a TikTok copy asks for more than its creator allows today, such as
+   * comments they turned off in TikTok, by field under `prefix`.
+   */
+  private async creatorProblems(
+    account: AccountRecord,
+    content: PostContent,
+    prefix: string
+  ): Promise<Record<string, string>> {
+    const settings = content.tiktok
+    if (account.platform !== "tiktok" || !settings) return {}
+    const video = content.media.some((item) => item.type === "video")
+    const creator = await this.provider.getTikTokCreator(
+      account.providerAccountId,
+      video ? "video" : "image"
+    )
+    const label = accountLabel(account)
+    const problems: Record<string, string> = {}
+    if (!creator.privacyLevels.includes(settings.privacyLevel))
+      problems[`${prefix}tiktok.privacyLevel`] =
+        `TikTok doesn't offer this audience to ${label}`
+    if (settings.allowComment && !creator.comments)
+      problems[`${prefix}tiktok.allowComment`] =
+        `${label} turned comments off in TikTok`
+    if (video && settings.allowDuet && !creator.duets)
+      problems[`${prefix}tiktok.allowDuet`] =
+        `${label} turned duets off in TikTok`
+    if (video && settings.allowStitch && !creator.stitches)
+      problems[`${prefix}tiktok.allowStitch`] =
+        `${label} turned stitches off in TikTok`
+    return problems
   }
 
   private async getAccount(
@@ -545,7 +625,7 @@ function contentOf(
     ParsedCrossPostInput,
     "kind" | "caption" | "media" | "scheduledFor"
   > &
-    Pick<PostContent, "youtube" | "facebook"> & {
+    Pick<PostContent, "youtube" | "facebook" | "tiktok"> & {
       trialReel?: PostContent["trialReel"]
     }
 ): PostContent {
@@ -556,6 +636,7 @@ function contentOf(
     trialReel: input.trialReel ?? null,
     youtube: input.youtube,
     facebook: input.facebook,
+    tiktok: input.tiktok,
     scheduledFor: new Date(input.scheduledFor).toISOString(),
   }
 }

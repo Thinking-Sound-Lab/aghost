@@ -52,6 +52,13 @@ export async function startZernioFixture() {
     automationFailureStatus: 0,
     // Accounts on other platforms in the profile, as Zernio lists them.
     extraAccounts: [] as Body[],
+    // What a TikTok creator allows, as TikTok's creator info reports it.
+    tiktokPrivacyLevels: [
+      "PUBLIC_TO_EVERYONE",
+      "MUTUAL_FOLLOW_FRIENDS",
+      "SELF_ONLY",
+    ],
+    tiktokCommentsEnabled: true,
     // How many more posts are created before the next one fails.
     postsBeforeFailure: null as number | null,
     // Daily metrics that include another platform's posts.
@@ -226,6 +233,35 @@ export async function startZernioFixture() {
           canPost: state.canPost,
           canFetchAnalytics: state.canFetchAnalytics,
         },
+      })
+      return
+    }
+    if (extra && url.pathname.endsWith("/tiktok/creator-info")) {
+      const toggle = (enabled: boolean, label: string) => ({
+        enabled,
+        required: true,
+        default: false,
+        label,
+      })
+      // Photo posts have no duets or stitches.
+      const video = url.searchParams.get("mediaType") !== "photo"
+      reply(200, {
+        creator: { nickname: extra.username, canPostMore: true },
+        privacyLevels: state.tiktokPrivacyLevels.map((value) => ({
+          value,
+          label: value,
+        })),
+        postingLimits: {
+          maxVideoDurationSec: 600,
+          interactionSettings: {
+            allow_comment: toggle(state.tiktokCommentsEnabled, "Allow Comment"),
+            allow_duet: video ? toggle(true, "Allow Duet") : null,
+            allow_stitch: video ? toggle(false, "Allow Stitch") : null,
+          },
+        },
+        commercialContentTypes: [
+          { value: "none", label: "No Commercial Content" },
+        ],
       })
       return
     }

@@ -24,7 +24,7 @@ import {
 import { openGraph, site } from "@/lib/site"
 
 const description =
-  "Connect Claude Code, Codex, Cursor or any MCP client to schedule posts to six platforms, run Instagram DM automations and read analytics."
+  "Connect Claude Code, Codex, Cursor or any MCP client to schedule posts to seven platforms, run Instagram DM automations and read analytics."
 export const metadata: Metadata = {
   title: "Social media MCP server and REST API for AI agents",
   description,
@@ -140,7 +140,7 @@ export default function Page() {
       >
         <SectionHeading
           id="platforms-heading"
-          title="One MCP server, six platforms"
+          title="One MCP server, seven platforms"
           description="What your agent can post, and what it can read, on each one."
         />
         <ul className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">

@@ -14,7 +14,7 @@ import { useCalendarStore } from "./calendar-store"
 
 vi.mock("@/lib/api", () => ({
   api: {
-    accounts: { publishing: vi.fn(), list: vi.fn() },
+    accounts: { publishing: vi.fn(), list: vi.fn(), tiktokCreator: vi.fn() },
     scheduledPosts: {
       list: vi.fn(),
       get: vi.fn(),
@@ -55,6 +55,7 @@ function post(automationIds: string[] = []): ScheduledPost {
     instagramAccountId: account.id,
     youtube: null,
     facebook: null,
+    tiktok: null,
     kind: "post",
     caption: "Original caption",
     media: [media],
@@ -142,6 +143,12 @@ const facebook: Account = {
   platform: "facebook",
   username: "Studio Page",
 }
+const tiktok: Account = {
+  ...account,
+  id: "99999999-9999-4999-8999-999999999999",
+  platform: "tiktok",
+  username: "studio",
+}
 
 describe("cross-posting from the composer", () => {
   beforeEach(() => {
@@ -154,7 +161,7 @@ describe("cross-posting from the composer", () => {
       socialSets: [
         { id: "set", name: "Studio", createdAt: "2026-10-14T00:00:00Z" },
       ],
-      accounts: [account, x, youtube, facebook],
+      accounts: [account, x, youtube, facebook, tiktok],
     })
     vi.mocked(api.accounts.publishing).mockResolvedValue({ canPublish: true })
     vi.mocked(api.automations.stats).mockResolvedValue({})
@@ -203,18 +210,21 @@ describe("cross-posting from the composer", () => {
             caption: null,
             youtube: null,
             facebook: null,
+            tiktok: null,
           },
           {
             accountId: x.id,
             caption: "Launch day",
             youtube: null,
             facebook: null,
+            tiktok: null,
           },
           {
             accountId: youtube.id,
             caption: null,
             youtube: { title: "Launch", madeForKids: false },
             facebook: null,
+            tiktok: null,
           },
         ],
         automation: expect.objectContaining({ dmMessage: "Here is the guide" }),
@@ -289,6 +299,92 @@ describe("cross-posting from the composer", () => {
 
     await useComposerStore.getState().toggleAccount(facebook.id)
     expect(useComposerStore.getState().draft.facebook).toEqual({})
+  })
+
+  it("asks for a TikTok copy's audience and keeps off what its creator turned off", async () => {
+    await draft()
+    await useComposerStore.getState().toggleAccount(tiktok.id)
+    // TikTok has no defaults: no audience, and every interaction off.
+    expect(useComposerStore.getState().draft.tiktok).toEqual({
+      [tiktok.id]: {
+        privacyLevel: null,
+        allowComment: false,
+        allowDuet: false,
+        allowStitch: false,
+        disclosure: "none",
+      },
+    })
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.tiktok.privacyLevel": "Choose who can see the TikTok post",
+    })
+
+    const video: PostMedia = {
+      url: "https://media.example/clip.mp4",
+      type: "video",
+    }
+    useComposerStore.getState().patch({ media: [video] })
+    useComposerStore.getState().setTikTok(tiktok.id, {
+      privacyLevel: "only_me",
+      allowComment: true,
+      disclosure: null,
+    })
+    vi.mocked(api.accounts.tiktokCreator).mockResolvedValue({
+      privacyLevels: ["everyone", "only_me"],
+      comments: false,
+      duets: true,
+      stitches: true,
+      maxVideoSeconds: 60,
+    })
+    await useComposerStore.getState().loadTikTokCreator(tiktok.id)
+    expect(api.accounts.tiktokCreator).toHaveBeenCalledExactlyOnceWith(
+      tiktok.id,
+      { mediaType: "video" }
+    )
+    // The creator turned comments off in TikTok.
+    expect(
+      useComposerStore.getState().draft.tiktok[tiktok.id]?.allowComment
+    ).toBe(false)
+    useVideoStore
+      .getState()
+      .loaded(video.url, { width: 1080, height: 1920, seconds: 90 })
+    expect(await useComposerStore.getState().save()).toBeNull()
+    expect(useComposerStore.getState().fields).toEqual({
+      "targets.1.tiktok.privacyLevel": "TikTok publishes videos to everyone",
+      "targets.1.media": "A TikTok video is 3 seconds to 1 minute long",
+      "targets.1.tiktok.disclosure": "Choose what the post promotes",
+    })
+
+    useComposerStore.getState().setTikTok(tiktok.id, {
+      privacyLevel: "everyone",
+      allowDuet: true,
+      disclosure: "your_brand",
+    })
+    useVideoStore
+      .getState()
+      .loaded(video.url, { width: 1080, height: 1920, seconds: 30 })
+    vi.mocked(api.scheduledPosts.create).mockResolvedValue([post(), post()])
+    expect(await useComposerStore.getState().save()).not.toBeNull()
+    expect(api.scheduledPosts.create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        targets: [
+          expect.objectContaining({ accountId: account.id, tiktok: null }),
+          expect.objectContaining({
+            accountId: tiktok.id,
+            tiktok: {
+              privacyLevel: "everyone",
+              allowComment: false,
+              allowDuet: true,
+              allowStitch: false,
+              disclosure: "your_brand",
+            },
+          }),
+        ],
+      })
+    )
+
+    await useComposerStore.getState().toggleAccount(tiktok.id)
+    expect(useComposerStore.getState().draft.tiktok).toEqual({})
   })
 
   it("drops a Trial Reel when the last Instagram account leaves the post", async () => {

@@ -1,10 +1,10 @@
 # Channels
 
-A workspace connects accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube through Zernio. Each connected account is a channel, and belongs to a [social set](#social-sets). Comment-to-DM automations, the inbox and contacts stay on Instagram.
+A workspace connects accounts on Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok through Zernio. Each connected account is a channel, and belongs to a [social set](#social-sets). Comment-to-DM automations, the inbox and contacts stay on Instagram.
 
 ## Connecting
 
-Settings → Channels → **Connect channel** lists the platforms. The API asks Zernio for a connect URL with `GET /v1/connect/{platform}` and sends the browser there. Instagram asks for `posting,analytics,comments,messaging`; the other platforms ask for `posting,analytics`. Zernio hosts the extra step for Facebook (choose a Page) and LinkedIn (choose a personal profile or organization page). YouTube connects the channel of the Google identity picked in Google's chooser; one Zernio profile holds one YouTube channel.
+Settings → Channels → **Connect channel** lists the platforms. The API asks Zernio for a connect URL with `GET /v1/connect/{platform}` and sends the browser there. Instagram asks for `posting,analytics,comments,messaging`; the other platforms ask for `posting,analytics`. Zernio hosts the extra step for Facebook (choose a Page) and LinkedIn (choose a personal profile or organization page). YouTube connects the channel of the Google identity picked in Google's chooser; one Zernio profile holds one YouTube channel. TikTok connects through TikTok's Business app, which always grants the video scopes, so `scopes` only leaves out comments and messaging. Reconnecting the same TikTok account keeps it; authorizing a different one replaces it, and Zernio deletes the old account's analytics.
 
 The composer's channel menu and schedule dialog connect a channel in a new tab, so the draft stays open; that tab closes itself after the sync, and the composer adds the new account to the post.
 
@@ -16,7 +16,7 @@ X bills every API call. Zernio refuses to connect X (`402`, `twitter_passthrough
 
 The dashboard composer posts to several accounts at once with `POST /api/scheduled-posts/batch`. Each account gets its own scheduled post and Zernio post, with its own status, link and error, and can then be edited or deleted on its own. All copies are scheduled or none: if one fails, the copies already created are cancelled with their automations.
 
-One caption is shared, and any account can have its own caption instead. A YouTube copy needs a title and an audience setting (made for kids or not). A Facebook copy is a feed post or, from one vertical video of 3 to 90 seconds, a reel; Zernio publishes it with `contentType: "reel"`. That choice is made when the post is scheduled and can't change afterwards. Every copy is checked against its platform before anything is scheduled:
+One caption is shared, and any account can have its own caption instead. A YouTube copy needs a title and an audience setting (made for kids or not). A Facebook copy is a feed post or, from one vertical video of 3 to 90 seconds, a reel; Zernio publishes it with `contentType: "reel"`. That choice is made when the post is scheduled and can't change afterwards. A TikTok copy needs its own settings ([below](#tiktok)). Every copy is checked against its platform before anything is scheduled:
 
 | Platform  | Caption | Media                                           | Text alone |
 | --------- | ------- | ----------------------------------------------- | ---------- |
@@ -26,8 +26,23 @@ One caption is shared, and any account can have its own caption instead. A YouTu
 | X         | 280     | Up to 4 photos, or one video                    | Yes        |
 | Threads   | 500     | Up to 10 photos and videos                      | Yes        |
 | YouTube   | 5,000   | One video, with a title of up to 100 characters | No         |
+| TikTok    | 2,200   | Up to 10 photos, or one video of 3 s to 10 min  | No         |
 
-X allows 25,000 characters on paid accounts, but aghost checks 280 for every X account. Stories, Trial Reels and comment-to-DM automations apply only to the Instagram copies; the composer shows them only when an Instagram account is chosen.
+X allows 25,000 characters on paid accounts, but aghost checks 280 for every X account. TikTok takes 35 photos, but a post here holds 10. Stories, Trial Reels and comment-to-DM automations apply only to the Instagram copies; the composer shows them only when an Instagram account is chosen.
+
+### TikTok
+
+TikTok requires its owner to choose each post's audience and interactions, with no defaults. A TikTok target carries `tiktok`:
+
+- `privacyLevel`: `everyone`, `friends` (mutual followers), `followers` or `only_me`. TikTok's Business app publishes videos to `everyone` only, so a video must be `everyone`; a photo post can be any level the creator allows.
+- `allowComment`, `allowDuet` and `allowStitch`. Photo posts have no duets or stitches, so those two aren't sent for them.
+- `disclosure`: `none` (the default), `your_brand` (labelled "Promotional content") or `branded_content` (labelled "Paid partnership", and never `only_me`).
+
+Before scheduling, and again on each edit, the API reads `GET /v1/accounts/{accountId}/tiktok/creator-info` for the post's media type. It turns down a level TikTok doesn't offer the creator, and an interaction the creator turned off in TikTok. The composer reads the same options through `GET /api/accounts/:id/tiktok-creator?mediaType=video|image` (MCP `get_tiktok_creator`): it lists only the offered levels, leaves every switch off, greys out the ones the creator turned off, checks the video's length against the creator's limit once the browser has read it, and shows TikTok's Music Usage Confirmation (and Branded Content Policy) beside the settings. Scheduling sends `contentPreviewConfirmed` and `expressConsentGiven`, which TikTok requires.
+
+TikTok gives a post its link minutes after publishing, and never gives one to some, such as private posts. A published TikTok post without a link is read again from Zernio for a day. Zernio publishes up to 15 videos and 15 photo posts per account in a rolling 24 hours and holds the rest until a slot frees; TikTok's own daily limit fails a post with "You have created too many posts in the last 24 hours via the API".
+
+Creator Inbox drafts, music, location tags, covers and the AI-generated label aren't offered.
 
 ## Analytics
 
@@ -44,8 +59,9 @@ Each platform reports only some metrics. The rest stay `null` and show as a dash
 | X        | Yes         |       | Yes   | Yes   | Yes      | Yes    |       | Yes    |
 | Threads  | Yes         |       | Yes   | Yes   | Yes      | Yes    |       |        |
 | YouTube  |             |       | Yes   | Yes   | Yes      | Yes    |       |        |
+| TikTok   |             | Yes   | Yes   | Yes   | Yes      | Yes    | Yes   | Yes    |
 
-LinkedIn reports saves for personal profiles only and clicks for organization pages only. Engagement rate needs reach, so only Instagram and LinkedIn show it. The same Zernio Analytics add-on is required.
+LinkedIn reports saves for personal profiles only and clicks for organization pages only. TikTok reports reach, saves and clicks (on the profile's links) 24 to 48 hours after a post publishes, for accounts connected through its Business app, which every new connection is; until then they read zero. Engagement rate needs reach, so only Instagram, LinkedIn and TikTok show it. The same Zernio Analytics add-on is required.
 
 ## Social sets
 
@@ -66,5 +82,11 @@ REST and MCP list every account with its `platform`. Scheduled posts carry `acco
 3. Deploy the API, then the dashboard. The new API reads `social_sets`, so both migrations come first. Dashboards from before this change connect Instagram to the first set.
 4. Run `pnpm billing:setup` in `live_mode` to update the Dodo products to the new prices and descriptions ([billing](billing.md)). Existing subscribers keep their price and get the plan's social sets.
 5. Add a payment method to the Zernio team before connecting X.
+
+TikTok came later:
+
+1. Apply `20261110090000_tiktok.sql`. It allows TikTok accounts, adds `scheduled_posts.tiktok` (required on TikTok posts, which also need media), and lets the account webhook store TikTok connections. The previous API never writes either, so it keeps working.
+2. Deploy the API, then the dashboard.
+3. Run `pnpm billing:setup` in `live_mode` to update the Dodo product descriptions, which now list TikTok.
 
 The tests run every platform against a local Zernio fixture and PostgreSQL. They do not prove live publishing or metrics on each platform; check those with a real account on each.

@@ -3,7 +3,7 @@
 The dashboard's **Analytics** page reads professional-account insights through
 Zernio. This is separate from the application's PostHog product analytics.
 This page covers Instagram; [channels](channels.md#analytics) covers Facebook,
-LinkedIn, X, Threads and YouTube accounts.
+LinkedIn, X, Threads, YouTube and TikTok accounts.
 
 The operator must enable Zernio's Analytics add-on. Instagram connections now
 request `posting,analytics,comments,messaging`; existing connections need to

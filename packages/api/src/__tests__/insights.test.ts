@@ -262,7 +262,7 @@ describe("the workspace overview", () => {
             }),
           },
           { platform: "youtube", posts: 9, metrics: metrics({ views: 5_000 }) },
-          { platform: "tiktok", posts: 1, metrics: metrics({ views: 10 }) },
+          { platform: "pinterest", posts: 1, metrics: metrics({ views: 10 }) },
         ],
         previous: [
           {

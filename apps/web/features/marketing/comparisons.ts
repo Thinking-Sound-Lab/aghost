@@ -135,7 +135,7 @@ export const comparisons: Comparison[] = [
       "Compare aghost and ManyChat for Instagram comment-to-DM, post scheduling, AI agents, and what each costs as your contacts grow.",
     checked,
     summary:
-      "Both send a DM when someone comments on your Instagram post. ManyChat is a chat automation platform: a flow builder, AI replies and seven channels, priced by how many people you message each month. aghost also schedules your posts to six platforms, charges a flat price with no contact limits, and lets your AI agent run all of it.",
+      "Both send a DM when someone comments on your Instagram post. ManyChat is a chat automation platform: a flow builder, AI replies and seven channels, priced by how many people you message each month. aghost also schedules your posts to seven platforms, charges a flat price with no contact limits, and lets your AI agent run all of it.",
     fit: {
       aghost: [
         "You also schedule posts, and want one flat price however many people comment",
@@ -160,7 +160,7 @@ export const comparisons: Comparison[] = [
     rows: [
       {
         label: "Channels",
-        aghost: "Posts to six platforms; DMs on Instagram",
+        aghost: "Posts to seven platforms; DMs on Instagram",
         them: "Instagram, WhatsApp, Messenger, TikTok, Telegram, SMS and email; 2 channels to all, by plan",
       },
       {
@@ -278,12 +278,12 @@ export const comparisons: Comparison[] = [
       "Compare aghost and Chatfuel for Instagram comment-to-DM, post scheduling, AI agents, and usage-based versus flat pricing.",
     checked,
     summary:
-      "Chatfuel is an AI agent that answers your customers. It replies to comments and DMs, qualifies leads and books meetings across WhatsApp, Instagram, Facebook, TikTok and website chat, and bills AI replies as usage. aghost schedules posts to six platforms and sends the DM you wrote when someone comments on Instagram, at a flat price.",
+      "Chatfuel is an AI agent that answers your customers. It replies to comments and DMs, qualifies leads and books meetings across WhatsApp, Instagram, Facebook, TikTok and website chat, and bills AI replies as usage. aghost schedules posts to seven platforms and sends the DM you wrote when someone comments on Instagram, at a flat price.",
     fit: {
       aghost: [
         "You want to schedule posts and send set DMs from comments, with no usage to meter",
         "You want every commenter to get the exact message you reviewed",
-        "You also post to Facebook, LinkedIn, X, Threads and YouTube",
+        "You also post to Facebook, LinkedIn, X, Threads, YouTube or TikTok",
       ],
       them: [
         "You want an AI agent to answer customers on WhatsApp, Instagram, Facebook, TikTok and your website",
@@ -309,7 +309,7 @@ export const comparisons: Comparison[] = [
       },
       {
         label: "Channels",
-        aghost: "Posts to six platforms; DMs on Instagram",
+        aghost: "Posts to seven platforms; DMs on Instagram",
         them: "WhatsApp, Instagram, Facebook, TikTok and website chat",
       },
       {
@@ -331,8 +331,8 @@ export const comparisons: Comparison[] = [
         id: "scheduling",
         title: "Scheduling and AI agents",
         paragraphs: [
-          "Chatfuel's pricing and Instagram pages don't list post scheduling. aghost schedules posts, reels, carousels and stories to six platforms and attaches the DM automation before the post goes live.",
-          "Both have an MCP server. Chatfuel's lets Claude, ChatGPT or Cursor set up and review its AI agent across your chat channels. aghost's lets your agent schedule posts to six platforms, create Instagram automations, read analytics and reply in the inbox.",
+          "Chatfuel's pricing and Instagram pages don't list post scheduling. aghost schedules posts, reels, carousels and stories to seven platforms and attaches the DM automation before the post goes live.",
+          "Both have an MCP server. Chatfuel's lets Claude, ChatGPT or Cursor set up and review its AI agent across your chat channels. aghost's lets your agent schedule posts to seven platforms, create Instagram automations, read analytics and reply in the inbox.",
         ],
       },
     ],
@@ -395,10 +395,10 @@ export const comparisons: Comparison[] = [
       "Compare aghost and LinkDM for Instagram comment-to-DM: triggers, DM limits, post scheduling, AI agents and price.",
     checked,
     summary:
-      "LinkDM is a focused Instagram auto-DM tool for creators, with a free plan and triggers on posts, reels, stories, Lives and ads. aghost answers comments on posts and reels, and adds scheduling to six platforms, analytics and an MCP server for your AI agent, with no cap on DMs.",
+      "LinkDM is a focused Instagram auto-DM tool for creators, with a free plan and triggers on posts, reels, stories, Lives and ads. aghost answers comments on posts and reels, and adds scheduling to seven platforms, analytics and an MCP server for your AI agent, with no cap on DMs.",
     fit: {
       aghost: [
-        "You want scheduling to six platforms and no monthly DM cap, run by you or your AI agent",
+        "You want scheduling to seven platforms and no monthly DM cap, run by you or your AI agent",
         "You want product carousels or a follow-up nudge in the DM",
         "You want analytics for every channel next to your automations",
       ],
@@ -425,7 +425,7 @@ export const comparisons: Comparison[] = [
       },
       {
         label: "Instagram accounts",
-        aghost: `${PLANS.pro.socialSets} on Pro, ${PLANS.growth.socialSets} on Growth, ${PLANS.business.socialSets} on Business, each with five other platforms`,
+        aghost: `${PLANS.pro.socialSets} on Pro, ${PLANS.growth.socialSets} on Growth, ${PLANS.business.socialSets} on Business, each with six other platforms`,
         them: "1 on Free, 3 on Pro, 10 on Platinum+",
       },
       { label: "Free plan", aghost: noFreePlan, them: "Yes" },
@@ -450,7 +450,7 @@ export const comparisons: Comparison[] = [
     ],
     pricing: {
       before: [
-        "LinkDM prices by Instagram accounts and DMs a month. aghost prices by social sets, each holding one Instagram account and one account on each of five other platforms, with no DM cap.",
+        "LinkDM prices by Instagram accounts and DMs a month. aghost prices by social sets, each holding one Instagram account and one account on each of six other platforms, with no DM cap.",
       ],
       tables: [
         {
@@ -475,7 +475,7 @@ export const comparisons: Comparison[] = [
         },
       ],
       after: [
-        `For Instagram DMs alone, LinkDM costs less. aghost's price also covers scheduling and analytics on five more platforms, and its yearly plans start at ${yearly("pro")}.`,
+        `For Instagram DMs alone, LinkDM costs less. aghost's price also covers scheduling and analytics on six more platforms, and its yearly plans start at ${yearly("pro")}.`,
       ],
     },
     switching: [
@@ -511,15 +511,15 @@ export const comparisons: Comparison[] = [
       "Compare aghost and Buffer: platforms, Instagram comment-to-DM, AI agents over MCP, and per-channel versus per-brand pricing.",
     checked,
     summary:
-      "Both schedule posts and have an MCP server for your AI agent. Buffer supports 12 networks, has a free plan and charges per channel. aghost supports six, adds Instagram comment-to-DM automation and an inbox, and charges per social set: one account on each platform.",
+      "Both schedule posts and have an MCP server for your AI agent. Buffer supports 12 networks, has a free plan and charges per channel. aghost supports seven, adds Instagram comment-to-DM automation and an inbox, and charges per social set: one account on each platform.",
     fit: {
       aghost: [
-        "You want Instagram comments to send a DM, and one price for six platforms",
-        "You run several brands, each on Instagram, Facebook, LinkedIn, X, Threads and YouTube",
+        "You want Instagram comments to send a DM, and one price for seven platforms",
+        "You run several brands, each on Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok",
         "You want your AI agent to manage posts and DM automations together",
       ],
       them: [
-        "You post to TikTok, Pinterest or Bluesky, or want a free plan",
+        "You post to Pinterest or Bluesky, or want a free plan",
         "You only manage two or three accounts",
         "You want comment replies across many networks in one inbox",
       ],
@@ -543,7 +543,7 @@ export const comparisons: Comparison[] = [
       },
       {
         label: "How it's priced",
-        aghost: "Per social set: one account on each of six platforms",
+        aghost: "Per social set: one account on each of seven platforms",
         them: "Per channel, meaning each social account",
       },
     ],
@@ -560,26 +560,26 @@ export const comparisons: Comparison[] = [
         id: "scheduling",
         title: "Scheduling and AI agents",
         paragraphs: [
-          `Buffer reaches more networks, including TikTok, Pinterest, Bluesky, Mastodon, Google Business Profile and Substack. aghost covers ${platformNames}, with a caption per channel and a preview of each post. If you post to TikTok or Pinterest, Buffer fits better.`,
-          "Both have an official MCP server. Buffer's lets an AI assistant read your channels, schedule and edit posts, capture ideas and pull analytics. aghost's reads your accounts, schedules and edits posts and pulls analytics on its six platforms, and adds Instagram automations, their stats and the inbox. It has no tool for saving ideas.",
+          `Buffer reaches more networks, including Pinterest, Bluesky, Mastodon, Google Business Profile and Substack. aghost covers ${platformNames}, with a caption per channel and a preview of each post. If you post to Pinterest or Bluesky, Buffer fits better.`,
+          "Both have an official MCP server. Buffer's lets an AI assistant read your channels, schedule and edit posts, capture ideas and pull analytics. aghost's reads your accounts, schedules and edits posts and pulls analytics on its seven platforms, and adds Instagram automations, their stats and the inbox. It has no tool for saving ideas.",
         ],
       },
     ],
     pricing: {
       before: [
-        `Buffer charges per channel: Essentials is $5 a channel a month billed yearly ($60), Team is $10 ($120), and channels beyond 10 cost less. aghost charges per social set, which holds one account on each of its six platforms.`,
-        `For one brand on six platforms, Buffer Essentials costs $360 a year and Team $720. aghost Pro covers the same six accounts for ${yearly("pro")} a year, with Instagram DM automation included. Buffer's Free plan covers 3 channels at no cost; aghost has no free plan.`,
+        `Buffer charges per channel: Essentials is $5 a channel a month billed yearly ($60), Team is $10 ($120), and channels beyond 10 cost less. aghost charges per social set, which holds one account on each of its seven platforms.`,
+        `For one brand on seven platforms, Buffer Essentials costs $420 a year and Team $840. aghost Pro covers the same seven accounts for ${yearly("pro")} a year, with Instagram DM automation included. Buffer's Free plan covers 3 channels at no cost; aghost has no free plan.`,
       ],
     },
     switching: [
       "Buffer's queue doesn't import into aghost. Connect each account in aghost, recreate your upcoming posts, and delete them from Buffer so nothing publishes twice.",
-      "Keep Buffer for TikTok, Pinterest or any other network aghost doesn't support.",
+      "Keep Buffer for Pinterest, Bluesky or any other network aghost doesn't support.",
     ],
     faqs: [
       {
         question: "Is aghost a Buffer alternative?",
         answer:
-          "Yes, if you post to Instagram, Facebook, LinkedIn, X, Threads or YouTube and want Instagram comments to send DMs. If you need TikTok, Pinterest or Bluesky, Buffer covers them and aghost doesn't.",
+          "Yes, if you post to Instagram, Facebook, LinkedIn, X, Threads, YouTube or TikTok and want Instagram comments to send DMs. If you need Pinterest or Bluesky, Buffer covers them and aghost doesn't.",
       },
       {
         question: "Does Buffer do Instagram DM automation?",
@@ -587,7 +587,7 @@ export const comparisons: Comparison[] = [
       },
       {
         question: "Which is cheaper, Buffer or aghost?",
-        answer: `For a few accounts, Buffer: its Free plan covers 3 channels. For one brand on all six of aghost's platforms, aghost Pro is ${yearly("pro")} a year against $360 on Buffer Essentials.`,
+        answer: `For a few accounts, Buffer: its Free plan covers 3 channels. For one brand on all seven of aghost's platforms, aghost Pro is ${yearly("pro")} a year against $420 on Buffer Essentials.`,
       },
       {
         question: "Do Buffer and aghost work with Claude?",
@@ -611,7 +611,7 @@ export const comparisons: Comparison[] = [
     description:
       "Compare aghost and Hootsuite on scheduling, Instagram comment-to-DM, AI agents and price, for creators and small teams.",
     checked,
-    summary: `Hootsuite is social media management for teams and enterprises: publishing, a shared inbox, social listening, approvals and reporting, priced per user from $99 a month billed annually. aghost covers scheduling to six platforms, Instagram comment-to-DM and analytics for one workspace price, from ${yearlyPerMonth("pro")} a month billed yearly.`,
+    summary: `Hootsuite is social media management for teams and enterprises: publishing, a shared inbox, social listening, approvals and reporting, priced per user from $99 a month billed annually. aghost covers scheduling to seven platforms, Instagram comment-to-DM and analytics for one workspace price, from ${yearlyPerMonth("pro")} a month billed yearly.`,
     fit: {
       aghost: [
         `You're a creator or small team and want scheduling plus Instagram DMs from ${yearlyPerMonth("pro")} a month`,
@@ -658,7 +658,7 @@ export const comparisons: Comparison[] = [
         title: "Built for different team sizes",
         paragraphs: [
           "Hootsuite is built for social media teams. Standard covers publishing, a unified inbox, analytics, competitor benchmarking and social listening for up to 10 accounts. Professional adds unlimited accounts and inbox automation, Advanced adds approvals, message routing and team reporting, and Enterprise adds SSO and compliance.",
-          "aghost is built for creators, brands and small teams: one calendar for six platforms, Instagram comment-to-DM automation, an inbox for Instagram DMs and analytics for each channel. It doesn't offer social listening, approval workflows or message routing.",
+          "aghost is built for creators, brands and small teams: one calendar for seven platforms, Instagram comment-to-DM automation, an inbox for Instagram DMs and analytics for each channel. It doesn't offer social listening, approval workflows or message routing.",
         ],
       },
       {
@@ -688,7 +688,7 @@ export const comparisons: Comparison[] = [
       },
       {
         question: "How much does Hootsuite cost compared with aghost?",
-        answer: `Hootsuite Standard is $99 per user a month billed annually, for up to 10 accounts. aghost Pro is ${yearlyPerMonth("pro")} a month billed yearly for one brand on six platforms, and Business is ${monthly("business")} a month for ${socialSetCount(PLANS.business.socialSets)}.`,
+        answer: `Hootsuite Standard is $99 per user a month billed annually, for up to 10 accounts. aghost Pro is ${yearlyPerMonth("pro")} a month billed yearly for one brand on seven platforms, and Business is ${monthly("business")} a month for ${socialSetCount(PLANS.business.socialSets)}.`,
       },
       {
         question: "Does Hootsuite have an MCP server?",
@@ -713,7 +713,7 @@ export const comparisons: Comparison[] = [
       "Compare aghost and Later: social sets, platforms, Instagram comment-to-DM, AI agents and price.",
     checked,
     summary:
-      "Both group accounts into social sets and schedule a month of posts from one calendar. Later adds TikTok, Pinterest and Snapchat, a visual Instagram planner and Link in Bio. aghost adds X, Instagram comment-to-DM automation, an inbox on every plan, and an MCP server so your AI agent can run it.",
+      "Both group accounts into social sets and schedule a month of posts from one calendar. Later adds Pinterest and Snapchat, a visual Instagram planner and Link in Bio. aghost adds X, Instagram comment-to-DM automation, an inbox on every plan, and an MCP server so your AI agent can run it.",
     fit: {
       aghost: [
         "You want Instagram comments to send DMs, X in your social set, or your AI agent to post for you",
@@ -721,7 +721,7 @@ export const comparisons: Comparison[] = [
         "You run up to 10 brands on one plan",
       ],
       them: [
-        "You post to TikTok, Pinterest or Snapchat, or want Link in Bio and a visual planner",
+        "You post to Pinterest or Snapchat, or want Link in Bio and a visual planner",
         "You want the lowest price for one brand",
         "You collect user-generated content",
       ],
@@ -739,7 +739,7 @@ export const comparisons: Comparison[] = [
     rows: [
       {
         label: "Social set",
-        aghost: "One account on each of six platforms",
+        aghost: "One account on each of seven platforms",
         them: "One profile on each of eight platforms",
       },
       {
@@ -801,13 +801,13 @@ export const comparisons: Comparison[] = [
     },
     switching: [
       "Later's calendar doesn't import into aghost. Connect each account, recreate upcoming posts in aghost, and remove them from Later so nothing publishes twice.",
-      "Keep Later, or another tool, for TikTok, Pinterest, Snapchat and Link in Bio.",
+      "Keep Later, or another tool, for Pinterest, Snapchat and Link in Bio.",
     ],
     faqs: [
       {
         question: "Is aghost a Later alternative?",
         answer:
-          "Yes, if you post to Instagram, Facebook, LinkedIn, X, Threads or YouTube and want Instagram comments to send DMs. If you need TikTok, Pinterest, Snapchat or Link in Bio, Later covers them and aghost doesn't.",
+          "Yes, if you post to Instagram, Facebook, LinkedIn, X, Threads, YouTube or TikTok and want Instagram comments to send DMs. If you need Pinterest, Snapchat or Link in Bio, Later covers them and aghost doesn't.",
       },
       {
         question: "Does Later do Instagram DM automation?",
@@ -834,7 +834,7 @@ export function getComparison(slug: string): Comparison | undefined {
 export const compareFaqs: Faq[] = [
   {
     question: "What is the best ManyChat alternative for Instagram?",
-    answer: `If you also schedule posts, or your contact count makes ManyChat expensive, aghost: comment-to-DM plus scheduling to six platforms for a flat ${monthly("pro")}/month. For a free plan on one account, LinkDM. For an AI agent that answers customers, Chatfuel.`,
+    answer: `If you also schedule posts, or your contact count makes ManyChat expensive, aghost: comment-to-DM plus scheduling to seven platforms for a flat ${monthly("pro")}/month. For a free plan on one account, LinkDM. For an AI agent that answers customers, Chatfuel.`,
   },
   {
     question: "Which scheduler also automates Instagram DMs?",

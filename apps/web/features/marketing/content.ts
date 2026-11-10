@@ -12,7 +12,7 @@ import { price } from "@/features/billing/plan-cards"
 
 /** The platforms a post can go to, in the order the site names them. */
 export const platformNames =
-  "Instagram, Facebook, LinkedIn, X, Threads and YouTube"
+  "Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok"
 
 export const productSummary = `aghost schedules posts to ${platformNames}, turns Instagram comments into DMs, and tracks every channel. Run it from the dashboard or an AI agent over MCP or REST.`
 
@@ -21,7 +21,7 @@ export const heroSummary = `Schedule one post to ${platformNames}, and turn Inst
 
 export const growthCta = {
   title: "Your audience is everywhere. Be there with one post.",
-  description: "Six platforms. Every comment answered. One workspace.",
+  description: "Seven platforms. Every comment answered. One workspace.",
 }
 
 const schedulingFeature = {
@@ -40,7 +40,7 @@ export const agentClients = ["Claude Code", "Codex", "Cursor"]
 
 /** What a workspace API key lets an agent do, over MCP or the REST API. */
 export const agentAbilities = [
-  "Schedule posts to all six platforms, with a caption per channel",
+  "Schedule posts to all seven platforms, with a caption per channel",
   "Edit or cancel any scheduled post",
   "Read analytics and posting times for every channel",
   "Create, pause and edit Instagram DM automations",
@@ -70,7 +70,7 @@ export const steps = [
 export const features = [
   {
     label: "Cross-posting",
-    title: "One post, six platforms",
+    title: "One post, seven platforms",
     text: `Schedule to ${platformNames}. Each copy is checked against its platform's limits.`,
   },
   {
@@ -145,7 +145,7 @@ export const faqs = [
   },
   {
     question: "How much does aghost cost?",
-    answer: `${planPrices.join(", ")}. Every plan includes all six platforms, analytics, MCP and REST, and unlimited DMs and contacts. Prices in USD, taxes included.`,
+    answer: `${planPrices.join(", ")}. Every plan includes all seven platforms, analytics, MCP and REST, and unlimited DMs and contacts. Prices in USD, taxes included.`,
   },
   {
     question: "Is there a free trial?",
@@ -159,12 +159,12 @@ export const faqs = [
   {
     question: "How is aghost different from ManyChat?",
     answer:
-      "ManyChat is a multi-channel chatbot builder. aghost combines scheduling to six platforms with Instagram DM automation, run by you or your AI agent.",
+      "ManyChat is a multi-channel chatbot builder. aghost combines scheduling to seven platforms with Instagram DM automation, run by you or your AI agent.",
   },
   {
     question: "How is aghost different from Buffer?",
     answer:
-      "aghost also schedules to six platforms, and adds Instagram DM automation, an inbox and API access for AI agents.",
+      "aghost also schedules to seven platforms, and adds Instagram DM automation, an inbox and API access for AI agents.",
   },
   {
     question: "Which platforms can I post to?",
@@ -211,7 +211,7 @@ export const faqs = [
   {
     question: "Can my AI agent post to every platform?",
     answer:
-      "Yes. Agents schedule posts to all six platforms, with a caption per channel, and read analytics on each.",
+      "Yes. Agents schedule posts to all seven platforms, with a caption per channel, and read analytics on each.",
   },
   {
     question: "What can't an agent do?",

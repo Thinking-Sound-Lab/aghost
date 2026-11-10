@@ -3,13 +3,20 @@ import type {
   FacebookPlatformData,
   InstagramPlatformData,
   Post,
+  TikTokPlatformData,
   YouTubePlatformData,
 } from "@zernio/node"
 
 import { PLATFORM_RULES, type Platform } from "../../contract/platform"
-import type {
-  CreateMediaUploadInput,
-  ScheduledPostStatus,
+import {
+  TIKTOK_PRIVACY_LEVELS,
+  TIKTOK_VIDEO_SECONDS,
+  type CreateMediaUploadInput,
+  type ScheduledPostStatus,
+  type TikTokCreator,
+  type TikTokCreatorQuery,
+  type TikTokDisclosure,
+  type TikTokPrivacyLevel,
 } from "../../contract/post"
 import type {
   PostContent,
@@ -50,6 +57,22 @@ function statusError(status: ZernioStatus, platform: Platform): string | null {
   if (status === "cancelled")
     return `This post was removed from ${PLATFORM_RULES[platform].name}.`
   return null
+}
+
+const TIKTOK_PRIVACY: Record<TikTokPrivacyLevel, string> = {
+  everyone: "PUBLIC_TO_EVERYONE",
+  friends: "MUTUAL_FOLLOW_FRIENDS",
+  followers: "FOLLOWER_OF_CREATOR",
+  only_me: "SELF_ONLY",
+}
+
+const TIKTOK_DISCLOSURE: Record<
+  TikTokDisclosure,
+  TikTokPlatformData["commercialContentType"]
+> = {
+  none: "none",
+  your_brand: "brand_organic",
+  branded_content: "brand_content",
 }
 
 // Zernio no longer has the post, so it can never be published.
@@ -172,6 +195,40 @@ export class ZernioPublishingProvider implements PublishingProvider {
     }
   }
 
+  async getTikTokCreator(
+    providerAccountId: string,
+    mediaType: TikTokCreatorQuery["mediaType"]
+  ): Promise<TikTokCreator> {
+    const action = "load the TikTok account's posting options"
+    const body = await request(action, () =>
+      this.zernio().accounts.getTikTokCreatorInfo({
+        throwOnError: true,
+        path: { accountId: providerAccountId },
+        query: { mediaType: mediaType === "image" ? "photo" : "video" },
+      })
+    )
+    const interactions = body.postingLimits?.interactionSettings
+    if (!body.privacyLevels || !interactions?.allow_comment)
+      throw new ProviderError(
+        `Couldn't ${action}. The response had no privacy levels or interactions.`
+      )
+    const offered = new Set(body.privacyLevels.map((level) => level.value))
+    // Each toggle is off only when the creator turned it off in TikTok.
+    // Photo posts have no duet or stitch toggle at all.
+    const allows = (toggle: { enabled?: boolean } | null | undefined) =>
+      !!toggle && toggle.enabled !== false
+    return {
+      privacyLevels: TIKTOK_PRIVACY_LEVELS.filter((level) =>
+        offered.has(TIKTOK_PRIVACY[level])
+      ),
+      comments: allows(interactions.allow_comment),
+      duets: allows(interactions.allow_duet),
+      stitches: allows(interactions.allow_stitch),
+      maxVideoSeconds:
+        body.postingLimits?.maxVideoDurationSec ?? TIKTOK_VIDEO_SECONDS.max,
+    }
+  }
+
   /** Null when Zernio no longer has the post. */
   private async find(
     action: string,
@@ -225,6 +282,28 @@ function platformDataOf(
     const data: YouTubePlatformData = {
       title: content.youtube.title,
       madeForKids: content.youtube.madeForKids,
+    }
+    return data
+  }
+  if (platform === "tiktok") {
+    if (!content.tiktok)
+      throw new ProviderError(
+        "Couldn't schedule the TikTok post. It has no audience."
+      )
+    const video = content.media.some((item) => item.type === "video")
+    const data: TikTokPlatformData = {
+      privacyLevel: TIKTOK_PRIVACY[content.tiktok.privacyLevel],
+      allowComment: content.tiktok.allowComment,
+      // TikTok has no duets or stitches on photo posts.
+      ...(video && {
+        allowDuet: content.tiktok.allowDuet,
+        allowStitch: content.tiktok.allowStitch,
+      }),
+      commercialContentType: TIKTOK_DISCLOSURE[content.tiktok.disclosure],
+      // TikTok requires the owner's confirmation that they saw the post and
+      // agree to publish it, which scheduling it in aghost gives.
+      contentPreviewConfirmed: true,
+      expressConsentGiven: true,
     }
     return data
   }

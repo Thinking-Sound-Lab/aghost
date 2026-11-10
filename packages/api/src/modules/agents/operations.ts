@@ -16,6 +16,7 @@ import {
   crossPostSchema,
   schedulePostSchema,
   scheduledPostRangeSchema,
+  tiktokCreatorQuerySchema,
   updateScheduledPostSchema,
 } from "../../contract/post"
 import type { AgentIdentity } from "../../http/context"
@@ -126,7 +127,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "list_accounts",
     description:
-      "List the workspace's connected accounts on Instagram, Facebook, LinkedIn, X, Threads and YouTube, with each one's platform, connection status and socialSetId. A social set holds one account per platform; cross-post within one set unless the user asks otherwise.",
+      "List the workspace's connected accounts on Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok, with each one's platform, connection status and socialSetId. A social set holds one account per platform; cross-post within one set unless the user asks otherwise.",
     scope: "accounts:read",
     schema: noInput,
     run: async ({ workspace, services }) =>
@@ -140,6 +141,15 @@ export const AGENT_OPERATIONS = [
     schema: accountId,
     run: ({ workspace, services }, { accountId }) =>
       services.accounts.listRecentPosts(workspace, accountId),
+  }),
+  operation({
+    name: "get_tiktok_creator",
+    description:
+      "Get what a TikTok account allows a post to be right now: the privacy levels it offers for that media, whether its owner turned comments, duets or stitches off in TikTok, and its longest video in seconds. Call it before scheduling on TikTok, then ask the owner to choose the audience and each interaction; TikTok has no defaults.",
+    scope: "posts:read",
+    schema: accountId.extend(tiktokCreatorQuerySchema.shape),
+    run: ({ workspace, services }, { accountId, mediaType }) =>
+      services.posts.tiktokCreator(workspace, accountId, { mediaType }),
   }),
   operation({
     name: "get_account_insights",
@@ -281,7 +291,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "get_scheduled_post",
     description:
-      "Get a scheduled post's platform, account, content, time, Trial Reel launch settings, YouTube title, whether a Facebook post is a reel, and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
+      "Get a scheduled post's platform, account, content, time, Trial Reel launch settings, YouTube title, whether a Facebook post is a reel, a TikTok post's audience and interactions, and the automations that answer its comments. trialReel is launch intent, not current graduation status. Once published it has a platformPostId and permalink; a failed post has an error.",
     scope: "posts:read",
     schema: postId,
     run: async ({ workspace, services }, { postId }) =>
@@ -326,7 +336,7 @@ export const AGENT_OPERATIONS = [
   }),
   operation({
     name: "cross_post",
-    description: `Schedule one post on one or more accounts on any platform, for at least ${POST_LIMITS.minLeadMinutes} minutes from now; each account gets its own scheduled post that publishes for real at that time. targets lists account ids from list_accounts. A target's caption replaces the shared caption on that account, such as a shorter one for X; null keeps the shared one. Caption limits: ${captionLimits}. YouTube needs one video and youtube: {title, madeForKids} on its target. A Facebook target with facebook: {reel: true} publishes one vertical video of 3 to 90 seconds as a Reel; without it, a feed post. Instagram needs a photo or video; Facebook, LinkedIn and X take several photos or one video, X up to ${PLATFORM_RULES.twitter.maxMedia} photos. Stories are Instagram only. trialReel and automation apply to the Instagram copies, and the others publish as plain posts. Every copy is checked before any is scheduled, and all are scheduled or none; errors name the target, such as targets.0.caption. Pass automation to answer comments on the Instagram copies (requires automations:write).`,
+    description: `Schedule one post on one or more accounts on any platform, for at least ${POST_LIMITS.minLeadMinutes} minutes from now; each account gets its own scheduled post that publishes for real at that time. targets lists account ids from list_accounts. A target's caption replaces the shared caption on that account, such as a shorter one for X; null keeps the shared one. Caption limits: ${captionLimits}. YouTube needs one video and youtube: {title, madeForKids} on its target. A Facebook target with facebook: {reel: true} publishes one vertical video of 3 to 90 seconds as a Reel; without it, a feed post. A TikTok target needs tiktok: {privacyLevel, allowComment, allowDuet, allowStitch, disclosure}: call get_tiktok_creator first and ask the owner for each, since TikTok has no defaults; a video must be privacyLevel everyone. Instagram and TikTok need a photo or video; Facebook, LinkedIn, X and TikTok take several photos or one video, X up to ${PLATFORM_RULES.twitter.maxMedia} photos. Stories are Instagram only. trialReel and automation apply to the Instagram copies, and the others publish as plain posts. Every copy is checked before any is scheduled, and all are scheduled or none; errors name the target, such as targets.0.caption. Pass automation to answer comments on the Instagram copies (requires automations:write).`,
     scope: "posts:write",
     schema: crossPostSchema,
     run: async ({ workspace, services, apiKey }, input) => {
@@ -340,7 +350,7 @@ export const AGENT_OPERATIONS = [
   operation({
     name: "update_scheduled_post",
     description:
-      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write on an Instagram post. The post's platform rules apply, such as 280 characters on X; set youtube to {title, madeForKids} on a YouTube video, or omit it to keep them. A Facebook post can't switch between feed post and reel; delete it and schedule it again. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
+      "Replace a scheduled post's caption, media and time, optionally adding an automation with automations:write on an Instagram post. The post's platform rules apply, such as 280 characters on X; set youtube to {title, madeForKids} on a YouTube video, or omit it to keep them. A Facebook post can't switch between feed post and reel; delete it and schedule it again. Set tiktok to a TikTok post's audience and interactions, or omit it to keep them. Set trialReel to {graduationStrategy: manual or automatic} for a Trial Reel with exactly one video, null for a regular reel, or omit it to preserve its settings. If adding an automation fails, the previous content and Trial Reel settings are restored. Only posts still waiting to publish can change, and kind must stay the same. Read it first and preserve fields that should stay the same.",
     scope: "posts:write",
     schema: postId.extend({ input: updateScheduledPostSchema }),
     destructive: true,

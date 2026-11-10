@@ -7,7 +7,7 @@ export const contentType = "image/png"
 
 const ink = "#16252b"
 
-/** The share card: the monogram, the promise, and the six platforms. */
+/** The share card: the monogram, the promise, and the seven platforms. */
 export default function Image() {
   return new ImageResponse(
     <div
@@ -49,7 +49,7 @@ export default function Image() {
           </span>
         </div>
         <span style={{ fontSize: 22, color: "rgba(22, 37, 43, 0.6)" }}>
-          Instagram · Facebook · LinkedIn · X · Threads · YouTube
+          Instagram · Facebook · LinkedIn · X · Threads · YouTube · TikTok
         </span>
       </div>
       <div

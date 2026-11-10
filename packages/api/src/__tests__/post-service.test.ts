@@ -31,6 +31,7 @@ function stored(
     trialReel: null,
     youtube: null,
     facebook: null,
+    tiktok: null,
     scheduledFor: new Date(Date.now() + hoursAway * 3_600_000).toISOString(),
     status,
     platformPostId: null,
@@ -88,6 +89,9 @@ function setup(
       error: null,
       publishedAt: "2026-10-14T09:00:00.000Z",
     }),
+    getTikTokCreator: async () => {
+      throw new Error("Unexpected creator read")
+    },
     delete: remove,
   }
   const deleteAutomations = vi.fn(async () => {})
@@ -203,6 +207,28 @@ describe("scheduled posts outside the owner's requests", () => {
   })
 })
 
+describe("TikTok links", () => {
+  it("asks again for a published TikTok post's link for a day, without recording it twice", async () => {
+    const published = (id: string, hoursAgo: number): ScheduledPostRecord => ({
+      ...stored(id, "published", -hoursAgo),
+      platform: "tiktok",
+      publishedAt: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
+    })
+    const { service, rows, recorded } = setup([
+      published("recent", 1),
+      published("old", 48),
+    ])
+    await service.list(workspace, {
+      from: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+      to: new Date().toISOString(),
+    })
+    expect(rows.get("recent")?.permalink).toBe("https://instagram.com/p/1")
+    // TikTok never links some posts, such as private ones.
+    expect(rows.get("old")?.permalink).toBeNull()
+    expect(recorded.events).toEqual([])
+  })
+})
+
 describe("cross-posting when a copy fails", () => {
   it("cancels every scheduled copy, even after one cancellation fails", async () => {
     const accounts = ["twitter", "threads", "linkedin"].map((platform) => ({
@@ -260,6 +286,9 @@ describe("cross-posting when a copy fails", () => {
       getState: async () => {
         throw new Error("Unexpected state read")
       },
+      getTikTokCreator: async () => {
+        throw new Error("Unexpected creator read")
+      },
       delete: remove,
     }
     const service = new PostService(
@@ -293,6 +322,7 @@ describe("cross-posting when a copy fails", () => {
           caption: null,
           youtube: null,
           facebook: null,
+          tiktok: null,
         })),
       })
     ).rejects.toMatchObject({

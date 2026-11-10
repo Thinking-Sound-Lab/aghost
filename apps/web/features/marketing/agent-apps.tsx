@@ -150,7 +150,7 @@ export function ClaudeCodeApp() {
         <ClaudeTool
           name="list_accounts"
           args=""
-          result="6 channels: Instagram, Facebook, LinkedIn, X, Threads, YouTube"
+          result="7 channels: Instagram, Facebook, LinkedIn, X, Threads, YouTube, TikTok"
         />
         <ClaudeTool
           name="cross_post"

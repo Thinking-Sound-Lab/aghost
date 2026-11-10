@@ -63,6 +63,7 @@ const LINK: Record<Platform, string> = {
   twitter: "text-[#1d9bf0]",
   threads: "text-[#0095f6]",
   youtube: "text-[#065fd4] dark:text-[#3ea6ff]",
+  tiktok: "text-[#2b5db9] dark:text-[#8eb4f5]",
 }
 
 // The capture group keeps each link, mention and hashtag when splitting.
@@ -133,6 +134,13 @@ export function PostPreview(props: PreviewProps) {
       <Phone label="Facebook Reels preview" className="dark bg-black">
         <FacebookReel {...props} />
         <TabBar account={account} active={1} />
+      </Phone>
+    )
+  if (account.platform === "tiktok")
+    return (
+      <Phone label="TikTok preview" className="dark bg-black">
+        <TikTokPost {...props} />
+        <TabBar account={account} />
       </Phone>
     )
   if (kind === "story")
@@ -305,6 +313,7 @@ const TABS: Record<Platform, (typeof House)[]> = {
   twitter: [House, Search, Bell, Mail],
   threads: [House, Search, SquarePen, Heart, User],
   youtube: [House, Clapperboard, Plus, TvMinimalPlay],
+  tiktok: [House, UsersRound, SquarePlus, MessageSquareText, User],
 }
 
 function TabBar({
@@ -816,6 +825,93 @@ function FacebookReel({ account, caption, media }: PreviewProps) {
             {COUNTS.shares}
           </span>
           <MoreHorizontal />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TikTokPost({ account, caption, media }: PreviewProps) {
+  const photos = media.length > 1
+  return (
+    <div className="relative min-h-0 flex-1 overflow-hidden text-white">
+      {media[0] ? (
+        <PlayableMedia media={media[0]} className="object-contain" />
+      ) : (
+        <div className="grid h-full place-content-center gap-2 text-center text-white/50">
+          <Clapperboard className="mx-auto size-7" />
+          <p className="text-xs">Your video or photos appear here</p>
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bg-linear-to-b from-black/40 to-transparent">
+        <StatusBar />
+        <div
+          aria-hidden="true"
+          className="relative flex h-11 items-center justify-center gap-4 text-[15px] font-semibold"
+        >
+          <span className="text-white/60">Following</span>
+          <span className="relative">
+            For You
+            <span className="absolute -bottom-1.5 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-white" />
+          </span>
+          <Search className="absolute right-4 size-6" />
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-3 bg-linear-to-t from-black/60 to-transparent px-3 pt-20 pb-4">
+        <div className="grid min-w-0 flex-1 gap-1.5">
+          <p className="truncate text-[15px] font-semibold">
+            {account.username}
+          </p>
+          {caption && (
+            <p className="line-clamp-2 text-sm leading-snug [overflow-wrap:anywhere] whitespace-pre-wrap">
+              <RichText text={caption} platform="tiktok" />
+            </p>
+          )}
+          {photos && (
+            <p aria-hidden="true" className="flex items-center gap-1 pt-1">
+              {media.map((item, index) => (
+                <span
+                  key={item.url}
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    index === 0 ? "bg-white" : "bg-white/40"
+                  )}
+                />
+              ))}
+            </p>
+          )}
+          <p className="flex min-w-0 items-center gap-1.5 text-xs">
+            <Music className="size-3.5 shrink-0" />
+            <span className="truncate">
+              original sound · {account.username}
+            </span>
+          </p>
+        </div>
+        <div
+          aria-hidden="true"
+          className="grid shrink-0 justify-items-center gap-4 text-xs font-semibold [&_svg]:size-7 [&>span]:grid [&>span]:justify-items-center [&>span]:gap-1"
+        >
+          <Avatar
+            src={account.profilePictureUrl}
+            name={account.username}
+            className="size-11 ring-1 ring-white"
+          />
+          <span>
+            <Heart className="fill-current" />
+            {COUNTS.likes}
+          </span>
+          <span>
+            <MessageCircle className="fill-current" />
+            {COUNTS.comments}
+          </span>
+          <span>
+            <Bookmark className="fill-current" />
+            {COUNTS.reposts}
+          </span>
+          <span>
+            <Share className="fill-current" />
+            {COUNTS.shares}
+          </span>
         </div>
       </div>
     </div>

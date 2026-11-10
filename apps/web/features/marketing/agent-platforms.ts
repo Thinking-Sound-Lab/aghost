@@ -4,6 +4,7 @@ import {
   PLANS,
   PLATFORM_RULES,
   POST_LIMITS,
+  TIKTOK_VIDEO_SECONDS,
   TRIAL_DAYS,
   YOUTUBE_SHORT_MAX_SECONDS,
   type Platform,
@@ -106,7 +107,7 @@ const platforms: AgentPlatform[] = [
     description:
       "Let Claude, Codex or Cursor schedule Instagram posts, Reels, Stories and Trial Reels, run comment-to-DM automations and read analytics over MCP.",
     answer:
-      "aghost's Instagram MCP server lets Claude, Codex, Cursor or another MCP client schedule Instagram posts, carousels, Reels, Stories and Trial Reels. It can attach a comment-to-DM automation to a post before it publishes, reply in the inbox and read analytics. The same connection posts to five other platforms.",
+      "aghost's Instagram MCP server lets Claude, Codex, Cursor or another MCP client schedule Instagram posts, carousels, Reels, Stories and Trial Reels. It can attach a comment-to-DM automation to a post before it publishes, reply in the inbox and read analytics. The same connection posts to six other platforms.",
     formats: [
       `Photo posts and carousels of up to ${PLATFORM_RULES.instagram.maxMedia} photos and videos`,
       "Reels from one video",
@@ -172,9 +173,9 @@ const platforms: AgentPlatform[] = [
     heading: "Facebook MCP server",
     title: "Facebook MCP server: schedule Page posts and Reels",
     description:
-      "Let Claude, Codex or Cursor schedule Facebook Page posts and Reels, cross-post to five more platforms and read Page analytics over MCP.",
+      "Let Claude, Codex or Cursor schedule Facebook Page posts and Reels, cross-post to six more platforms and read Page analytics over MCP.",
     answer:
-      "aghost's Facebook MCP server lets Claude, Codex, Cursor or another MCP client schedule posts and Reels on your Facebook Page, edit them before they publish and read their analytics. One request can post the same update to Instagram, LinkedIn, X, Threads and YouTube, each with its own caption.",
+      "aghost's Facebook MCP server lets Claude, Codex, Cursor or another MCP client schedule posts and Reels on your Facebook Page, edit them before they publish and read their analytics. One request can post the same update to Instagram, LinkedIn, X, Threads, YouTube and TikTok, each with its own caption.",
     formats: [
       "Text posts",
       `Up to ${PLATFORM_RULES.facebook.maxMedia} photos in a post, or one video`,
@@ -223,9 +224,9 @@ const platforms: AgentPlatform[] = [
     heading: "LinkedIn MCP server",
     title: "LinkedIn MCP server: schedule posts from your AI agent",
     description:
-      "Let Claude, Codex or Cursor schedule LinkedIn posts to your profile or company page, cross-post to five more platforms and read analytics over MCP.",
+      "Let Claude, Codex or Cursor schedule LinkedIn posts to your profile or company page, cross-post to six more platforms and read analytics over MCP.",
     answer:
-      "aghost's LinkedIn MCP server lets Claude, Codex, Cursor or another MCP client schedule posts to your LinkedIn profile or company page, edit them before they publish and read impressions, engagement and clicks. One request can post the same update to Instagram, Facebook, X, Threads and YouTube, each with its own caption.",
+      "aghost's LinkedIn MCP server lets Claude, Codex, Cursor or another MCP client schedule posts to your LinkedIn profile or company page, edit them before they publish and read impressions, engagement and clicks. One request can post the same update to Instagram, Facebook, X, Threads, YouTube and TikTok, each with its own caption.",
     formats: [
       `Text posts up to ${characters(PLATFORM_RULES.linkedin.captionMaxLength)}`,
       `Up to ${PLATFORM_RULES.linkedin.maxMedia} photos in a post, or one video`,
@@ -274,9 +275,9 @@ const platforms: AgentPlatform[] = [
     heading: "X (Twitter) MCP server",
     title: "X (Twitter) MCP server: schedule posts from your AI agent",
     description:
-      "Let Claude, Codex or Cursor schedule X posts with photos or video, cross-post to five more platforms and read impressions and clicks over MCP.",
+      "Let Claude, Codex or Cursor schedule X posts with photos or video, cross-post to six more platforms and read impressions and clicks over MCP.",
     answer:
-      "aghost's X MCP server lets Claude, Codex, Cursor or another MCP client schedule posts on X, with photos or a video, edit them before they publish and read impressions and clicks. One request can post the same update to Instagram, Facebook, LinkedIn, Threads and YouTube, with a shorter caption for X.",
+      "aghost's X MCP server lets Claude, Codex, Cursor or another MCP client schedule posts on X, with photos or a video, edit them before they publish and read impressions and clicks. One request can post the same update to Instagram, Facebook, LinkedIn, Threads, YouTube and TikTok, with a shorter caption for X.",
     formats: [
       `Text posts up to ${characters(PLATFORM_RULES.twitter.captionMaxLength)}`,
       `Up to ${PLATFORM_RULES.twitter.maxMedia} photos, or one video`,
@@ -324,7 +325,7 @@ const platforms: AgentPlatform[] = [
     description:
       "Let Claude, Codex or Cursor schedule Threads posts, cross-post from Instagram and read views and engagement over MCP.",
     answer:
-      "aghost's Threads MCP server lets Claude, Codex, Cursor or another MCP client schedule Threads posts with text, photos or videos, edit them before they publish and read views and engagement. One request can post the same update to Instagram, Facebook, LinkedIn, X and YouTube, each with its own caption.",
+      "aghost's Threads MCP server lets Claude, Codex, Cursor or another MCP client schedule Threads posts with text, photos or videos, edit them before they publish and read views and engagement. One request can post the same update to Instagram, Facebook, LinkedIn, X, YouTube and TikTok, each with its own caption.",
     formats: [
       `Text posts up to ${characters(PLATFORM_RULES.threads.captionMaxLength)}`,
       `Up to ${PLATFORM_RULES.threads.maxMedia} photos and videos in a post`,
@@ -371,9 +372,9 @@ const platforms: AgentPlatform[] = [
     heading: "YouTube MCP server",
     title: "YouTube MCP server: schedule videos and Shorts",
     description:
-      "Let Claude, Codex or Cursor schedule YouTube videos and Shorts with titles, cross-post to five more platforms and read views over MCP.",
+      "Let Claude, Codex or Cursor schedule YouTube videos and Shorts with titles, cross-post to six more platforms and read views over MCP.",
     answer:
-      "aghost's YouTube MCP server lets Claude, Codex, Cursor or another MCP client schedule YouTube videos and Shorts with a title and description, edit them before they publish and read views and engagement. One request can post the same video to Instagram, Facebook, LinkedIn, X and Threads, each with its own caption.",
+      "aghost's YouTube MCP server lets Claude, Codex, Cursor or another MCP client schedule YouTube videos and Shorts with a title and description, edit them before they publish and read views and engagement. One request can post the same video to Instagram, Facebook, LinkedIn, X, Threads and TikTok, each with its own caption.",
     formats: [
       `One video per post, with a title of up to ${characters(PLATFORM_RULES.youtube.titleMaxLength!)}`,
       `Shorts: vertical or square videos of up to ${YOUTUBE_SHORT_MAX_SECONDS / 60} minutes`,
@@ -411,6 +412,62 @@ const platforms: AgentPlatform[] = [
       {
         question: "Can it post images or community posts?",
         answer: "No. Each YouTube post here is one video.",
+      },
+    ],
+  },
+  {
+    slug: "tiktok",
+    platform: "tiktok",
+    heading: "TikTok MCP server",
+    title: "TikTok MCP server: schedule videos and photo posts",
+    description:
+      "Let Claude, Codex or Cursor schedule TikTok videos and photo posts, cross-post to six more platforms and read views and engagement over MCP.",
+    answer:
+      "aghost's TikTok MCP server lets Claude, Codex, Cursor or another MCP client schedule TikTok videos and photo posts with the audience and interactions you choose, edit them before they publish and read views and engagement. One request can post the same video to Instagram, Facebook, LinkedIn, X, Threads and YouTube, each with its own caption.",
+    formats: [
+      `Videos of ${TIKTOK_VIDEO_SECONDS.min} seconds to ${TIKTOK_VIDEO_SECONDS.max / 60} minutes, or the account's own limit`,
+      `Photo posts of up to ${PLATFORM_RULES.tiktok.maxMedia} photos`,
+    ],
+    connect:
+      "A TikTok account, connected with TikTok's own sign-in. You choose the account while connecting.",
+    abilities: [
+      "Read who can see the account's posts, and whether it allows comments, duets and stitches",
+      "Set each post's audience and interactions, as you choose them",
+      "Label a post as promoting your own brand or as a paid partnership",
+    ],
+    tools: ["get_tiktok_creator"],
+    prompts: [
+      {
+        title: "Post a reel on TikTok too",
+        prompt:
+          "Schedule this video on Instagram and TikTok for Friday at 6 PM. On TikTok, allow comments and duets but not stitches. Show me both captions first.",
+      },
+      {
+        title: "Share a photo post",
+        prompt:
+          "Post these five photos to TikTok tomorrow at noon for my followers only, with comments on.",
+      },
+      {
+        title: "Find what worked",
+        prompt:
+          "Which of my TikTok videos from the last 30 days got the most views and shares?",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can my agent post private TikTok videos?",
+        answer:
+          "No. Videos publish to everyone. A photo post can be shown to friends, followers or only you, where the account allows it.",
+      },
+      {
+        question: "Does my agent pick who can see a post?",
+        answer:
+          "No. TikTok has no defaults for a post's audience or interactions, so your agent asks you who can see it and whether to allow comments, duets and stitches. Anything you turned off in TikTok stays off.",
+      },
+      {
+        question: "Can my agent answer TikTok comments or DMs?",
+        answer:
+          "No. Comment-to-DM automations, the inbox and contacts are for Instagram.",
       },
     ],
   },

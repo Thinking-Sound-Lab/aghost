@@ -1,5 +1,9 @@
 import type { Platform } from "../../contract/platform"
-import type { CreateMediaUploadInput } from "../../contract/post"
+import type {
+  CreateMediaUploadInput,
+  TikTokCreator,
+  TikTokCreatorQuery,
+} from "../../contract/post"
 import type { PostContent, PublishingAccount, PublishingState } from "./post"
 
 /** Where to upload a file, and the public address it gets. */
@@ -22,6 +26,11 @@ export interface PublishingProvider {
     content: PostContent
   ): Promise<void>
   getState(providerPostId: string, platform: Platform): Promise<PublishingState>
+  /** What the TikTok creator allows a post of this media type to be. */
+  getTikTokCreator(
+    providerAccountId: string,
+    mediaType: TikTokCreatorQuery["mediaType"]
+  ): Promise<TikTokCreator>
   /** Cancels the post. Succeeds when it is already gone. */
   delete(providerPostId: string): Promise<void>
 }

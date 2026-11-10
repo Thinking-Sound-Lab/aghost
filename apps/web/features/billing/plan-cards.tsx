@@ -110,7 +110,7 @@ function benefits(plan: Plan): string[] {
     ]
   return [
     accounts,
-    "Instagram, Facebook, LinkedIn, X, Threads and YouTube",
+    "Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok",
     "Scheduling and cross-posting",
     "Analytics for every channel",
     "Unlimited automations, contacts and DMs",

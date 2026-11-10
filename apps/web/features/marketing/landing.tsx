@@ -41,6 +41,7 @@ import {
 import {
   AUTOMATION_LIMITS,
   PLATFORM_RULES,
+  TIKTOK_VIDEO_SECONDS,
   TRIAL_DAYS,
   type Platform,
 } from "@workspace/api/contract"
@@ -121,7 +122,7 @@ function Hero() {
           <span className="rounded-full bg-[linear-gradient(180deg,#ffddb4,#fdb877)] px-2 py-0.5 text-[11px] font-semibold text-ink">
             NEW
           </span>
-          <span className="font-medium">Post to six platforms</span>
+          <span className="font-medium">Post to seven platforms</span>
           <span className="text-white/60 max-sm:hidden">See what’s new</span>
           <ArrowRight aria-hidden="true" className="size-3.5 text-white/70" />
         </Link>
@@ -384,7 +385,7 @@ function Publishing() {
         <>
           One caption goes to{" "}
           <Highlight>
-            Instagram, Facebook, LinkedIn, X, Threads and YouTube
+            Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok
           </Highlight>
           , previewed the way each feed shows it.
         </>
@@ -419,8 +420,8 @@ function Publishing() {
       features={[
         {
           icon: Layers,
-          title: "Six platforms",
-          text: "Instagram, Facebook, LinkedIn, X, Threads and YouTube from one post.",
+          title: "Seven platforms",
+          text: "Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok from one post.",
         },
         {
           icon: ShieldCheck,
@@ -714,6 +715,8 @@ function platformNote(platform: Platform): string {
       return `Up to ${rules.captionMaxLength} characters, with photos and videos together.`
     case "youtube":
       return `One video, with a title of up to ${rules.titleMaxLength} characters.`
+    case "tiktok":
+      return `One video of up to ${TIKTOK_VIDEO_SECONDS.max / 60} minutes, or up to ${rules.maxMedia} photos.`
   }
 }
 
@@ -729,7 +732,7 @@ function Platforms() {
         tone="slate"
         icon={LayoutGrid}
         eyebrow="Every platform"
-        title="Six platforms. One social set."
+        title="Seven platforms. One social set."
         description={
           <>
             Connect <Highlight>one account on each platform</Highlight> to make
@@ -856,7 +859,7 @@ function Pricing() {
           <>
             Pay per social set, never per contact or message. Try{" "}
             <Highlight>any plan free for {TRIAL_DAYS} days</Highlight>, with all
-            six platforms, analytics and API access.
+            seven platforms, analytics and API access.
           </>
         }
       />

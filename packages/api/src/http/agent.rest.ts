@@ -56,6 +56,14 @@ export const AGENT_REST_ROUTES: RestRoute[] = [
     path: "/accounts/:accountId/posts",
     requestInput: params,
   }),
+  route("get_tiktok_creator", {
+    method: "GET",
+    path: "/accounts/:accountId/tiktok-creator",
+    requestInput: (request) => ({
+      ...(request.query as object),
+      ...(request.params as object),
+    }),
+  }),
   route("get_account_insights", {
     method: "GET",
     path: "/insights",
