@@ -20,6 +20,8 @@ const CONNECT_SCOPES: Record<Platform, string> = {
   twitter: "posting,analytics",
   threads: "posting,analytics",
   youtube: "posting,analytics",
+  // TikTok always grants its video scopes; this trims the rest.
+  tiktok: "posting,analytics",
 }
 
 const ACTION = "load the connected accounts"

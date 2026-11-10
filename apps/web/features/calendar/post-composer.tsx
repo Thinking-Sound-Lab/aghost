@@ -75,6 +75,7 @@ import {
 } from "@/features/calendar/post-media"
 import { PostPreview } from "@/features/calendar/post-preview"
 import { ScheduleDialog } from "@/features/calendar/schedule-dialog"
+import { TikTokSettings } from "@/features/calendar/tiktok-settings"
 import { onAccountsChanged } from "@/lib/account-events"
 import { captionFor, useComposerStore } from "@/stores/composer-store"
 import { useActiveSet } from "@/stores/social-set-store"
@@ -580,6 +581,18 @@ export function PostComposer({
                   ))}
                 </div>
               </EmptyState>
+            )}
+            {active?.platform === "tiktok" && (
+              <TikTokSettings
+                account={active}
+                prefix={
+                  post
+                    ? ""
+                    : `targets.${chosen.findIndex((item) => item.id === active.id)}.`
+                }
+                editable={editable}
+                busy={busy}
+              />
             )}
             {active?.platform === "youtube" && (
               <Card

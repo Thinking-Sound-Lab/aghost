@@ -250,9 +250,9 @@ function MarketingFooter() {
           <div className="grid content-start gap-5">
             <Brand />
             <p className="max-w-xs text-[15px] leading-6 text-ink/70">
-              aghost is social media scheduling for six platforms and Instagram
-              comment-to-DM automation, run from your dashboard or your AI
-              agent.
+              aghost is social media scheduling for seven platforms and
+              Instagram comment-to-DM automation, run from your dashboard or
+              your AI agent.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-10 text-[15px] sm:grid-cols-3 xl:grid-cols-5">
@@ -379,7 +379,7 @@ export function PageIntro({
 /** The closing call of every page, under a floating ghost. */
 export function MarketingCta({
   title = "Your audience is everywhere. Be there with one post.",
-  description = "Six platforms. Every comment answered. One workspace.",
+  description = "Seven platforms. Every comment answered. One workspace.",
 }: {
   title?: string
   description?: string

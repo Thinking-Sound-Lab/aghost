@@ -196,12 +196,12 @@ export default async function Page({ params }: Props) {
               Post everywhere. Answer every comment.
             </p>
             <p className="text-sm text-ink/70">
-              aghost schedules to six platforms and DMs your link to everyone
+              aghost schedules to seven platforms and DMs your link to everyone
               who comments on Instagram. Your AI agent can set it up.
             </p>
             <ul className="grid gap-2 text-sm">
               {[
-                "Instagram, Facebook, LinkedIn, X, Threads, YouTube",
+                "Instagram, Facebook, LinkedIn, X, Threads, YouTube, TikTok",
                 "Keyword or any-comment DM triggers",
                 "Run it from Claude Code or Codex",
                 "Unlimited contacts and DMs",

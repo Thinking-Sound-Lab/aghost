@@ -6,7 +6,7 @@
 
 **Agentic DM automation for Instagram.**
 
-Create, manage and monitor comment-to-DM automations, and schedule the Instagram posts they answer, through MCP, the REST API, or the dashboard. The dashboard also cross-posts to Facebook, LinkedIn, X, Threads and YouTube, with analytics for each channel. MCP and API access are included on every plan.
+Create, manage and monitor comment-to-DM automations, and schedule the Instagram posts they answer, through MCP, the REST API, or the dashboard. The dashboard also cross-posts to Facebook, LinkedIn, X, Threads, YouTube and TikTok, with analytics for each channel. MCP and API access are included on every plan.
 
 [![Deploy](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thinking-Sound-Lab/aghost/actions/workflows/deploy.yml)
 
@@ -18,14 +18,14 @@ Create, manage and monitor comment-to-DM automations, and schedule the Instagram
 
 ## Stack
 
-| Layer              | Built with                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------- |
-| **Web**            | Next.js marketing site and dashboard, Zustand, shadcn/ui · on Vercel                                      |
-| **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS                                     |
-| **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth                                                  |
-| **Channels**       | Zernio for six platforms' accounts, publishing, and analytics; Instagram automations, inbox, and contacts |
-| **Analytics**      | PostHog for product events, web analytics, and session replay                                             |
-| **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                                                    |
+| Layer              | Built with                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Web**            | Next.js marketing site and dashboard, Zustand, shadcn/ui · on Vercel                                        |
+| **API**            | Fastify on Node.js 22, domain services in `packages/api` · on AWS ECS                                       |
+| **Data and auth**  | Supabase Postgres with row-level security, Supabase Auth                                                    |
+| **Channels**       | Zernio for seven platforms' accounts, publishing, and analytics; Instagram automations, inbox, and contacts |
+| **Analytics**      | PostHog for product events, web analytics, and session replay                                               |
+| **Infrastructure** | AWS CDK in TypeScript, GitHub Actions, Turborepo, pnpm                                                      |
 
 ## Architecture
 

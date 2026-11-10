@@ -142,10 +142,10 @@ export default function Page() {
           <p>
             Social media management includes planning content, publishing,
             answering your audience, and measuring results. aghost schedules
-            posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and
-            handles Instagram engagement: the automation that answers a post’s
-            comments, requested links, DM conversations, and automation
-            activity.
+            posts to Instagram, Facebook, LinkedIn, X, Threads, YouTube and
+            TikTok, and handles Instagram engagement: the automation that
+            answers a post’s comments, requested links, DM conversations, and
+            automation activity.
           </p>
           <p>
             Your dashboard and AI agent work with the same posts, automations,

@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 const values = [
   {
     title: "One post, every channel",
-    text: "Write once for Instagram, Facebook, LinkedIn, X, Threads and YouTube, and tune each copy for the platform it lands on.",
+    text: "Write once for Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok, and tune each copy for the platform it lands on.",
   },
   {
     title: "Works with your agent",
@@ -63,7 +63,7 @@ export default function Page() {
         <div className={prose}>
           <h2>Why aghost exists</h2>
           <p className="text-2xl font-medium tracking-[-0.02em] text-ink">
-            You finish a reel. Then you post it five more times and answer “send
+            You finish a reel. Then you post it six more times and answer “send
             me the guide” under every copy.
           </p>
           <p>

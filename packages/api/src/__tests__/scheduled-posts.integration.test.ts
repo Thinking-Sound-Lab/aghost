@@ -1115,7 +1115,12 @@ describe("scheduled posts and their automations against PostgreSQL and a local p
     )
     expect(
       (await reader.listTools()).tools.map((tool) => tool.name).sort()
-    ).toEqual(["get_scheduled_post", "get_upload_link", "list_scheduled_posts"])
+    ).toEqual([
+      "get_scheduled_post",
+      "get_tiktok_creator",
+      "get_upload_link",
+      "list_scheduled_posts",
+    ])
   })
 
   it("lets an agent that cannot upload have the owner upload in the browser, once and within the owner's workspace", async () => {

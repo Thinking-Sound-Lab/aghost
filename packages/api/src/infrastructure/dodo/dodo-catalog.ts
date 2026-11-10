@@ -64,7 +64,7 @@ export function productSpec(plan: PlanId, interval: BillingInterval) {
   const { name, socialSets, prices } = PLANS[plan]
   return {
     name: `aghost ${name} (${interval === "monthly" ? "Monthly" : "Yearly"})`,
-    description: `${socialSetCount(socialSets)}, each with one account on Instagram, Facebook, LinkedIn, X, Threads and YouTube. Unlimited posts, automations, DMs and contacts.`,
+    description: `${socialSetCount(socialSets)}, each with one account on Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok. Unlimited posts, automations, DMs and contacts.`,
     tax_category: "saas" as const,
     // Clear country and currency overrides so only the USD base price remains.
     pricing_mode: null,

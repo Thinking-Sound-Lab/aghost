@@ -24,6 +24,7 @@ function post(id: string, scheduledFor: Date): ScheduledPost {
     trialReel: null,
     youtube: null,
     facebook: null,
+    tiktok: null,
     media: [{ url: "https://media.example/cover.jpg", type: "image" }],
     scheduledFor: scheduledFor.toISOString(),
     status: "scheduled",

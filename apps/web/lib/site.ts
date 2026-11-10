@@ -13,7 +13,7 @@ export const site = {
   url: origin(),
   title: "Social media scheduling and Instagram DM automation · aghost",
   description:
-    "Schedule posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and turn Instagram comments into DMs. Run it yourself or with your AI agent.",
+    "Schedule posts to Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok, and turn Instagram comments into DMs. Run it yourself or with your AI agent.",
 }
 
 /**

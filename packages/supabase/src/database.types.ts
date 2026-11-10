@@ -429,6 +429,7 @@ export type Database = {
           published_at: string | null
           scheduled_for: string
           status: string
+          tiktok: Json | null
           trial_graduation_strategy: string | null
           updated_at: string
           workspace_id: string
@@ -452,6 +453,7 @@ export type Database = {
           published_at?: string | null
           scheduled_for: string
           status: string
+          tiktok?: Json | null
           trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id: string
@@ -474,6 +476,7 @@ export type Database = {
           published_at?: string | null
           scheduled_for?: string
           status?: string
+          tiktok?: Json | null
           trial_graduation_strategy?: string | null
           updated_at?: string
           workspace_id?: string

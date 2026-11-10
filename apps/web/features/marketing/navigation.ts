@@ -51,7 +51,7 @@ export const publicPages = [
     href: "/",
     label: "Home",
     description:
-      "Social media scheduling to six platforms and Instagram comment-to-DM automation",
+      "Social media scheduling to seven platforms and Instagram comment-to-DM automation",
   },
   {
     href: "/features",

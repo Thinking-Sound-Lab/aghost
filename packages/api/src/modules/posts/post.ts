@@ -4,6 +4,7 @@ import type {
   PostKind,
   PostMedia,
   ScheduledPostStatus,
+  TikTokSettings,
   TrialReel,
   YouTubeSettings,
 } from "../../contract/post"
@@ -22,6 +23,7 @@ export type ScheduledPostRecord = {
   trialReel: TrialReel | null
   youtube: YouTubeSettings | null
   facebook: FacebookSettings | null
+  tiktok: TikTokSettings | null
   status: ScheduledPostStatus
   platformPostId: string | null
   permalink: string | null
@@ -42,6 +44,7 @@ export type PostContent = Pick<
   | "trialReel"
   | "youtube"
   | "facebook"
+  | "tiktok"
 >
 
 /** How far publishing got, as the provider reports it. */
@@ -65,4 +68,20 @@ export type PublishingAccount = {
 /** A published or failed post does not change again. */
 export function isSettled(status: ScheduledPostStatus): boolean {
   return status === "published" || status === "failed"
+}
+
+const LINK_WAIT_MS = 24 * 60 * 60 * 1000
+
+/**
+ * TikTok links a published post minutes later, and never links a private
+ * one, so a published post is asked about for a day until it has a link.
+ */
+export function awaitsLink(post: ScheduledPostRecord): boolean {
+  return (
+    post.platform === "tiktok" &&
+    post.status === "published" &&
+    post.permalink === null &&
+    Date.now() - Date.parse(post.publishedAt ?? post.scheduledFor) <
+      LINK_WAIT_MS
+  )
 }

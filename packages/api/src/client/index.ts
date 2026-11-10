@@ -34,6 +34,8 @@ import {
   type PublishingAccess,
   type ScheduledPost,
   type ScheduledPostRange,
+  type TikTokCreator,
+  type TikTokCreatorQuery,
   type UpdateScheduledPostInput,
   type UploadLink,
   type SendMessageInput,
@@ -184,6 +186,11 @@ export function createApiClient(
       publishing: (id: string) =>
         request<PublishingAccess>(
           `/accounts/${encodeURIComponent(id)}/publishing`
+        ),
+      /** What the TikTok creator allows a post with this media to be. */
+      tiktokCreator: (id: string, query: TikTokCreatorQuery) =>
+        request<TikTokCreator>(
+          `/accounts/${encodeURIComponent(id)}/tiktok-creator?${new URLSearchParams(query)}`
         ),
       posts: (id: string) =>
         request<InstagramPost[]>(`/accounts/${encodeURIComponent(id)}/posts`),

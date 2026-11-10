@@ -5,6 +5,7 @@ import {
   crossPostSchema,
   facebookReelProblem,
   platformProblems,
+  tiktokVideoProblem,
   updateScheduledPostSchema,
   type Account,
   type FacebookSettings,
@@ -12,7 +13,13 @@ import {
   type PostKind,
   type PostMedia,
   type ScheduledPost,
+  type TikTokCreator,
+  type TikTokCreatorQuery,
+  type TikTokDisclosure,
+  type TikTokPrivacyLevel,
+  type TikTokSettings,
   type TrialReel,
+  type VideoShape,
   type YouTubeSettings,
 } from "@workspace/api/contract"
 import { ApiClientError } from "@workspace/api/client"
@@ -31,6 +38,27 @@ import { accountsIn, currentSet } from "./social-set-store"
 import { useVideoStore } from "./video-store"
 import { errorMessage, useWorkspaceStore } from "./workspace-store"
 
+/**
+ * A TikTok copy's settings as the owner fills them in. TikTok has no default
+ * audience, and a disclosure that is switched on needs its kind chosen.
+ */
+export type TikTokDraft = Omit<
+  TikTokSettings,
+  "privacyLevel" | "disclosure"
+> & {
+  privacyLevel: TikTokPrivacyLevel | null
+  disclosure: TikTokDisclosure | null
+}
+
+// Every interaction starts off, as TikTok asks.
+const emptyTikTok = (): TikTokDraft => ({
+  privacyLevel: null,
+  allowComment: false,
+  allowDuet: false,
+  allowStitch: false,
+  disclosure: "none",
+})
+
 type Draft = {
   /** The accounts the post goes to, in the order they were chosen. */
   accountIds: string[]
@@ -43,6 +71,8 @@ type Draft = {
   youtube: Record<string, YouTubeSettings>
   /** Whether each Facebook account's copy is a reel, by account id. */
   facebook: Record<string, FacebookSettings>
+  /** Each TikTok account's audience and interactions, by account id. */
+  tiktok: Record<string, TikTokDraft>
   media: PostMedia[]
   trialReel: TrialReel | null
   /** Local date and time, as a datetime-local input holds it. */
@@ -56,6 +86,7 @@ const emptyDraft = (scheduledAt: string): Draft => ({
   captions: {},
   youtube: {},
   facebook: {},
+  tiktok: {},
   media: [],
   trialReel: null,
   scheduledAt,
@@ -76,6 +107,10 @@ type ComposerState = {
   uploads: Upload[]
   /** Whether each chosen account lets aghost publish; absent while unknown. */
   publishing: Record<string, boolean>
+  /** What each TikTok creator allows, by account id and media type. */
+  tiktokCreators: Record<string, TikTokCreator>
+  /** Creator reads in flight or failed, by the same key. */
+  tiktokCreatorReads: Record<string, "loading" | "failed">
   /** Set once a post went to several accounts; the draft is then done. */
   scheduled: ScheduledPost[] | null
   /** Whether the post gets an automation that answers its comments. */
@@ -105,7 +140,10 @@ type ComposerState = {
   setCaption: (id: string, caption: string) => void
   setYouTube: (id: string, patch: Partial<YouTubeSettings>) => void
   setFacebook: (id: string, settings: FacebookSettings) => void
+  setTikTok: (id: string, patch: Partial<TikTokDraft>) => void
   checkPublishing: (id: string) => Promise<void>
+  /** Reads what the TikTok creator allows a post with the draft's media to be. */
+  loadTikTokCreator: (id: string) => Promise<void>
   addFiles: (files: File[]) => Promise<void>
   removeMedia: (index: number) => void
   /** Moves an item one place earlier; the first is the carousel's cover. */
@@ -173,18 +211,78 @@ export function oneVideoReason(draft: Draft): string | null {
   return null
 }
 
+/** The media a TikTok creator's options are asked for. */
+export function tiktokMediaType(
+  media: PostMedia[]
+): TikTokCreatorQuery["mediaType"] {
+  return media.some((item) => item.type === "video") ? "video" : "image"
+}
+
+const creatorKey = (id: string, media: PostMedia[]) =>
+  `${id}:${tiktokMediaType(media)}`
+
+/** What the TikTok creator allows a post with this media to be, once read. */
+export function tiktokCreatorFor(
+  creators: Record<string, TikTokCreator>,
+  id: string,
+  media: PostMedia[]
+): TikTokCreator | null {
+  return creators[creatorKey(id, media)] ?? null
+}
+
+/** Whether reading what the TikTok creator allows failed, for a retry. */
+export function tiktokCreatorFailed(
+  reads: Record<string, "loading" | "failed">,
+  id: string,
+  media: PostMedia[]
+): boolean {
+  return reads[creatorKey(id, media)] === "failed"
+}
+
+/** The interactions to switch off because the creator turned them off in TikTok. */
+function forbiddenOf(
+  settings: TikTokDraft,
+  creator: TikTokCreator
+): Partial<TikTokDraft> | null {
+  const patch = {
+    ...(settings.allowComment && !creator.comments && { allowComment: false }),
+    ...(settings.allowDuet && !creator.duets && { allowDuet: false }),
+    ...(settings.allowStitch && !creator.stitches && { allowStitch: false }),
+  }
+  return Object.keys(patch).length > 0 ? patch : null
+}
+
+// Reads in flight, so the settings panel and a save share one request.
+const creatorReads = new Map<string, Promise<void>>()
+
+/** A TikTok copy's settings, or null until the owner chooses its audience. */
+function tiktokSettingsOf(draft: Draft, id: string): TikTokSettings | null {
+  const settings = draft.tiktok[id]
+  return settings?.privacyLevel
+    ? {
+        ...settings,
+        privacyLevel: settings.privacyLevel,
+        disclosure: settings.disclosure ?? "none",
+      }
+    : null
+}
+
 /**
- * Where a reel's video doesn't fit Facebook. The server never sees the file,
- * so a reel waits until the browser has read it.
+ * Where a video doesn't fit what it is published as. The server never sees
+ * the file, so the post waits until the browser has read it.
  */
-function reelVideoProblem(media: PostMedia[]): string | null {
+function videoProblem(
+  media: PostMedia[],
+  check: (shape: VideoShape) => string | null,
+  what: string
+): string | null {
   const video = media.length === 1 && media[0]?.type === "video" && media[0]
   if (!video) return null
   const { shapes, unreadable } = useVideoStore.getState()
   const shape = shapes[video.url]
-  if (shape) return facebookReelProblem(shape)
+  if (shape) return check(shape)
   return unreadable.includes(video.url)
-    ? "This browser can't read the video to check it for a Facebook Reel"
+    ? `This browser can't read the video to check it for ${what}`
     : "Wait for the video to load"
 }
 
@@ -214,14 +312,38 @@ function problemsOf(
           account.platform === "facebook"
             ? (draft.facebook[account.id] ?? null)
             : null,
+        tiktok:
+          account.platform === "tiktok"
+            ? tiktokSettingsOf(draft, account.id)
+            : null,
         hasAutomation:
           automation && instagram && account.platform === "instagram",
       })
-      const reelVideo =
-        draft.facebook[account.id]?.reel && !problems.media
-          ? reelVideoProblem(draft.media)
-          : null
-      if (reelVideo) problems.media = reelVideo
+      const video = problems.media
+        ? null
+        : draft.facebook[account.id]?.reel
+          ? videoProblem(draft.media, facebookReelProblem, "a Facebook Reel")
+          : account.platform === "tiktok"
+            ? videoProblem(
+                draft.media,
+                (shape) =>
+                  tiktokVideoProblem(
+                    shape,
+                    tiktokCreatorFor(
+                      useComposerStore.getState().tiktokCreators,
+                      account.id,
+                      draft.media
+                    )?.maxVideoSeconds
+                  ),
+                "TikTok"
+              )
+            : null
+      if (video) problems.media = video
+      if (
+        account.platform === "tiktok" &&
+        draft.tiktok[account.id]?.disclosure === null
+      )
+        problems["tiktok.disclosure"] = "Choose what the post promotes"
       return Object.fromEntries(
         Object.entries(problems).map(([field, message]) => [
           `${prefix(index)}${field}`,
@@ -248,6 +370,8 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   draft: emptyDraft(""),
   uploads: [],
   publishing: {},
+  tiktokCreators: {},
+  tiktokCreatorReads: {},
   scheduled: null,
   automationOn: false,
   response: emptyResponse(),
@@ -269,6 +393,8 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       draft: emptyDraft(suggestedTime(day)),
       uploads: [],
       publishing: {},
+      tiktokCreators: {},
+      tiktokCreatorReads: {},
       scheduled: null,
       automationOn: false,
       response: emptyResponse(),
@@ -294,6 +420,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
             caption: post.caption ?? "",
             youtube: post.youtube ? { [post.accountId]: post.youtube } : {},
             facebook: post.facebook ? { [post.accountId]: post.facebook } : {},
+            tiktok: post.tiktok ? { [post.accountId]: post.tiktok } : {},
             media: post.media,
             trialReel: post.trialReel ?? null,
           },
@@ -347,12 +474,14 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       const { [id]: _caption, ...captions } = draft.captions
       const { [id]: _youtube, ...youtube } = draft.youtube
       const { [id]: _facebook, ...facebook } = draft.facebook
+      const { [id]: _tiktok, ...tiktok } = draft.tiktok
       const accountIds = draft.accountIds.filter((item) => item !== id)
       get().patch({
         accountIds,
         captions,
         youtube,
         facebook,
+        tiktok,
         // A Trial Reel is Instagram's; without it, uploads aren't limited
         // to one video and the setting has nowhere to be switched off.
         ...(!hasInstagram({ ...draft, accountIds }) && { trialReel: null }),
@@ -375,6 +504,9 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       }),
       ...(account.platform === "facebook" && {
         facebook: { ...draft.facebook, [id]: { reel: false } },
+      }),
+      ...(account.platform === "tiktok" && {
+        tiktok: { ...draft.tiktok, [id]: emptyTikTok() },
       }),
     })
     await get().checkPublishing(id)
@@ -407,6 +539,52 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
   },
   setFacebook: (id, settings) =>
     get().patch({ facebook: { ...get().draft.facebook, [id]: settings } }),
+  setTikTok: (id, patch) => {
+    const tiktok = get().draft.tiktok
+    const current = tiktok[id] ?? emptyTikTok()
+    get().patch({ tiktok: { ...tiktok, [id]: { ...current, ...patch } } })
+  },
+  loadTikTokCreator: async (id) => {
+    const { revision, draft } = get()
+    const key = creatorKey(id, draft.media)
+    // An interaction the creator turned off in TikTok can't be on, whether
+    // the options were just read or already known.
+    const restrict = () => {
+      const creator = get().tiktokCreators[key]
+      const settings = get().draft.tiktok[id]
+      if (!creator || !settings || creatorKey(id, get().draft.media) !== key)
+        return
+      const forbidden = forbiddenOf(settings, creator)
+      if (forbidden) get().setTikTok(id, forbidden)
+    }
+    if (key in get().tiktokCreators) return restrict()
+    const read = `${revision}:${key}`
+    const pending = creatorReads.get(read)
+    if (pending) return pending
+    const reads = (status: "loading" | "failed" | null) => {
+      const { [key]: _previous, ...rest } = get().tiktokCreatorReads
+      return status ? { ...rest, [key]: status } : rest
+    }
+    const request = (async () => {
+      set({ tiktokCreatorReads: reads("loading") })
+      try {
+        const creator = await api.accounts.tiktokCreator(id, {
+          mediaType: tiktokMediaType(draft.media),
+        })
+        if (get().revision !== revision) return
+        set({
+          tiktokCreators: { ...get().tiktokCreators, [key]: creator },
+          tiktokCreatorReads: reads(null),
+        })
+        restrict()
+      } catch (error) {
+        if (get().revision !== revision) return
+        set({ tiktokCreatorReads: reads("failed"), error: errorMessage(error) })
+      }
+    })().finally(() => creatorReads.delete(read))
+    creatorReads.set(read, request)
+    return request
+  },
   addFiles: async (files) => {
     const { draft, uploads, revision, pending } = get()
     // A batch keeps selection order; the next batch waits for its slots.
@@ -491,6 +669,20 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
     for (const account of added) await get().toggleAccount(account.id)
   },
   save: async () => {
+    if (get().pending || get().scheduled) return null
+    // Every TikTok copy is checked against its own creator's video limit,
+    // not only the one whose panel was opened.
+    const tiktok = accountsOf(get().draft).filter(
+      (account) => account.platform === "tiktok"
+    )
+    if (tiktok.length > 0) {
+      const { revision } = get()
+      await Promise.all(
+        tiktok.map((account) => get().loadTikTokCreator(account.id))
+      )
+      // The owner left the draft while its options were read; nothing was sent.
+      if (get().revision !== revision) return null
+    }
     const state = get()
     if (state.pending || state.scheduled) return null
     if (state.uploads.length > 0) {
@@ -533,6 +725,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
       ...content,
       youtube: draft.youtube[editing.accountId] ?? null,
       facebook: draft.facebook[editing.accountId] ?? null,
+      tiktok: tiktokSettingsOf(draft, editing.accountId),
       automation,
     }
     const input = {
@@ -543,6 +736,7 @@ export const useComposerStore = create<ComposerState>((set, get) => ({
           draft.kind === "story" ? null : (draft.captions[account.id] ?? null),
         youtube: draft.youtube[account.id] ?? null,
         facebook: draft.facebook[account.id] ?? null,
+        tiktok: tiktokSettingsOf(draft, account.id),
       })),
       automation,
     }

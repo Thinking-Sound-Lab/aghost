@@ -44,7 +44,7 @@ const groups = [
     kind: "messaging",
     title: "Instagram DM automation tools",
     description:
-      "They answer comments and messages. aghost adds scheduling to six platforms, and costs no more as your audience grows.",
+      "They answer comments and messages. aghost adds scheduling to seven platforms, and costs no more as your audience grows.",
   },
   {
     kind: "scheduling",
@@ -120,7 +120,7 @@ export default function Page() {
             Pick a scheduler such as Buffer, Later or Hootsuite if you only
             publish posts, and a DM tool such as ManyChat, Chatfuel or LinkDM if
             you only answer messages. aghost does both for one flat price: it
-            schedules to six platforms, turns Instagram comments into DMs, and
+            schedules to seven platforms, turns Instagram comments into DMs, and
             lets your AI agent run either side over MCP.
           </p>
           <p className="text-sm text-ink/55">

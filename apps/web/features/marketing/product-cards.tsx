@@ -15,6 +15,7 @@ export const PLATFORM_ORDER: Platform[] = [
   "twitter",
   "threads",
   "youtube",
+  "tiktok",
 ]
 
 function Panel({

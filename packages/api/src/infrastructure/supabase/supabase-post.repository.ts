@@ -7,6 +7,7 @@ import {
   SCHEDULED_POST_STATUSES,
   facebookSchema,
   postMediaSchema,
+  tiktokSchema,
   trialReelSchema,
   youtubeSchema,
   type ScheduledPostRange,
@@ -60,6 +61,7 @@ function toRecord(
       platform === "facebook"
         ? facebookSchema.parse({ reel: row.facebook_reel })
         : null,
+    tiktok: row.tiktok === null ? null : tiktokSchema.parse(row.tiktok),
     scheduledFor: new Date(row.scheduled_for).toISOString(),
     status: statusSchema.parse(row.status),
     platformPostId: row.platform_post_id,
@@ -81,6 +83,7 @@ function toContentColumns(content: PostContent) {
     youtube_title: content.youtube?.title ?? null,
     youtube_made_for_kids: content.youtube?.madeForKids ?? null,
     facebook_reel: content.facebook?.reel ?? false,
+    tiktok: content.tiktok,
     scheduled_for: content.scheduledFor,
   }
 }

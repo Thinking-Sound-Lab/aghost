@@ -36,12 +36,12 @@ These need the owner's account. Use the listing text below.
 ## Listing text
 
 - **Name:** aghost
-- **Tagline:** Schedule posts to six platforms and automate Instagram DMs from your AI agent
-- **Short description:** Schedule posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, and automate Instagram DMs
-- **Description:** aghost lets Claude, Claude Code, Codex, Cursor or any MCP client schedule posts to Instagram, Facebook, LinkedIn, X, Threads and YouTube, with a caption per channel. It attaches comment-to-DM automations to Instagram posts before they publish, reads and replies to the Instagram inbox, and reads analytics and posting times for every channel. 29 tools, each annotated as read-only or not and destructive or not.
+- **Tagline:** Schedule posts to seven platforms and automate Instagram DMs from your AI agent
+- **Short description:** Schedule posts to Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok, and automate Instagram DMs
+- **Description:** aghost lets Claude, Claude Code, Codex, Cursor or any MCP client schedule posts to Instagram, Facebook, LinkedIn, X, Threads, YouTube and TikTok, with a caption per channel. It attaches comment-to-DM automations to Instagram posts before they publish, reads and replies to the Instagram inbox, and reads analytics and posting times for every channel. 30 tools, each annotated as read-only or not and destructive or not.
 - **Server URL:** `https://aghost.app/api/mcp` (Streamable HTTP)
 - **Authentication:** OAuth 2.1 sign-in with dynamic client registration, or a workspace API key as `Authorization: Bearer <key>`
-- **Documentation:** `https://aghost.app/agents`, with a page per platform at `https://aghost.app/agents/<instagram|facebook|linkedin|x|threads|youtube>`, and the setup skill at `https://aghost.app/api/mcp/skill.md`
+- **Documentation:** `https://aghost.app/agents`, with a page per platform at `https://aghost.app/agents/<instagram|facebook|linkedin|x|threads|youtube|tiktok>`, and the setup skill at `https://aghost.app/api/mcp/skill.md`
 - **Icon:** `https://aghost.app/icon.png` (192×192), or `https://aghost.app/mascot.png` (640×640)
 - **Pricing:** Paid, from $29/month, with a 7-day free trial. MCP is included on every plan.
 - **Privacy policy:** `https://aghost.app/privacy-policy`

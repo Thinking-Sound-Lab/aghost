@@ -141,6 +141,13 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
         username: "studio",
         isActive: true,
       },
+      {
+        _id: `tiktok-${randomUUID()}`,
+        platform: "tiktok",
+        username: "studio",
+        displayName: "Studio",
+        isActive: true,
+      },
       // Not offered: another platform, and an account made for ads.
       {
         _id: `pinterest-${randomUUID()}`,
@@ -190,6 +197,7 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
   it("connects every platform with its own scopes and syncs the accounts Zernio lists", async () => {
     for (const [platform, scopes] of [
       ["linkedin", "posting,analytics"],
+      ["tiktok", "posting,analytics"],
       ["instagram", "posting,analytics,comments,messaging"],
     ] as const) {
       const response = await session("/accounts/connect", "POST", { platform })
@@ -204,7 +212,7 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
       "/v1/connect/instagram"
     )
     expect(
-      (await session("/accounts/connect", "POST", { platform: "tiktok" }))
+      (await session("/accounts/connect", "POST", { platform: "pinterest" }))
         .statusCode
     ).toBe(422)
 
@@ -216,6 +224,7 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
       "instagram",
       "linkedin",
       "threads",
+      "tiktok",
       "twitter",
       "youtube",
     ])
@@ -523,6 +532,145 @@ describe("cross-posting to several platforms against PostgreSQL and a local prov
       facebook:
         "A Facebook post can't become a reel or a reel a post. Delete it and schedule a new one.",
     })
+  })
+
+  it("publishes a TikTok copy with the audience and interactions its creator allows", async () => {
+    const tiktok = {
+      privacyLevel: "everyone",
+      allowComment: true,
+      allowDuet: true,
+      allowStitch: false,
+      disclosure: "your_brand",
+    } as const
+    const dataOf = (request: Recorded) =>
+      (request.body.platforms as { platformSpecificData: unknown }[])[0]!
+        .platformSpecificData
+    const before = created().length
+    const response = await crossPost({
+      targets: [{ accountId: accounts.tiktok.id, tiktok }],
+    })
+    expect(response.statusCode).toBe(201)
+    const [post] = response.json<ScheduledPost[]>()
+    expect(post!.tiktok).toEqual(tiktok)
+    expect(dataOf(created().at(-1)!)).toEqual({
+      privacyLevel: "PUBLIC_TO_EVERYONE",
+      allowComment: true,
+      allowDuet: true,
+      allowStitch: false,
+      commercialContentType: "brand_organic",
+      contentPreviewConfirmed: true,
+      expressConsentGiven: true,
+    })
+
+    // TikTok has no defaults, and its settings are for TikTok.
+    const missing = await crossPost({
+      targets: [
+        { accountId: accounts.tiktok.id },
+        { accountId: accounts.linkedin.id, tiktok },
+      ],
+    })
+    expect(missing.json().error.fields).toEqual({
+      "targets.0.tiktok.privacyLevel": "Choose who can see the TikTok post",
+      "targets.1.tiktok": "TikTok settings are for TikTok",
+    })
+    // A video publishes to everyone; a photo post can be private, and has no
+    // duets or stitches.
+    const privateVideo = await crossPost({
+      targets: [
+        {
+          accountId: accounts.tiktok.id,
+          tiktok: { ...tiktok, privacyLevel: "only_me" },
+        },
+      ],
+    })
+    expect(privateVideo.json().error.fields).toEqual({
+      "targets.0.tiktok.privacyLevel": "TikTok publishes videos to everyone",
+    })
+    const privatePhotos = await crossPost({
+      media: photos,
+      targets: [
+        {
+          accountId: accounts.tiktok.id,
+          tiktok: { ...tiktok, privacyLevel: "only_me", disclosure: "none" },
+        },
+      ],
+    })
+    expect(privatePhotos.statusCode).toBe(201)
+    expect(dataOf(created().at(-1)!)).toEqual({
+      privacyLevel: "SELF_ONLY",
+      allowComment: true,
+      commercialContentType: "none",
+      contentPreviewConfirmed: true,
+      expressConsentGiven: true,
+    })
+    expect(
+      latest((request) =>
+        request.path.endsWith("/tiktok/creator-info")
+      )?.query.get("mediaType")
+    ).toBe("photo")
+
+    // What the creator turned off in TikTok stays off, and only the
+    // audiences TikTok offers them can be chosen.
+    fixture.state.tiktokCommentsEnabled = false
+    const turnedOff = await crossPost({
+      targets: [
+        {
+          accountId: accounts.tiktok.id,
+          tiktok: { ...tiktok, allowStitch: true },
+        },
+      ],
+    })
+    fixture.state.tiktokCommentsEnabled = true
+    expect(turnedOff.statusCode).toBe(422)
+    expect(turnedOff.json().error.fields).toEqual({
+      "targets.0.tiktok.allowComment": "@studio turned comments off in TikTok",
+      "targets.0.tiktok.allowStitch": "@studio turned stitches off in TikTok",
+    })
+    const followers = await crossPost({
+      media: photos,
+      targets: [
+        {
+          accountId: accounts.tiktok.id,
+          tiktok: { ...tiktok, privacyLevel: "followers" },
+        },
+      ],
+    })
+    expect(followers.json().error.fields).toEqual({
+      "targets.0.tiktok.privacyLevel":
+        "TikTok doesn't offer this audience to @studio",
+    })
+    expect(created().length).toBe(before + 2)
+
+    // The composer reads the same options.
+    const creator = await session(
+      `/accounts/${accounts.tiktok.id}/tiktok-creator?mediaType=image`
+    )
+    expect(creator.statusCode).toBe(200)
+    expect(creator.json()).toEqual({
+      privacyLevels: ["everyone", "friends", "only_me"],
+      comments: true,
+      duets: false,
+      stitches: false,
+      maxVideoSeconds: 600,
+    })
+    expect(
+      (await session(`/accounts/${accounts.linkedin.id}/tiktok-creator`))
+        .statusCode
+    ).toBe(422)
+
+    // An omitted setting keeps what was stored.
+    const kept = await session(`/scheduled-posts/${post!.id}`, "PATCH", {
+      kind: "post",
+      caption: "New caption",
+      media: video,
+      scheduledFor: inHours(30),
+      automation: null,
+    })
+    expect(kept.statusCode).toBe(200)
+    expect(kept.json<ScheduledPost>().tiktok).toEqual(tiktok)
+    expect(dataOf(latest((request) => request.method === "PUT")!)).toEqual(
+      dataOf(created()[before]!)
+    )
   })
 
   it("keeps automations and the inbox on Instagram, and lets agents post everywhere", async () => {

@@ -37,10 +37,17 @@ const PLACEHOLDER: Record<Platform, string> = {
   twitter: "What’s happening?",
   threads: "What’s new?",
   youtube: "Tell viewers about your video",
+  tiktok: "Describe your post…",
 }
 
 /** Fields that the editor shows beside their input rather than in a list. */
-export const INLINE_FIELDS = ["caption", "media", "youtube.title"]
+export const INLINE_FIELDS = [
+  "caption",
+  "media",
+  "youtube.title",
+  "tiktok.privacyLevel",
+  "tiktok.disclosure",
+]
 
 /** One account's post, written in the layout its app shows it in. */
 export function PostContentEditor({
@@ -112,13 +119,15 @@ export function PostContentEditor({
           ? "story"
           : platform === "instagram"
             ? "portrait"
-            : platform === "youtube"
-              ? short
-                ? "short"
-                : "video"
-              : reel
-                ? "reel"
-                : "flexible"
+            : platform === "tiktok"
+              ? "tiktok"
+              : platform === "youtube"
+                ? short
+                  ? "short"
+                  : "video"
+                : reel
+                  ? "reel"
+                  : "flexible"
       }
       inputId={inputId}
       canUpload={canUpload}
@@ -232,7 +241,7 @@ export function PostContentEditor({
         </div>
       </div>
     )
-  else if (platform === "instagram")
+  else if (platform === "instagram" || platform === "tiktok")
     body = (
       <>
         <Identity account={account} detail={null} />
@@ -314,7 +323,8 @@ function Identity({
   detail: ReactNode
 }) {
   const { platform } = account
-  const handle = platform === "instagram" || platform === "threads"
+  const handle =
+    platform === "instagram" || platform === "threads" || platform === "tiktok"
   const name = handle
     ? account.username
     : account.displayName || account.username
@@ -462,7 +472,8 @@ function MediaEditor({
   rounded,
 }: {
   /** Where media is required, an empty post shows a drop area this shape. */
-  shape: "story" | "portrait" | "video" | "short" | "reel" | "flexible"
+  shape:
+    "story" | "portrait" | "video" | "short" | "reel" | "tiktok" | "flexible"
   inputId: string
   canUpload: boolean
   editable: boolean
@@ -481,13 +492,22 @@ function MediaEditor({
     video: "aspect-video",
     short: "aspect-[9/16] w-full max-w-64",
     reel: "aspect-[9/16] w-full max-w-64",
+    tiktok: "aspect-[9/16] w-full max-w-64",
     flexible: "aspect-video",
   }[shape]
-  const vertical = shape === "story" || shape === "short" || shape === "reel"
+  const vertical =
+    shape === "story" ||
+    shape === "short" ||
+    shape === "reel" ||
+    shape === "tiktok"
   const tile = shape === "portrait" ? "aspect-square" : "aspect-[4/3]"
   // YouTube's players show the whole video, with bars where it doesn't fit,
   // and a reel shows whether its video is vertical.
-  const letterbox = shape === "video" || shape === "short" || shape === "reel"
+  const letterbox =
+    shape === "video" ||
+    shape === "short" ||
+    shape === "reel" ||
+    shape === "tiktok"
   const hint =
     shape === "story"
       ? "One photo or video, shown for 24 hours."
@@ -497,7 +517,9 @@ function MediaEditor({
           ? "One vertical video, 3 to 90 seconds."
           : shape === "video"
             ? "One video."
-            : null
+            : shape === "tiktok"
+              ? "Photos, or one video of 3 seconds to 10 minutes."
+              : null
   const alert = error && (
     <p role="alert" className="text-xs text-destructive">
       {error}
